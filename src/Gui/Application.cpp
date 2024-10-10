@@ -680,7 +680,7 @@ void Application::importFrom(const char* FileName, const char* DocName, const ch
     wc.setIgnoreEvents(WaitCursor::NoEvents);
     Base::FileInfo File(FileName);
     std::string te = File.extension();
-    string unicodepath = Base::Tools::escapedUnicodeFromUtf8(File.filePath().c_str());
+    string unicodepath = File.filePath().c_str();
     unicodepath = Base::Tools::escapeEncodeFilename(unicodepath);
 
     if (Module) {
@@ -968,6 +968,10 @@ void Application::checkForRecomputes() {
         return;
     WaitCursor wc;
     wc.restoreCursor();
+
+    // Splasher is shown ontop of warnings on macOS so stop it before it's too late
+    getMainWindow()->stopSplasher();
+
     auto res = QMessageBox::warning(getMainWindow(), QObject::tr("Recomputation required"),
                                     QObject::tr("Some document(s) require recomputation for migration purposes. "
                                                 "It is highly recommended to perform a recomputation before "
