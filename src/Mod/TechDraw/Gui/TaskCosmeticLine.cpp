@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2020 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,17 +22,15 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 # include <cmath>
 # include <BRepBuilderAPI_MakeEdge.hxx>
-#endif
+
 
 #include <Base/Console.h>
 #include <Gui/BitmapFactory.h>
 #include <Gui/Command.h>
 #include <Gui/Document.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 #include <Mod/TechDraw/App/DrawUtil.h>
 #include <Mod/TechDraw/App/DrawViewPart.h>
 #include <Mod/TechDraw/App/Cosmetic.h>
@@ -59,7 +59,7 @@ TaskCosmeticLine::TaskCosmeticLine(TechDraw::DrawViewPart* partFeat,
 
     m_ce = m_partFeat->getCosmeticEdgeBySelection(m_edgeName);
     if (!m_ce) {
-        Base::Console().Error("TaskCosmeticLine - bad parameters.  Can not proceed.\n");
+        Base::Console().error("TaskCosmeticLine - bad parameters.  Cannot proceed.\n");
         return;
     }
 
@@ -113,7 +113,7 @@ void TaskCosmeticLine::setUiPrimary()
     setWindowTitle(QObject::tr("Create Cosmetic Line"));
 
     // double rotDeg = m_partFeat->Rotation.getValue();
-    // double rotRad = rotDeg * M_PI / 180.0;
+    // double rotRad = Base::toRadians(rotDeg);
     Base::Vector3d centroid = m_partFeat->getCurrentCentroid();
     Base::Vector3d p1, p2;
     if (m_is3d.front()) {
@@ -173,8 +173,8 @@ void TaskCosmeticLine::setUiEdit()
 //******************************************************************************
 void TaskCosmeticLine::createCosmeticLine()
 {
-//    Base::Console().Message("TCL::createCosmeticLine()\n");
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create Cosmetic Line"));
+//    Base::Console().message("TCL::createCosmeticLine()\n");
+    int tid = Gui::Command::openActiveDocumentCommand(QT_TRANSLATE_NOOP("Command", "Create Cosmetic Line"));
 
     // ui 2d points are interpreted as unscaled, unrotated, uninverted
     double x = ui->qsbx1->value().getValue();
@@ -202,12 +202,12 @@ void TaskCosmeticLine::createCosmeticLine()
     m_ce = m_partFeat->getCosmeticEdge(m_tag);
     m_ce->setFormat(LineFormat::getCurrentLineFormat());
 
-    Gui::Command::commitCommand();
+    Gui::Command::commitCommand(tid);
 }
 
 void TaskCosmeticLine::updateCosmeticLine()
 {
-//    Base::Console().Message("TCL::updateCosmeticLine()\n");
+//    Base::Console().message("TCL::updateCosmeticLine()\n");
     double x = ui->qsbx1->value().getValue();
     double y = ui->qsby1->value().getValue();
     double z = ui->qsbz1->value().getValue();
@@ -250,12 +250,12 @@ bool TaskCosmeticLine::accept()
         m_partFeat->requestPaint();
     } else {
         //update mode
-        Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Update CosmeticLine"));
+        int tid = Gui::Command::openActiveDocumentCommand(QT_TRANSLATE_NOOP("Command", "Update Cosmetic Line"));
         updateCosmeticLine();
         m_partFeat->refreshCEGeoms();
         m_partFeat->requestPaint();
         Gui::Command::updateActive();
-        Gui::Command::commitCommand();
+        Gui::Command::commitCommand(tid);
     }
 
     Gui::Command::doCommand(Gui::Command::Gui, "Gui.ActiveDocument.resetEdit()");

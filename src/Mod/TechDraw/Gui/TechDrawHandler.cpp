@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2024 Pierre-Louis Boyer <development@ondsel.com>        *
  *                                                                         *
@@ -20,8 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <cmath>
 
 #include <QGuiApplication>
@@ -31,7 +31,6 @@
 #include <QTimer>
 
 #include <Inventor/events/SoKeyboardEvent.h>
-#endif  // #ifndef _PreComp_
 
 #include <Base/Console.h>
 #include <Base/Exception.h>
@@ -58,7 +57,7 @@ TechDrawHandler::~TechDrawHandler()
 
 void TechDrawHandler::activate(QGVPage* vp)
 {
-    auto* mdi = dynamic_cast<MDIViewPage*>(Gui::getMainWindow()->activeWindow());
+    auto* mdi = qobject_cast<MDIViewPage*>(Gui::getMainWindow()->activeWindow());
     if (!mdi) {
         return;
     }
@@ -79,7 +78,7 @@ void TechDrawHandler::deactivate()
     // So to prevent the menu from appearing when the tool is cleared by right mouse click
     // we set a small timer.
     QTimer::singleShot(100, []() { // 100 milliseconds delay
-        auto* mdi = dynamic_cast<MDIViewPage*>(Gui::getMainWindow()->activeWindow());
+        auto* mdi = qobject_cast<MDIViewPage*>(Gui::getMainWindow()->activeWindow());
         if (!mdi) {
             return;
         }
@@ -109,7 +108,9 @@ void TechDrawHandler::mouseReleaseEvent(QMouseEvent* event)
 
 void TechDrawHandler::quit()
 {
-    viewPage->deactivateHandler();
+    if (viewPage) {
+        viewPage->deactivateHandler();
+    }
 }
 
 QWidget* TechDrawHandler::getCursorWidget()
@@ -127,5 +128,5 @@ void TechDrawHandler::setWidgetCursor(QCursor cursor)
 
 TechDraw::DrawPage* TechDrawHandler::getPage()
 {
-    return viewPage->getDrawPage();
+    return viewPage ? viewPage->getDrawPage() : nullptr;
 }

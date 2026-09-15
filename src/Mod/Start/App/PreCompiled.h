@@ -21,16 +21,9 @@
  *                                                                          *
  ***************************************************************************/
 
-#ifndef START_PRECOMPILED_H
-#define START_PRECOMPILED_H
+#pragma once
 
 #include <FCConfig.h>
-
-#ifdef _MSC_VER
-#pragma warning(disable : 5208)
-#endif
-
-#ifdef _PreComp_
 
 // standard
 #include <cinttypes>
@@ -42,10 +35,27 @@
 #include <vector>
 #include <unordered_map>
 
+// boost
+#include <boost/algorithm/string/predicate.hpp>
+
+// fmt
+#include <fmt/format.h>
+
 // Qt (should never include GUI files, only QtCore)
+#include <QByteArray>
+#include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-
-#endif  // _PreComp_
-#endif  // START_PRECOMPILED_H
+#include <QLocale>
+#include <QMetaObject>
+#include <QMutexLocker>
+#include <QObject>
+#include <QProcess>
+#include <QStandardPaths>
+#include <QString>
+#include <QThreadPool>
+#include <QTimeZone>
+#include <QTimer>
+#include <QUrl>

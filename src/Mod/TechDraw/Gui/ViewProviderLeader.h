@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2004 Jürgen Riegel <juergen.riegel@web.de>              *
  *   Copyright (c) 2019 Wanderer Fan <wandererfan@gmail.com>               *
@@ -22,8 +24,7 @@
  ***************************************************************************/
 
 
-#ifndef DRAWINGGUI_VIEWPROVIDERLEADER_H
-#define DRAWINGGUI_VIEWPROVIDERLEADER_H
+#pragma once
 
 #include <Mod/TechDraw/TechDrawGlobal.h>
 
@@ -71,7 +72,7 @@ public:
 
 protected:
     double getDefLineWeight();
-    App::Color getDefLineColor();
+    Base::Color getDefLineColor();
     void handleChangedPropertyType(Base::XMLReader &reader, const char *TypeName, App::Property * prop) override;
 
 private:
@@ -80,6 +81,3 @@ private:
 };
 
 } // namespace TechDrawGui
-
-
-#endif // DRAWINGGUI_VIEWPROVIDERLEADER_H

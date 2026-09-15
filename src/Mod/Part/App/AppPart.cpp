@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2002 Jürgen Riegel <juergen.riegel@web.de>              *
  *   Copyright (c) 2011 Werner Mayer <wmayer[at]users.sourceforge.net>     *
@@ -21,19 +23,21 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
-# include <Interface_Static.hxx>
-# include <IGESControl_Controller.hxx>
-# include <STEPControl_Controller.hxx>
-# include <Standard_Version.hxx>
-#endif
+#include <Interface_Static.hxx>
+#include <IGESControl_Controller.hxx>
+#include <STEPControl_Controller.hxx>
+#include <Standard_Version.hxx>
+#include <Message.hxx>
+#include <Message_Messenger.hxx>
+
+#include <FCConfig.h>
 
 #include <App/Application.h>
 #include <Base/Console.h>
 #include <Base/ExceptionFactory.h>
 #include <Base/Interpreter.h>
 #include <Base/Parameter.h>
+#include <Base/ServiceProvider.h>
 #include <Base/PrecisionPy.h>
 
 #include "ArcOfCirclePy.h"
@@ -58,11 +62,15 @@
 #include "ConicPy.h"
 #include "CustomFeature.h"
 #include "CylinderPy.h"
+#include "Datums.h"
 #include "DatumFeature.h"
 #include "EllipsePy.h"
 #include "FaceMaker.h"
 #include "FaceMakerBullseye.h"
+#include "FaceMakerBuildFace.h"
 #include "FaceMakerCheese.h"
+#include "FaceMakerUnified.h"
+#include "WireJoiner.h"
 #include "FeatureChamfer.h"
 #include "FeatureCompound.h"
 #include "FeatureExtrusion.h"
@@ -87,6 +95,17 @@
 #include "FeaturePartSpline.h"
 #include "FeatureProjectOnSurface.h"
 #include "FeatureRevolution.h"
+#include "CircularPatternExtension.h"
+#include "LinearPatternExtension.h"
+#include "LinkArray.h"
+#include "LinkArrayCircular.h"
+#include "LinkArrayLinear.h"
+#include "LinkArrayPath.h"
+#include "LinkArrayPolar.h"
+#include "LinkArrayPoint.h"
+#include "PointPatternExtension.h"
+#include "PolarPatternExtension.h"
+#include "PathPatternExtension.h"
 #include "Geometry.h"
 #include "Geometry2d.h"
 #include "GeometryBoolExtensionPy.h"
@@ -96,6 +115,7 @@
 #include "GeometryIntExtensionPy.h"
 #include "GeometryMigrationExtension.h"
 #include "GeometryStringExtensionPy.h"
+#include "PreviewExtension.h"
 #include "HyperbolaPy.h"
 #include "ImportStep.h"
 #include "LinePy.h"
@@ -126,6 +146,7 @@
 #include "TopoShapeWirePy.h"
 #include "ToroidPy.h"
 #include "OCCError.h"
+#include "OCCTMessagePrinter.h"
 #include "PrismExtension.h"
 #include "PropertyGeometryList.h"
 #include "PropertyTopoShapeList.h"
@@ -187,8 +208,13 @@
 #include <OCAF/ImportExportSettings.h>
 #include "MeasureClient.h"
 
+#include <FuzzyHelper.h>
 
-namespace Part {
+#include <App/Services.h>
+#include <Services.h>
+
+namespace Part
+{
 extern PyObject* initModule();
 }
 
@@ -211,7 +237,7 @@ PyMOD_INIT_FUNC(Part)
         PyErr_SetString(PyExc_ImportError, e.what());
         PyMOD_Return(nullptr);
     }
-    Base::Console().Log("Module: Part\n");
+    Base::Console().log("Module: Part\n");
 
     // This is highly experimental and we should keep an eye on it
     // if we have mysterious crashes
@@ -223,7 +249,7 @@ PyMOD_INIT_FUNC(Part)
 #endif
 
     PyObject* partModule = Part::initModule();
-    Base::Console().Log("Loading Part module... done\n");
+    Base::Console().log("Loading Part module... done\n");
 
     Py::Object module(partModule);
     module.setAttr("OCC_VERSION", Py::String(OCC_VERSION_STRING_EXT));
@@ -240,7 +266,7 @@ PyMOD_INIT_FUNC(Part)
         OCCError = PyErr_NewException("Part.OCCError", Base::PyExc_FC_GeneralError, nullptr);
     }
     else {
-        Base::Console().Error("Can not inherit Part.OCCError form BaseFreeCADError.\n");
+        Base::Console().error("Can not inherit Part.OCCError form BaseFreeCADError.\n");
         OCCError = PyErr_NewException("Part.OCCError", PyExc_RuntimeError, nullptr);
     }
     Py_INCREF(OCCError);
@@ -419,6 +445,9 @@ PyMOD_INIT_FUNC(Part)
     Part::FaceMakerCheese       ::init();
     Part::FaceMakerExtrusion    ::init();
     Part::FaceMakerBullseye     ::init();
+    Part::FaceMakerRing         ::init();
+    Part::FaceMakerBuildFace    ::init();
+    Part::FaceMakerUnified      ::init();
 
     Attacher::AttachEngine        ::init();
     Attacher::AttachEngine3D      ::init();
@@ -428,8 +457,20 @@ PyMOD_INIT_FUNC(Part)
 
     Part::AttachExtension       ::init();
     Part::AttachExtensionPython ::init();
-
+    Part::PreviewExtension      ::init();
+    Part::PreviewExtensionPython::init();
     Part::PrismExtension        ::init();
+    Part::CircularPatternExtension::init();
+    Part::LinearPatternExtension::init();
+    Part::PolarPatternExtension ::init();
+    Part::PathPatternExtension  ::init();
+    Part::LinkArray             ::init();
+    Part::LinkArrayCircular     ::init();
+    Part::LinkArrayLinear       ::init();
+    Part::LinkArrayPath         ::init();
+    Part::LinkArrayPolar        ::init();
+    Part::LinkArrayPoint        ::init();
+    Part::PointPatternExtension ::init();
 
     Part::Feature               ::init();
     Part::FeatureExt            ::init();
@@ -534,6 +575,10 @@ PyMOD_INIT_FUNC(Part)
     Part::GeomSurfaceOfRevolution 	::init();
     Part::GeomSurfaceOfExtrusion  	::init();
     Part::Datum                   	::init();
+    Part::DatumPlane             	::init();
+    Part::DatumLine                	::init();
+    Part::DatumPoint               	::init();
+    Part::LocalCoordinateSystem     ::init();
 
     // Geometry2d types
     Part::Geometry2d              ::init();
@@ -562,7 +607,21 @@ PyMOD_INIT_FUNC(Part)
 
     OCAF::ImportExportSettings::initialize();
     Part::MeasureClient::initialize();
-    
+
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/Part/Boolean");
+
+    Part::FuzzyHelper::setBooleanFuzzy(hGrp->GetFloat("BooleanFuzzy",10.0));
+
+    Base::registerServiceImplementation<App::SubObjectPlacementProvider>(new AttacherSubObjectPlacement);
+    Base::registerServiceImplementation<App::CenterOfMassProvider>(new PartCenterOfMass);
+    Base::registerServiceImplementation<App::CustomAttributeProvider>(new ShapeAttributeProvider);
+    Base::registerServiceImplementation<App::PseudoShapeProvider>(new PartPseudoShapeProvider);
+
+    Handle(OCCTMessagePrinter) printer = new OCCTMessagePrinter();
+    printer->SetTraceLevel(Message_Trace);
+    Message::DefaultMessenger()->AddPrinter(printer);
+
     PyMOD_Return(partModule);
 }
 // clang-format on

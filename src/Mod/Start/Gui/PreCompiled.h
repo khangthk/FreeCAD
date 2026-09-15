@@ -21,16 +21,9 @@
  *                                                                          *
  ***************************************************************************/
 
-#ifndef STARTGUI_PRECOMPILED_H
-#define STARTGUI_PRECOMPILED_H
+#pragma once
 
 #include <FCConfig.h>
-
-#ifdef _MSC_VER
-#pragma warning(disable : 5208)
-#endif
-
-#ifdef _PreComp_
 
 // standard
 #include <cinttypes>
@@ -57,6 +50,8 @@
 #include <QImageReader>
 #include <QLabel>
 #include <QListView>
+#include <QMdiSubWindow>
+#include <QMessageBox>
 #include <QModelIndex>
 #include <QPainter>
 #include <QPushButton>
@@ -65,12 +60,11 @@
 #include <QSpacerItem>
 #include <QStackedWidget>
 #include <QString>
+#include <QStringList>
+#include <QStyleHints>
 #include <QStyleOptionViewItem>
 #include <QTimer>
 #include <QToolButton>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
-
-#endif  // _PreComp_
-#endif  // STARTGUI_PRECOMPILED_H

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2010 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Base/Console.h>
 #include <Base/Reader.h>
@@ -149,17 +150,17 @@ void PropertyCosmeticVertexList::Restore(Base::XMLReader &reader)
     reader.clearPartialRestoreObject();
     reader.readElement("CosmeticVertexList");
     // get the value of my attribute
-    int count = reader.getAttributeAsInteger("count");
+    int count = reader.getAttribute<long>("count");
     std::vector<CosmeticVertex*> values;
     values.reserve(count);
     for (int i = 0; i < count; i++) {
         reader.readElement("CosmeticVertex");
-        const char* TypeName = reader.getAttribute("type");
+        const char* TypeName = reader.getAttribute<const char*>("type");
         CosmeticVertex *newG = static_cast<CosmeticVertex *>(Base::Type::fromName(TypeName).createInstance());
         newG->Restore(reader);
 
         if(reader.testStatus(Base::XMLReader::ReaderStatus::PartialRestoreInObject)) {
-            Base::Console().Error("CosmeticVertex \"%s\" within a PropertyCosmeticVertexList was subject to a partial restore.\n", reader.localName());
+            Base::Console().error("CosmeticVertex \"%s\" within a PropertyCosmeticVertexList was subject to a partial restore.\n", reader.localName());
             if(isOrderRelevant()) {
                 // Pushes the best try by the CosmeticVertex class
                 values.push_back(newG);

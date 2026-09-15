@@ -21,7 +21,6 @@
  *                                                                          *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Base/Interpreter.h>
 #include <Base/Tools.h>
@@ -55,6 +54,6 @@ PyObject* initModule()
 PyMOD_INIT_FUNC(Start)
 {
     PyObject* mod = Start::initModule();
-    Base::Console().Log("Loading Start module... done\n");
+    Base::Console().log("Loading Start module... done\n");
     PyMOD_Return(mod);
 }

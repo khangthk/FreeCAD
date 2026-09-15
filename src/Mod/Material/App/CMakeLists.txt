@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 if(MSVC)
     add_definitions(-DFCAppMaterial -DHAVE_ACOSH -DHAVE_ASINH -DHAVE_ATANH)
 else(MSVC)
@@ -6,28 +8,14 @@ endif(MSVC)
 
 add_definitions(-DYAML_CPP_STATIC_DEFINE)
 
-include_directories(
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_BINARY_DIR}/src
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${PYTHON_INCLUDE_DIRS}
-    ${XercesC_INCLUDE_DIRS}
-    ${ZLIB_INCLUDE_DIR}
-    ${YAML_CPP_INCLUDE_DIR}
-)
-link_directories(${YAML_CPP_LIBRARY_DIR})
+if(BUILD_MATERIAL_EXTERNAL)
+    add_definitions(-DBUILD_MATERIAL_EXTERNAL)
+endif(BUILD_MATERIAL_EXTERNAL)
 
 set(Materials_LIBS
-    ${Boost_LIBRARIES}
     FreeCADApp
 )
 
-include_directories(
-    ${QtConcurrent_INCLUDE_DIRS}
-)
 list(APPEND Materials_LIBS
     ${QtConcurrent_LIBRARIES}
 )
@@ -42,35 +30,54 @@ else()
     )
 endif()
 
-generate_from_xml(Array2DPy)
-generate_from_xml(Array3DPy)
-generate_from_xml(MaterialFilterPy)
-generate_from_xml(MaterialManagerPy)
-generate_from_xml(MaterialPy)
-generate_from_xml(ModelManagerPy)
-generate_from_xml(ModelPropertyPy)
-generate_from_xml(ModelPy)
-generate_from_xml(UUIDsPy)
+generate_from_py(Array2D)
+generate_from_py(Array3D)
+generate_from_py(MaterialFilter)
+generate_from_py(MaterialFilterOptions)
+generate_from_py(MaterialLibrary)
+generate_from_py(MaterialManager)
+generate_from_py(Material)
+generate_from_py(ModelManager)
+generate_from_py(ModelProperty)
+generate_from_py(MaterialProperty)
+generate_from_py(Model)
+generate_from_py(UUIDs)
+
+SET(MaterialsAPI_Files
+    MaterialAPI/__init__.py
+    MaterialAPI/MaterialManagerExternal.py
+)
+
+SET(MaterialsAPI_Files
+    MaterialAPI/__init__.py
+    MaterialAPI/MaterialManagerExternal.py
+)
 
 SET(Python_SRCS
-    Exceptions.h
-    Array2DPy.xml
+    Exceptions.cpp
+    Array2D.pyi
     Array2DPyImp.cpp
-    Array3DPy.xml
+    Array3D.pyi
     Array3DPyImp.cpp
-    MaterialManagerPy.xml
-    MaterialManagerPyImp.cpp
-    MaterialPy.xml
-    MaterialPyImp.cpp
-    MaterialFilterPy.xml
+    MaterialFilterOptions.pyi
+    MaterialFilterOptionsPyImp.cpp
+    MaterialFilter.pyi
     MaterialFilterPyImp.cpp
-    ModelManagerPy.xml
+    MaterialLibrary.pyi
+    MaterialLibraryPyImp.cpp
+    MaterialManager.pyi
+    MaterialManagerPyImp.cpp
+    MaterialProperty.pyi
+    MaterialPropertyPyImp.cpp
+    Material.pyi
+    MaterialPyImp.cpp
+    ModelManager.pyi
     ModelManagerPyImp.cpp
-    ModelPropertyPy.xml
+    ModelProperty.pyi
     ModelPropertyPyImp.cpp
-    ModelPy.xml
+    Model.pyi
     ModelPyImp.cpp
-    UUIDsPy.xml
+    UUIDs.pyi
     UUIDsPyImp.cpp
 )
 SOURCE_GROUP("Python" FILES ${Python_SRCS})
@@ -79,6 +86,8 @@ SET(Materials_SRCS
     ${Python_SRCS}
     AppMaterial.cpp
     FolderTree.h
+    Library.cpp
+    Library.h
     MaterialConfigLoader.cpp
     MaterialConfigLoader.h
     MaterialFilter.cpp
@@ -89,6 +98,8 @@ SET(Materials_SRCS
     MaterialLoader.h
     MaterialManager.cpp
     MaterialManager.h
+    MaterialManagerLocal.cpp
+    MaterialManagerLocal.h
     Materials.cpp
     Materials.h
     MaterialValue.cpp
@@ -101,28 +112,80 @@ SET(Materials_SRCS
     ModelLoader.h
     ModelManager.cpp
     ModelManager.h
+    ModelManagerLocal.cpp
+    ModelManagerLocal.h
     ModelUuids.cpp
     ModelUuids.h
-    PreCompiled.cpp
     PreCompiled.h
     PropertyMaterial.cpp
     PropertyMaterial.h
+    PyVariants.cpp
+    PyVariants.h
     trim.h
 )
 
-if(FREECAD_USE_PCH)
-    add_definitions(-D_PreComp_)
-    GET_MSVC_PRECOMPILED_SOURCE("PreCompiled.cpp" PCH_SRCS ${Materials_SRCS})
-    ADD_MSVC_PRECOMPILED_HEADER(Materials PreCompiled.h PreCompiled.cpp PCH_SRCS)
-endif(FREECAD_USE_PCH)
+if(BUILD_MATERIAL_EXTERNAL)
+    list(APPEND Materials_SRCS
+        ExternalManager.cpp
+        ExternalManager.h
+        MaterialManagerExternal.cpp
+        MaterialManagerExternal.h
+        ModelManagerExternal.cpp
+        ModelManagerExternal.h
+    )
+endif(BUILD_MATERIAL_EXTERNAL)
 
 add_library(Materials SHARED ${Materials_SRCS})
+
+if(FREECAD_USE_PCH)
+    target_precompile_headers(Materials PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_LIST_DIR}/PreCompiled.h">
+    )
+endif(FREECAD_USE_PCH)
+
+target_include_directories(
+    Materials
+    PRIVATE
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_BINARY_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_include_directories(
+    Materials
+    SYSTEM
+    PUBLIC
+    ${YAML_CPP_INCLUDE_DIR}
+    ${QtConcurrent_INCLUDE_DIRS}
+)
+
+if(BUILD_MATERIAL_EXTERNAL)
+    target_include_directories(Materials PUBLIC ${CMAKE_SOURCE_DIR}/src/3rdParty/lru-cache/include)
+endif(BUILD_MATERIAL_EXTERNAL)
+
+target_link_directories(Materials PUBLIC ${YAML_CPP_LIBRARY_DIR})
 target_link_libraries(Materials ${Materials_LIBS})
-if (FREECAD_WARN_ERROR)
-    target_compile_warn_error(Materials)
+
+if (MSVC)
+    target_compile_options(Materials PRIVATE /wd4251 /wd4273)
 endif()
 
-SET_BIN_DIR(Materials Materials /Mod/Material)
+target_compile_warn_error(Materials)
+
+SET_BIN_DIR(Materials)
 SET_PYTHON_PREFIX_SUFFIX(Materials)
 
 INSTALL(TARGETS Materials DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+ADD_CUSTOM_TARGET(MaterialsAPILib ALL
+    SOURCES ${MaterialsAPI_Files} ${Material_QRC_SRCS}
+)
+
+fc_target_copy_resource(MaterialsAPILib
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_BINARY_DIR}/Mod/Material
+    ${MaterialsAPI_Files})
+
+INSTALL(FILES ${MaterialsAPI_Files} DESTINATION Mod/Material/MaterialAPI)

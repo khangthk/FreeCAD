@@ -21,8 +21,7 @@
  ***************************************************************************/
 
 
-#ifndef GUI_ACTION_H
-#define GUI_ACTION_H
+#pragma once
 
 #include <memory>
 #include <QAction>
@@ -42,75 +41,80 @@ class Command;
  * methods in the class @ref MainWindow.
  * @author Werner Mayer
  */
-class GuiExport Action : public QObject
+class GuiExport Action: public QObject
 {
     Q_OBJECT
 
 public:
-    explicit Action (Command* pcCmd, QObject * parent = nullptr);
+    explicit Action(Command* pcCmd, QObject* parent = nullptr);
     /// Action takes ownership of the 'action' object.
-    Action (Command* pcCmd, QAction* action, QObject * parent);
+    Action(Command* pcCmd, QAction* action, QObject* parent);
     ~Action() override;
 
-    virtual void addTo (QWidget * widget);
+    virtual void addTo(QWidget* widget);
     virtual void setEnabled(bool);
     virtual void setVisible(bool);
 
     void setCheckable(bool);
-    void setChecked (bool, bool no_signal=false);
+    void setChecked(bool);
+    void setBlockedChecked(bool);
     bool isChecked() const;
     bool isEnabled() const;
 
-    void setShortcut (const QString &);
+    void setShortcut(const QString&);
     QKeySequence shortcut() const;
-    void setIcon (const QIcon &);
+    void setIcon(const QIcon&);
     QIcon icon() const;
-    void setStatusTip (const QString &);
+    void setStatusTip(const QString&);
     QString statusTip() const;
-    void setText (const QString &);
+    void setText(const QString&);
     QString text() const;
-    void setToolTip (const QString &, const QString &title = QString());
+    void setToolTip(const QString&, const QString& title = QString());
     QString toolTip() const;
-    void setWhatsThis (const QString &);
+    void setWhatsThis(const QString&);
     QString whatsThis() const;
     void setMenuRole(QAction::MenuRole menuRole);
-    QAction *action() const {
+    QAction* action() const
+    {
         return _action;
     }
 
-    static QString createToolTip(QString helpText,
-                                 const QString &title,
-                                 const QFont &font,
-                                 const QString &shortCut,
-                                 const Command *command = nullptr);
+    static QString createToolTip(
+        QString helpText,
+        const QString& title,
+        const QFont& font,
+        const QString& shortCut,
+        const Command* command = nullptr
+    );
 
     /** Obtain tool tip of a given command
      * @param cmd: input command
      * @param richFormat: whether to output rich text formatted tooltip
      */
-    static QString commandToolTip(const Command *cmd, bool richFormat = true);
+    static QString commandToolTip(const Command* cmd, bool richFormat = true);
 
     /** Obtain the menu text of a given command
      * @param cmd: input command
      * @return Return the command menu text that is stripped with its mnemonic
-     * symbol '&' and ending punctuations
+     * symbol '&' and ending punctuation
      */
-    static QString commandMenuText(const Command *cmd);
+    static QString commandMenuText(const Command* cmd);
 
-    /// Clean the title by stripping the mnemonic symbol '&' and ending punctuations
-    static QString cleanTitle(const QString &title);
+    /// Clean the title by stripping the mnemonic symbol '&' and ending punctuation
+    static QString cleanTitle(const QString& title);
 
-    Command *command() const {
+    Command* command() const
+    {
         return _pcCmd;
     }
 
 public Q_SLOTS:
-    virtual void onActivated ();
-    virtual void onToggled   (bool);
+    virtual void onActivated();
+    virtual void onToggled(bool);
 
 private:
     QAction* _action;
-    Command *_pcCmd;
+    Command* _pcCmd;
     QString _tooltip;
     QString _title;
     QMetaObject::Connection _connection;
@@ -128,41 +132,48 @@ private:
  * of toggable actions where e.g. one is set exclusive.
  * @author Werner Mayer
  */
-class GuiExport ActionGroup : public Action
+class GuiExport ActionGroup: public Action
 {
     Q_OBJECT
 
 public:
-    explicit ActionGroup (Command* pcCmd, QObject * parent = nullptr);
+    explicit ActionGroup(Command* pcCmd, QObject* parent = nullptr);
     ~ActionGroup() override;
 
-    void addTo (QWidget * widget) override;
-    void setEnabled (bool) override;
-    void setDisabled (bool);
-    void setExclusive (bool);
+    void addTo(QWidget* widget) override;
+    void setEnabled(bool) override;
+    void setDisabled(bool);
+    void setExclusive(bool);
     bool isExclusive() const;
-    void setVisible (bool) override;
-    void setIsMode(bool check) { _isMode = check; }
+    void setVisible(bool) override;
+    void setIsMode(bool check)
+    {
+        _isMode = check;
+    }
 
     void setRememberLast(bool);
     bool doesRememberLast() const;
 
-    void setDropDownMenu(bool check) { _dropDown = check; }
+    void setDropDownMenu(bool check)
+    {
+        _dropDown = check;
+    }
     QAction* addAction(QAction*);
     QAction* addAction(const QString&);
     QList<QAction*> actions() const;
     int checkedAction() const;
     void setCheckedAction(int);
 
-    QActionGroup* groupAction() const {
+    QActionGroup* groupAction() const
+    {
         return _group;
     }
 
 public Q_SLOTS:
-    void onActivated () override;
+    void onActivated() override;
     void onToggled(bool) override;
-    void onActivated (QAction*);
-    void onHovered   (QAction*);
+    void onActivated(QAction*);
+    void onHovered(QAction*);
 
 Q_SIGNALS:
     /// When drop down menu is enabled, the signal is triggered just before hiding the menu
@@ -185,7 +196,7 @@ private:
  * to a menu a submenu gets created, if added to a toolbar a combo box gets created.
  * @author Werner Mayer
  */
-class GuiExport WorkbenchGroup : public ActionGroup
+class GuiExport WorkbenchGroup: public ActionGroup
 {
     Q_OBJECT
 
@@ -198,7 +209,7 @@ public:
      */
     WorkbenchGroup(Command* pcCmd, QObject* parent);
 
-    void addTo(QWidget * widget) override;
+    void addTo(QWidget* widget) override;
     void refreshWorkbenchList();
 
     void slotActivateWorkbench(const char*);
@@ -227,17 +238,24 @@ private:
  * The RecentFilesAction class holds a menu listed with the recent files.
  * @author Werner Mayer
  */
-class GuiExport RecentFilesAction : public ActionGroup
+class GuiExport RecentFilesAction: public ActionGroup
 {
     Q_OBJECT
 
 public:
-    explicit RecentFilesAction (Command* pcCmd, QObject * parent = nullptr);
+    /**
+     * @param addOpen Whether to prepend an Open action and separator to the recent-files
+     * menu.
+     */
+    explicit RecentFilesAction(Command* pcCmd, QObject* parent = nullptr, bool addOpen = false);
     ~RecentFilesAction() override;
 
     void appendFile(const QString&);
     void activateFile(int);
     void resizeList(int);
+
+Q_SIGNALS:
+    void recentFilesListModified();
 
 private:
     void setFiles(const QStringList&);
@@ -248,6 +266,9 @@ private:
 private:
     int visibleItems; /**< Number of visible items */
     int maximumItems; /**< Number of maximum items */
+
+    QAction sep, clearRecentFilesListAction;
+    QList<QAction*> recentFileActions;
 
     class Private;
     friend class Private;
@@ -262,12 +283,12 @@ private:
  * The RecentMacrosAction class holds a menu listed with the recent macros
  * that were executed, edited, or created
  */
-class GuiExport RecentMacrosAction : public ActionGroup
+class GuiExport RecentMacrosAction: public ActionGroup
 {
     Q_OBJECT
 
 public:
-    explicit RecentMacrosAction (Command* pcCmd, QObject * parent = nullptr);
+    explicit RecentMacrosAction(Command* pcCmd, QObject* parent = nullptr);
 
     void appendFile(const QString&);
     void activateFile(int);
@@ -280,10 +301,10 @@ private:
     void save();
 
 private:
-    int visibleItems; /**< Number of visible items */
-    int maximumItems; /**< Number of maximum items */
+    int visibleItems;               /**< Number of visible items */
+    int maximumItems;               /**< Number of maximum items */
     std::string shortcut_modifiers; /**< default = "Ctrl+Shift+" */
-    int shortcut_count; /**< Number of dynamic shortcuts to create -- default = 3*/
+    int shortcut_count;             /**< Number of dynamic shortcuts to create -- default = 3*/
 
     Q_DISABLE_COPY(RecentMacrosAction)
 };
@@ -296,14 +317,14 @@ private:
  * appearing when the button with the arrow is clicked.
  * @author Werner Mayer
  */
-class GuiExport UndoAction : public Action
+class GuiExport UndoAction: public Action
 {
     Q_OBJECT
 
 public:
-    explicit UndoAction (Command* pcCmd,QObject * parent = nullptr);
+    explicit UndoAction(Command* pcCmd, QObject* parent = nullptr);
     ~UndoAction() override;
-    void addTo (QWidget * widget) override;
+    void addTo(QWidget* widget) override;
     void setEnabled(bool) override;
     void setVisible(bool) override;
 
@@ -323,14 +344,14 @@ private:
  * appearing when the button with the arrow is clicked.
  * @author Werner Mayer
  */
-class GuiExport RedoAction : public Action
+class GuiExport RedoAction: public Action
 {
     Q_OBJECT
 
 public:
-    explicit RedoAction (Command* pcCmd,QObject * parent = nullptr);
+    explicit RedoAction(Command* pcCmd, QObject* parent = nullptr);
     ~RedoAction() override;
-    void addTo ( QWidget * widget ) override;
+    void addTo(QWidget* widget) override;
     void setEnabled(bool) override;
     void setVisible(bool) override;
 
@@ -349,14 +370,14 @@ private:
  * Special action to show all dockable views -- except of toolbars -- in an own popup menu.
  * @author Werner Mayer
  */
-class GuiExport DockWidgetAction : public Action
+class GuiExport DockWidgetAction: public Action
 {
     Q_OBJECT
 
 public:
-    explicit DockWidgetAction (Command* pcCmd, QObject * parent = nullptr);
+    explicit DockWidgetAction(Command* pcCmd, QObject* parent = nullptr);
     ~DockWidgetAction() override;
-    void addTo (QWidget * widget) override;
+    void addTo(QWidget* widget) override;
 
 private:
     QMenu* _menu;
@@ -370,14 +391,14 @@ private:
  * Special action to show all toolbars in an own popup menu.
  * @author Werner Mayer
  */
-class GuiExport ToolBarAction : public Action
+class GuiExport ToolBarAction: public Action
 {
     Q_OBJECT
 
 public:
-    explicit ToolBarAction (Command* pcCmd, QObject * parent = nullptr);
+    explicit ToolBarAction(Command* pcCmd, QObject* parent = nullptr);
     ~ToolBarAction() override;
-    void addTo (QWidget * widget) override;
+    void addTo(QWidget* widget) override;
 
 private:
     QMenu* _menu;
@@ -390,13 +411,13 @@ private:
 /**
  * @author Werner Mayer
  */
-class GuiExport WindowAction : public ActionGroup
+class GuiExport WindowAction: public ActionGroup
 {
     Q_OBJECT
 
 public:
-    explicit WindowAction (Command* pcCmd, QObject * parent = nullptr);
-    void addTo (QWidget * widget) override;
+    explicit WindowAction(Command* pcCmd, QObject* parent = nullptr);
+    void addTo(QWidget* widget) override;
 
 private:
     QMenu* _menu;
@@ -404,6 +425,4 @@ private:
     Q_DISABLE_COPY(WindowAction)
 };
 
-} // namespace Gui
-
-#endif // GUI_ACTION_H
+}  // namespace Gui

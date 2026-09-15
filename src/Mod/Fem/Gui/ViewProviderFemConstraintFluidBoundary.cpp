@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jan Rheinländer                                    *
  *                                   <jrheinlaender@users.sourceforge.net> *
@@ -21,15 +23,13 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <Inventor/SbRotation.h>
 #include <Inventor/SbVec3f.h>
 #include <Inventor/nodes/SoMultipleCopy.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Precision.hxx>
-#endif
+
 
 #include "Gui/Control.h"
 #include <Mod/Fem/App/FemConstraintFluidBoundary.h>
@@ -41,8 +41,7 @@
 
 using namespace FemGui;
 
-PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintFluidBoundary,
-                FemGui::ViewProviderFemConstraintOnBoundary)
+PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintFluidBoundary, FemGui::ViewProviderFemConstraintOnBoundary)
 
 
 ViewProviderFemConstraintFluidBoundary::ViewProviderFemConstraintFluidBoundary()
@@ -78,14 +77,13 @@ bool ViewProviderFemConstraintFluidBoundary::setEdit(int ModNum)
 void ViewProviderFemConstraintFluidBoundary::updateData(const App::Property* prop)
 {
     // Gets called whenever a property of the attached object changes
-    Fem::ConstraintFluidBoundary* pcConstraint =
-        static_cast<Fem::ConstraintFluidBoundary*>(this->getObject());
-    float scaledwidth =
-        WIDTH * pcConstraint->Scale.getValue();  // OvG: Calculate scaled values once only
+    Fem::ConstraintFluidBoundary* pcConstraint = this->getObject<Fem::ConstraintFluidBoundary>();
+    float scaledwidth = WIDTH
+        * pcConstraint->Scale.getValue();  // OvG: Calculate scaled values once only
     float scaledheight = HEIGHT * pcConstraint->Scale.getValue();
 
-    float scaledheadradius =
-        ARROWHEADRADIUS * pcConstraint->Scale.getValue();  // OvG: Calculate scaled values once only
+    float scaledheadradius = ARROWHEADRADIUS
+        * pcConstraint->Scale.getValue();  // OvG: Calculate scaled values once only
     float scaledlength = ARROWLENGTH * pcConstraint->Scale.getValue();
 
     std::string boundaryType = pcConstraint->BoundaryType.getValueAsString();
@@ -114,8 +112,8 @@ void ViewProviderFemConstraintFluidBoundary::updateData(const App::Property* pro
         if (pShapeSep->getNumChildren() == 0) {
             // Set up the nodes
             cp->matrix.setNum(0);
-            cp->addChild(
-                (SoNode*)GuiTools::createArrow(scaledlength, scaledheadradius));  // OvG: Scaling
+            cp->addChild((SoNode*)GuiTools::createArrow(scaledlength, scaledheadradius));  // OvG:
+                                                                                           // Scaling
             pShapeSep->addChild(cp);
         }
 #endif
@@ -146,8 +144,8 @@ void ViewProviderFemConstraintFluidBoundary::updateData(const App::Property* pro
 
             for (const auto& point : points) {
                 SbVec3f base(point.x, point.y, point.z);
-                if (forceDirection.GetAngle(normal)
-                    < M_PI_2) {  // Move arrow so it doesn't disappear inside the solid
+                if (forceDirection.GetAngle(normal) < std::numbers::pi
+                        / 2) {  // Move arrow so it doesn't disappear inside the solid
                     base = base + dir * scaledlength;  // OvG: Scaling
                 }
 #ifdef USE_MULTIPLE_COPY
@@ -192,7 +190,7 @@ void ViewProviderFemConstraintFluidBoundary::updateData(const App::Property* pro
 
             for (const auto& point : points) {
                 SbVec3f base(point.x, point.y, point.z);
-                if (forceDirection.GetAngle(normal) < M_PI_2) {
+                if (forceDirection.GetAngle(normal) < std::numbers::pi / 2) {
                     base = base + dir * scaledlength;  // OvG: Scaling
                 }
 #ifdef USE_MULTIPLE_COPY
@@ -219,8 +217,7 @@ void ViewProviderFemConstraintFluidBoundary::updateData(const App::Property* pro
         if (pShapeSep->getNumChildren() == 0) {
             // Set up the nodes
             cp->matrix.setNum(0);
-            cp->addChild(
-                (SoNode*)GuiTools::createFixed(scaledheight, scaledwidth));  // OvG: Scaling
+            cp->addChild((SoNode*)GuiTools::createFixed(scaledheight, scaledwidth));  // OvG: Scaling
             pShapeSep->addChild(cp);
         }
 #endif

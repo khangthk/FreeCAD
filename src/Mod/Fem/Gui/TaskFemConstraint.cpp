@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jan Rheinländer                                    *
  *                                   <jrheinlaender@users.sourceforge.net> *
@@ -21,22 +23,21 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <QAction>
 #include <QKeyEvent>
 #include <QListWidget>
 #include <QMessageBox>
 #include <sstream>
-#endif
+
 
 #include <App/Document.h>
 #include <Gui/Application.h>
 #include <Gui/BitmapFactory.h>
 #include <Gui/Command.h>
 #include <Gui/Document.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
+#include <Gui/Tools.h>
 #include <Gui/ViewProvider.h>
 #include <Mod/Fem/App/FemConstraint.h>
 
@@ -49,14 +50,15 @@ using namespace Gui;
 
 /* TRANSLATOR FemGui::TaskFemConstraint */
 
-TaskFemConstraint::TaskFemConstraint(ViewProviderFemConstraint* ConstraintView,
-                                     QWidget* parent,
-                                     const char* pixmapname)
-    : TaskBox(Gui::BitmapFactory().pixmap(pixmapname),
-              tr("Analysis feature parameters"),
-              true,
-              parent)
+TaskFemConstraint::TaskFemConstraint(
+    ViewProviderFemConstraint* ConstraintView,
+    QWidget* parent,
+    const char* pixmapname
+)
+    : TaskBox(Gui::BitmapFactory().pixmap(pixmapname), tr("Analysis Feature Properties"), true, parent)
     , proxy(nullptr)
+    , actionList(nullptr)
+    , clearListAction(nullptr)
     , deleteAction(nullptr)
     , ConstraintView(ConstraintView)
     , selectionMode(selref)
@@ -103,7 +105,7 @@ const std::string TaskFemConstraint::getReferences(const std::vector<std::string
 
 const std::string TaskFemConstraint::getScale() const
 {
-    Fem::Constraint* pcConstraint = static_cast<Fem::Constraint*>(ConstraintView->getObject());
+    Fem::Constraint* pcConstraint = ConstraintView->getObject<Fem::Constraint>();
 
     return std::to_string(pcConstraint->Scale.getValue());
 }
@@ -129,9 +131,15 @@ void TaskFemConstraint::setSelection(QListWidgetItem* item)
     Gui::Selection().addSelection(docName.c_str(), objName.c_str(), ItemName.c_str(), 0, 0, 0);
 }
 
+void TaskFemConstraint::onReferenceClearList()
+{
+    QSignalBlocker block(actionList);
+    actionList->clear();
+}
+
 void TaskFemConstraint::onReferenceDeleted(const int row)
 {
-    Fem::Constraint* pcConstraint = static_cast<Fem::Constraint*>(ConstraintView->getObject());
+    Fem::Constraint* pcConstraint = ConstraintView->getObject<Fem::Constraint>();
     std::vector<App::DocumentObject*> Objects = pcConstraint->References.getValues();
     std::vector<std::string> SubElements = pcConstraint->References.getSubValues();
 
@@ -151,16 +159,33 @@ void TaskFemConstraint::onButtonReference(const bool pressed)
     Gui::Selection().clearSelection();
 }
 
-const QString TaskFemConstraint::makeRefText(const std::string& objName,
-                                             const std::string& subName) const
+const QString TaskFemConstraint::makeRefText(const std::string& objName, const std::string& subName) const
 {
     return QString::fromUtf8((objName + ":" + subName).c_str());
 }
 
-const QString TaskFemConstraint::makeRefText(const App::DocumentObject* obj,
-                                             const std::string& subName) const
+const QString TaskFemConstraint::makeRefText(
+    const App::DocumentObject* obj,
+    const std::string& subName
+) const
 {
     return QString::fromUtf8((std::string(obj->getNameInDocument()) + ":" + subName).c_str());
+}
+
+void TaskFemConstraint::createActions(QListWidget* parentList)
+{
+    actionList = parentList;
+    createDeleteAction(parentList);
+    createClearListAction(parentList);
+}
+
+void TaskFemConstraint::createClearListAction(QListWidget* parentList)
+{
+    clearListAction = new QAction(tr("Clear list"), this);
+    connect(clearListAction, &QAction::triggered, this, &TaskFemConstraint::onReferenceClearList);
+
+    parentList->addAction(clearListAction);
+    parentList->setContextMenuPolicy(Qt::ActionsContextMenu);
 }
 
 void TaskFemConstraint::createDeleteAction(QListWidget* parentList)
@@ -168,15 +193,11 @@ void TaskFemConstraint::createDeleteAction(QListWidget* parentList)
     // creates a context menu, a shortcut for it and connects it to a slot function
 
     deleteAction = new QAction(tr("Delete"), this);
-    {
-        auto& rcCmdMgr = Gui::Application::Instance->commandManager();
-        auto shortcut = rcCmdMgr.getCommandByName("Std_Delete")->getShortcut();
-        deleteAction->setShortcut(QKeySequence(shortcut));
-    }
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+    deleteAction->setShortcut(Gui::QtTools::deleteKeySequence());
+
     // display shortcut behind the context menu entry
     deleteAction->setShortcutVisibleInContextMenu(true);
-#endif
+
     parentList->addAction(deleteAction);
     parentList->setContextMenuPolicy(Qt::ActionsContextMenu);
 }
@@ -190,9 +211,9 @@ void TaskFemConstraint::createDeleteAction(QListWidget* parentList)
 
 void TaskDlgFemConstraint::open()
 {
-    if (!Gui::Command::hasPendingCommand()) {
-        const char* typeName = ConstraintView->getObject()->getTypeId().getName();
-        Gui::Command::openCommand(typeName);
+    if (!ConstraintView->getDocument()->hasPendingCommand()) {
+        const auto typeName = ConstraintView->getObject()->getTypeId().getName();
+        ConstraintView->getDocument()->openCommand(std::string {typeName}.c_str());
         ConstraintView->setVisible(true);
     }
 }
@@ -205,32 +226,39 @@ bool TaskDlgFemConstraint::accept()
         std::string refs = parameter->getReferences();
 
         if (!refs.empty()) {
-            Gui::Command::doCommand(Gui::Command::Doc,
-                                    "App.ActiveDocument.%s.References = [%s]",
-                                    name.c_str(),
-                                    refs.c_str());
+            Gui::Command::doCommand(
+                Gui::Command::Doc,
+                "App.ActiveDocument.%s.References = [%s]",
+                name.c_str(),
+                refs.c_str()
+            );
         }
         else {
-            QMessageBox::warning(parameter,
-                                 tr("Input error"),
-                                 tr("You must specify at least one reference"));
+            QMessageBox::warning(
+                parameter,
+                tr("Input Error"),
+                tr("You must specify at least one reference")
+            );
             return false;
         }
 
         std::string scale = parameter->getScale();
-        Gui::Command::doCommand(Gui::Command::Doc,
-                                "App.ActiveDocument.%s.Scale = %s",
-                                name.c_str(),
-                                scale.c_str());
+        Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "App.ActiveDocument.%s.Scale = %s",
+            name.c_str(),
+            scale.c_str()
+        );
         Gui::Command::doCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
         if (!ConstraintView->getObject()->isValid()) {
             throw Base::RuntimeError(ConstraintView->getObject()->getStatusString());
         }
         Gui::Command::doCommand(Gui::Command::Gui, "Gui.activeDocument().resetEdit()");
-        Gui::Command::commitCommand();
+        ConstraintView->getDocument()->commitCommand();
     }
     catch (const Base::Exception& e) {
-        QMessageBox::warning(parameter, tr("Input error"), QString::fromLatin1(e.what()));
+        ConstraintView->getDocument()->abortCommand();
+        QMessageBox::warning(parameter, tr("Input Error"), QString::fromLatin1(e.what()));
         return false;
     }
 
@@ -240,7 +268,7 @@ bool TaskDlgFemConstraint::accept()
 bool TaskDlgFemConstraint::reject()
 {
     // roll back the changes
-    Gui::Command::abortCommand();
+    ConstraintView->getDocument()->abortCommand();
     Gui::Command::doCommand(Gui::Command::Gui, "Gui.activeDocument().resetEdit()");
     Gui::Command::updateActive();
 

@@ -1,4 +1,6 @@
 ---
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2023 David Carter <dcarter@davidcarter.ca>              *
@@ -22,13 +24,13 @@
 # ***************************************************************************
 
 Model:
-  Name: 'ReducdedPolynomialN3'
+  Name: 'ReducedPolynomialN3'
   UUID: 'fa4e58b4-74c7-4292-8e79-7d5fd232fb55'
   URL: 'http://www.dhondt.de/ccx_2.21.pdf'
   Description: >
     The polynomial hyperelastic material model is a phenomenological model
     of rubber elasticity.
-  ReducdedPolynomialN3:
+  ReducedPolynomialN3:
     DisplayName: "Reduced Polynomial N=3"
     Type: '2DArray'
     Columns:

@@ -40,6 +40,10 @@
 - changed-files:
   - any-glob-to-any-file:  ['src/Mod/Fem/**/*']
 
+"Mod: Inspection":
+- changed-files:
+  - any-glob-to-any-file:  ['src/Mod/Inspection/**/*']
+
 "Mod: Mesh":
 - changed-files:
   - any-glob-to-any-file: ['src/Mod/Mesh/**/*']
@@ -80,9 +84,13 @@
 - changed-files:
   - any-glob-to-any-file:  ['src/Mod/Spreadsheet/**/*']
 
+"Mod: Start":
+- changed-files:
+  - any-glob-to-any-file:  ['src/Mod/Start/**/*']
+
 "Mod: Surface":
 - changed-files:
-  - any-glob-to-any-file:  ['src/Mod/Surface/**/*/']
+  - any-glob-to-any-file:  ['src/Mod/Surface/**/*']
 
 "Mod: TechDraw":
 - changed-files:
@@ -92,11 +100,45 @@
 - changed-files:
   - any-glob-to-any-file:  ['src/Mod/Test/**/*']
 
+"Mod: Import":
+- changed-files:
+  - any-glob-to-any-file:  ['src/Mod/Import/**/*']
+
+"Mod: Robot":
+- changed-files:
+  - any-glob-to-any-file:  ['src/Mod/Robot/**/*']
+
+"Mod: Show":
+- changed-files:
+  - any-glob-to-any-file:  ['src/Mod/Show/**/*']
+
+"Mod: Web":
+- changed-files:
+  - any-glob-to-any-file:  ['src/Mod/Web/**/*']
+
+"Mod: Help":
+- changed-files:
+  - any-glob-to-any-file:  ['src/Mod/Help/**/*']
+
 # 'Packaging' related labels
 
 "Packaging/building":
 - changed-files:
   - any-glob-to-any-file:  ['cMake/**/*']
+
+"3rd party component":
+- changed-files:
+  - any-glob-to-any-file:  ['src/3rdParty/**/*']
+
+# 'Language' related labels
+
+"Language: C++":
+- changed-files:
+  - any-glob-to-any-file: ['**/*.cpp', '**/*.cxx', '**/*.cc', '**/*.h', '**/*.hpp', '**/*.hxx']
+
+"Language: Python":
+- changed-files:
+  - any-glob-to-any-file: ['**/*.py']
 
 # 'Topic' related labels
 

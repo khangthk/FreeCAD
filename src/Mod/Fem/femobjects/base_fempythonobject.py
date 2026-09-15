@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
 # *   Copyright (c) 2020 Bernd Hahnebach <bernd@bimstatik.org>              *
@@ -54,12 +56,14 @@ class _PropHelper:
     Helper class to manage property data inside proxy objects.
     Initialization keywords are the same used with PropertyContainer
     to add dynamics properties plus "value" for the initial value.
+    Note: Is used as base for a GUI version, be aware when refactoring
     """
 
     def __init__(self, **kwds):
-        self.value = kwds.pop("value")
+        for k, v in kwds.items():
+            setattr(self, k, v)
+        kwds.pop("value")
         self.info = kwds
-        self.name = kwds["name"]
 
     def add_to_object(self, obj):
         obj.addProperty(**self.info)
@@ -68,7 +72,8 @@ class _PropHelper:
 
     def handle_change_type(self, obj, old_type, convert_old_value=lambda x: x):
         if obj.getTypeIdOfProperty(self.name) == old_type:
-            self.value = convert_old_value(obj.getPropertyByName(self.name))
+            new_value = convert_old_value(obj.getPropertyByName(self.name))
             obj.setPropertyStatus(self.name, "-LockDynamic")
             obj.removeProperty(self.name)
             self.add_to_object(obj)
+            setattr(obj, self.name, new_value)

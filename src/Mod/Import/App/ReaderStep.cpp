@@ -22,19 +22,16 @@
  **************************************************************************/
 
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <Standard_Version.hxx>
 #include <STEPCAFControl_Reader.hxx>
 #include <Transfer_TransientProcess.hxx>
 #include <XSControl_TransferReader.hxx>
 #include <XSControl_WorkSession.hxx>
-#endif
+
 
 #include "ReaderStep.h"
 #include <Base/Exception.h>
 #include <Mod/Part/App/encodeFilename.h>
-#include <Mod/Part/App/ProgressIndicator.h>
 
 using namespace Import;
 
@@ -46,7 +43,7 @@ ReaderStep::ReaderStep(const Base::FileInfo& file)  // NOLINT
 #endif
 }
 
-void ReaderStep::read(Handle(TDocStd_Document) hDoc)  // NOLINT
+void ReaderStep::read(Handle(TDocStd_Document) hDoc, const Message_ProgressRange& theProgress)
 {
     std::string utf8Name = file.filePath();
     std::string name8bit = Part::encodeFilename(utf8Name);
@@ -66,14 +63,5 @@ void ReaderStep::read(Handle(TDocStd_Document) hDoc)  // NOLINT
         throw Base::FileException("Cannot read STEP file", file);
     }
 
-#if OCC_VERSION_HEX < 0x070500
-    Handle(Message_ProgressIndicator) pi = new Part::ProgressIndicator(100);
-    aReader.Reader().WS()->MapReader()->SetProgress(pi);
-    pi->NewScope(100, "Reading STEP file...");
-    pi->Show();
-#endif
-    aReader.Transfer(hDoc);
-#if OCC_VERSION_HEX < 0x070500
-    pi->EndScope();
-#endif
+    aReader.Transfer(hDoc, theProgress);
 }

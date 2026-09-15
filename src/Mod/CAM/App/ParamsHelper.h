@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /****************************************************************************
  *   Copyright (c) 2017 Zheng Lei (realthunder) <realthunder.dev@gmail.com> *
  *                                                                          *
@@ -20,14 +21,13 @@
  *                                                                          *
  ****************************************************************************/
 
-#ifndef PARAMS_HELPER_H
-#define PARAMS_HELPER_H
+#pragma once
 
 /** \page ParamPage Parameter helper macros
  * \ingroup PATH
  * Collections of macros for managing groups of parameters.
  *
- * \section Motivation
+ * \section motivation_groups_params Motivation
  *
  * For an application like FreeCAD, there are often cases where the same set of
  * parameters are referred in dozons of different places. The macros here is
@@ -61,7 +61,7 @@
  *     <your_build_dir>/src/Mod/CAM/App.CMakeFiles/Path.dir/Area.cpp.i
  * \endcode
  *
- * \section Introduction of Boost.Preprocessor
+ * \section intro_boost_preproc Introduction of Boost.Preprocessor
  *
  * The macros here make heavy use of the awesome
  * [Boost.Preprocessor](http://www.boost.org/libs/preprocessor/) (short for
@@ -177,6 +177,7 @@
 #include <boost/preprocessor/tuple/enum.hpp>
 #include <boost/preprocessor/punctuation/comma_if.hpp>
 #include <boost/preprocessor/comparison/greater.hpp>
+#include <type_traits>
 
 /** \defgroup ParamHelper Parameters helper macros
  * \ingroup PATH
@@ -207,8 +208,7 @@
 #define PARAM_FSEQ(_param) PARAM_FIELD(SEQ, _param)
 #define PARAM_FPROP(_param) PARAM_FIELD(PROP, _param)
 #define PARAM_FINFO(_param) PARAM_FIELD(INFO, _param)
-#define PARAM_FENUM_TYPE(_param) BOOST_PP_TUPLE_ELEM(0, PARAM_FINFO(_param))
-#define PARAM_FENUM_PREFIX(_param) BOOST_PP_TUPLE_ELEM(1, PARAM_FINFO(_param))
+#define PARAM_FENUM_TYPE(_param) PARAM_FINFO(_param)
 /** @} */
 
 
@@ -218,8 +218,6 @@
  * @{ */
 #define PARAM_FIELD_STR(_idx, _param) BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(PARAM_I##_idx,_param))
 
-#define PARAM_FTYPE_STR(_param) PARAM_FIELD_STR(TYPE, _param)
-#define PARAM_FARG_STR(_param) PARAM_FIELD_STR(ARG, _param)
 #define PARAM_FNAME_STR(_param) PARAM_FIELD_STR(NAME, _param)
 #define PARAM_FDEF_STR(_param) PARAM_FIELD_STR(DEF, _param)
 /** @} */
@@ -294,19 +292,28 @@
  * \ingroup ParamHelper
  */
 
-#define PARAM_TYPE_short short
-#define PARAM_TYPE_long long
-#define PARAM_TYPE_double double
-#define PARAM_TYPE_bool bool
-#define PARAM_TYPE_enum short
-#define PARAM_TYPE_enum2 short
+#define PARAM_TYPE_short(_1) short
+#define PARAM_TYPE_long(_1) long
+#define PARAM_TYPE_double(_1) double
+#define PARAM_TYPE_bool(_1) bool
+#define PARAM_TYPE_enum(_1) short
+#define PARAM_TYPE_enum2(_param) PARAM_FENUM_TYPE(_param)
 
 /** Obtain parameter type
  *
  * The main purpose is to alias enum type to short
  * \ingroup ParamCommon
  */
-#define PARAM_TYPE(_param) PARAM_TYPED(PARAM_TYPE_, _param)
+#define PARAM_TYPE(_param) PARAM_TYPED(PARAM_TYPE_, _param)(_param)
+
+#define PARAM_BASE_TYPE_short(_1) short
+#define PARAM_BASE_TYPE_long(_1) long
+#define PARAM_BASE_TYPE_double(_1) double
+#define PARAM_BASE_TYPE_bool(_1) bool
+#define PARAM_BASE_TYPE_enum(_1) short
+#define PARAM_BASE_TYPE_enum2(_param) std::underlying_type_t<PARAM_FENUM_TYPE(_param)>
+
+#define PARAM_BASE_TYPE(_param) PARAM_TYPED(PARAM_BASE_TYPE_, _param)(_param)
 
 
 /** Helper for #PARAM_DECLARE */
@@ -354,12 +361,12 @@
 #define PARAM_DECLARE_INIT(_src, _seq) BOOST_PP_SEQ_FOR_EACH(PARAM_DECLARE_INIT_, _src, _seq)
 
 
-#define PARAM_ENUM_DECLARE_enum_(_1, _name, _i, _elem)                                             \
+#define PARAM_ENUM_DECLARE_enum_(_1, _name, _i, _elem) \
     BOOST_PP_COMMA_IF(_i) BOOST_PP_CAT(_name, _elem)
 
-#define PARAM_ENUM_DECLARE_enum(_param)                                                            \
-    enum                                                                                           \
-    {                                                                                              \
+#define PARAM_ENUM_DECLARE_enum(_param) \
+    enum \
+    { \
         BOOST_PP_SEQ_FOR_EACH_I(PARAM_ENUM_DECLARE_enum_, PARAM_FNAME(_param), PARAM_FSEQ(_param)) \
     };
 
@@ -367,7 +374,7 @@
 #define PARAM_ENUM_DECLARE_long(_param)
 #define PARAM_ENUM_DECLARE_double(_param)
 #define PARAM_ENUM_DECLARE_bool(_param)
-#define PARAM_ENUM_DECLARE_enum2 PARAM_ENUM_DECLARE_enum
+#define PARAM_ENUM_DECLARE_enum2(_param)
 
 /** \defgroup ParamEnumHelper Enum convert helpers
  * \ingroup ParamCommon
@@ -385,144 +392,41 @@
  * \ingroup ParamEnumHelper*/
 #define PARAM_ENUM_DECLARE(_seq) PARAM_TYPED_FOREACH(PARAM_ENUM_DECLARE_, _seq)
 
-
-/** \addgroup ParamEnumHelper Enum convert helpers
- * @{ */
-#define PARAM_ENUM_CONVERT_short(...)
-#define PARAM_ENUM_CONVERT_long(...)
-#define PARAM_ENUM_CONVERT_double(...)
-#define PARAM_ENUM_CONVERT_bool(...)
-#define PARAM_ENUM_CONVERT_enum(...)
-#define PARAM_ENUM_CONVERT_enum2 PARAM_ENUM_CONVERT_SINGLE
-
-#define PARAM_ENUM_CONVERT_enum_(_dst, _name, _prefix, _elem)                                      \
-    case BOOST_PP_CAT(_name, _elem):                                                               \
-        _dst = BOOST_PP_CAT(_prefix, _elem);                                                       \
-        break;
-
-#define PARAM_ENUM_CONVERT__(_1, _args, _i, _elem)                                                 \
-    PARAM_ENUM_CONVERT_enum_(BOOST_PP_TUPLE_ELEM(0, _args),                                        \
-                             BOOST_PP_TUPLE_ELEM(1, _args),                                        \
-                             BOOST_PP_TUPLE_ELEM(2, _args),                                        \
-                             _elem);
-
-#define PARAM_ENUM_CONVERT_(_1, _args, _param)                                                     \
-    PARAM_TYPED(PARAM_ENUM_CONVERT_, _param)                                                       \
-    (BOOST_PP_TUPLE_ELEM(0, _args),                                                                \
-     BOOST_PP_TUPLE_ELEM(1, _args),                                                                \
-     BOOST_PP_TUPLE_ELEM(2, _args),                                                                \
-     _param)
-
-/** Convert single enum parameter value into user defined enum type
- *
- * This macro is used by #PARAM_ENUM_CONVERT to convert each parameter, but
- * you can use it directly for a single parameter. Check #PARAM_NUM_CONVERT
- * for more detail. Make sure the outer parenthesis of \c _param is stripped,
- * i.e. not double but single parenthesis
- */
-#define PARAM_ENUM_CONVERT_SINGLE(_src, _dst, _default, _param)                                    \
-    PARAM_FENUM_TYPE(_param) _dst(_param);                                                         \
-    switch (_src(_param)) {                                                                        \
-        BOOST_PP_SEQ_FOR_EACH_I(PARAM_ENUM_CONVERT__,                                              \
-                                (_dst(_param), PARAM_FNAME(_param), PARAM_FENUM_PREFIX(_param)),   \
-                                PARAM_FSEQ(_param))                                                \
-        default:                                                                                   \
-            _default(_param);                                                                      \
-    }
-
 /** Default handling in #PARAM_ENUM_CONVERT and #PARAM_ENUM_CHECK*/
-#define PARAM_ENUM_EXCEPT(_param)                                                                  \
+#define PARAM_ENUM_EXCEPT(_param) \
     throw Base::ValueError("invalid value for enum " PARAM_FNAME_STR(_param))
-
-/** @} */
-
-/* Convert ParamHelper defined enum type to user defined ones
- *
- * This assumes the user defined enum type is given in \ref ParamSeq "seq_type"
- * of the parameter definition, and it has the same postfix as the ones
- * specified in \ref ParamSeq "seq" member of the parameter definition. See
- * \ref ParamEnumHelper "here" for implementations
- *
- * \ingroup ParamEnumHelper
- *
- * \arg \c _src: Macro to generate source variable. The signature must be
- * <tt>_src(_param)<\tt>, where \c _param is the tuple defining the parameter.
- * You pass any of the \ref ParamAccessor "parameter accessors" to directly
- * access the field. Or, supply your own macro to append any prefix as you
- * like.
- * \arg \c _dst: Same as above.
- * \arg \c _default: A macro to call for invalid value. Signature should be
- * <tt>_default(_param)<\tt>, where \c _param is the parameter definition. You
- * can use #PARAM_ENUM_EXCEPT to throw Base::ValueError exception in FreeCAD
- * \arg \c _seq: Parameter sequence
- *
- * For example, with the following parameter definition
- * \code{.unparsed}
- * #define MY_PARAM_TEST \
- *      ((enum,test1,Test1,0,"it's a test",(Foo)(Bar),(MyEnum1,myEnum1)) \
- *      ((enum,test2,Test2,0,"it's a test",(Foo)(Bar),(MyEnum2,myEnum2)))
- *
- *  #define MY_DST(_param) BOOST_PP_CAT(my,PARAM_FNAME(_param))
- * \code{.unparsed}
- *
- * calling
- * \code{.unparsed}
- *      PARAM_ENUM_CONVERT(PARAM_FNAME,MY_DST,My,PARAM_ENUM_EXCEP,MY_PARAM_TEST)
- * \code{.unparsed}
- *
- * expands to
- * \code{.unparsed}
- *      MyEnum1 myTest1;
- *      switch(Test1) {
- *      case Test1Foo:
- *          myTest1 = myEnum1Foo;
- *          break;
- *      case Test1Bar:
- *          myTest1 = myEnum1Bar;
- *          break;
- *      default:
- *          throw Base::ValueError("invalid value for enum Test1");
- *      }
- *      MyEnum2 myTest2;
- *      switch(Test2) {
- *      case Test1Foo:
- *          myTest2 = myEnum2Foo;
- *          break;
- *      case Test2Bar:
- *          myTest2 = myEnum2Bar;
- *          break;
- *      default:
- *          throw Base::ValueError("invalid value for enum Test2");
- *      }
- * \endcode
- *
- * The above code assumes you've already defined \a Test1 and \a Test2 some
- * where as the source variable.
- */
-#define PARAM_ENUM_CONVERT(_src, _dst, _default, _seq)                                             \
-    BOOST_PP_SEQ_FOR_EACH(PARAM_ENUM_CONVERT_, (_src, _dst, _default), _seq)
-
 
 #define PARAM_ENUM_CHECK_short(...)
 #define PARAM_ENUM_CHECK_long(...)
 #define PARAM_ENUM_CHECK_double(...)
 #define PARAM_ENUM_CHECK_bool(...)
 #define PARAM_ENUM_CHECK_enum PARAM_ENUM_CHECK_SINGLE
-#define PARAM_ENUM_CHECK_enum2 PARAM_ENUM_CHECK_SINGLE
+#define PARAM_ENUM_CHECK_enum2 PARAM_ENUM2_CHECK_SINGLE
 
-#define PARAM_ENUM_CHECK_enum_(_1, _name, _i, _elem)                                               \
-    case BOOST_PP_CAT(_name, _elem):                                                               \
+#define PARAM_ENUM_CHECK_enum_(_1, _name, _i, _elem) \
+    case BOOST_PP_CAT(_name, _elem): \
         break;
 
-#define PARAM_ENUM_CHECK_(_1, _args, _param)                                                       \
-    PARAM_TYPED(PARAM_ENUM_CHECK_, _param)                                                         \
+#define PARAM_ENUM2_CHECK_enum_(_1, _name, _i, _elem) \
+    case (_elem): \
+        break;
+
+#define PARAM_ENUM_CHECK_(_1, _args, _param) \
+    PARAM_TYPED(PARAM_ENUM_CHECK_, _param) \
     (BOOST_PP_TUPLE_ELEM(0, _args), BOOST_PP_TUPLE_ELEM(1, _args), _param)
 
-#define PARAM_ENUM_CHECK_SINGLE(_src, _default, _param)                                            \
-    switch (_src(_param)) {                                                                        \
-        BOOST_PP_SEQ_FOR_EACH_I(PARAM_ENUM_CHECK_enum_, PARAM_FNAME(_param), PARAM_FSEQ(_param))   \
-        default:                                                                                   \
-            _default(_param);                                                                      \
+#define PARAM_ENUM_CHECK_SINGLE(_src, _default, _param) \
+    switch (_src(_param)) { \
+        BOOST_PP_SEQ_FOR_EACH_I(PARAM_ENUM_CHECK_enum_, PARAM_FNAME(_param), PARAM_FSEQ(_param)) \
+        default: \
+            _default(_param); \
+    }
+
+#define PARAM_ENUM2_CHECK_SINGLE(_src, _default, _param) \
+    switch (_src(_param)) { \
+        BOOST_PP_SEQ_FOR_EACH_I(PARAM_ENUM2_CHECK_enum_, PARAM_FNAME(_param), PARAM_FSEQ(_param)) \
+        default: \
+            _default(_param); \
     }
 
 /* Validate enum type parameters
@@ -544,7 +448,7 @@
  *
  * \arg \c _seq: Parameter sequence
  */
-#define PARAM_ENUM_CHECK(_src, _default, _seq)                                                     \
+#define PARAM_ENUM_CHECK(_src, _default, _seq) \
     BOOST_PP_SEQ_FOR_EACH(PARAM_ENUM_CHECK_, (_src, _default), _seq)
 
 
@@ -555,11 +459,11 @@
 #define PARAM_ENUM_STRING_DECLARE_enum2 PARAM_ENUM_STRING_DECLARE_enum
 
 /** Helper for #PARAM_ENUM_STRING_DECLARE */
-#define PARAM_ENUM_STRING_DECLARE_enum(_prefix, _param)                                            \
+#define PARAM_ENUM_STRING_DECLARE_enum(_prefix, _param) \
     BOOST_PP_CAT(_prefix, PARAM_FNAME(_param))[] = {PARAM_FSEQ_STR(_param), NULL};
 
 /** Helper for #PARAM_ENUM_STRING_DECLARE */
-#define PARAM_ENUM_STRING_DECLARE_(_1, _prefix, _param)                                            \
+#define PARAM_ENUM_STRING_DECLARE_(_1, _prefix, _param) \
     PARAM_TYPED(PARAM_ENUM_STRING_DECLARE_, _param)(_prefix, _param)
 
 /** Make \c enum string list
@@ -574,7 +478,7 @@
  *      PARAM_ENUM_STRING_DECLARE(static const char *Enum, MyParamsSeq)
  * \ingroup ParamEnumHelper
  */
-#define PARAM_ENUM_STRING_DECLARE(_prefix, _seq)                                                   \
+#define PARAM_ENUM_STRING_DECLARE(_prefix, _seq) \
     BOOST_PP_SEQ_FOR_EACH(PARAM_ENUM_STRING_DECLARE_, _prefix, _seq)
 
 
@@ -596,8 +500,8 @@
 
 
 /** Helper for #PARAM_OP */
-#define PARAM_OP_(_, _args, _param)                                                                \
-    BOOST_PP_TUPLE_ELEM(0, _args)                                                                  \
+#define PARAM_OP_(_, _args, _param) \
+    BOOST_PP_TUPLE_ELEM(0, _args) \
     (_param) BOOST_PP_TUPLE_ELEM(1, _args) BOOST_PP_TUPLE_ELEM(2, _args)(_param);
 
 /** Perform operation on two instance of each parameter in a sequence
@@ -621,7 +525,7 @@
 
 
 /** Helper for #PARAM_ARGS_DEF */
-#define PARAM_ARGS_DEF_(_, _src, _i, _param)                                                       \
+#define PARAM_ARGS_DEF_(_, _src, _i, _param) \
     BOOST_PP_COMMA_IF(_i) PARAM_TYPE(_param) _src(_param) = PARAM_FDEF(_param)
 
 /** Declare the parameters as function argument list with defaults.
@@ -669,13 +573,13 @@
 #define PARAM_PY_DOC_enum_(_i, _elem) BOOST_PP_IF(_i, ",", " ") #_i "=" #_elem
 
 /** Generate doc for an enum parameter */
-#define PARAM_PY_DOC_enum(_field, _param)                                                          \
-    "\n* " PARAM_FIELD_STR(_field, _param) "(" PARAM_FDEF_STR(_param) "):" PARAM_FOREACH_I(        \
-        PARAM_PY_DOC_enum_,                                                                        \
-        PARAM_FSEQ(_param)) ". " PARAM_FDOC(_param) "\n"
+#define PARAM_PY_DOC_enum(_field, _param) \
+    "\n* " PARAM_FIELD_STR(_field, _param) "(" PARAM_FDEF_STR( \
+        _param \
+    ) "):" PARAM_FOREACH_I(PARAM_PY_DOC_enum_, PARAM_FSEQ(_param)) ". " PARAM_FDOC(_param) "\n"
 
 /* Generate doc for other type of parameter */
-#define PARAM_PY_DOC_short(_field, _param)                                                         \
+#define PARAM_PY_DOC_short(_field, _param) \
     "\n* " PARAM_FIELD_STR(_field, _param) "(" PARAM_FDEF_STR(_param) "): " PARAM_FDOC(_param) "\n"
 #define PARAM_PY_DOC_long PARAM_PY_DOC_short
 #define PARAM_PY_DOC_double PARAM_PY_DOC_short
@@ -691,7 +595,7 @@
 
 
 /** Helper for #PARAM_PY_ARGS_DOC */
-#define PARAM_PY_ARGS_DOC_(_, _field, _i, _param)                                                  \
+#define PARAM_PY_ARGS_DOC_(_, _field, _i, _param) \
     BOOST_PP_IF(_i, ", ", " ") PARAM_FIELD_STR(_field, _param) "=" PARAM_FDEF_STR(_param)
 
 /** Generate argument list string
@@ -729,19 +633,19 @@
 #define PARAM_PY_CAST_double(_v) (_v)
 #define PARAM_PY_CAST_bool(_v) ((_v) ? Py_True : Py_False)
 #define PARAM_PY_CAST_enum(_v) (_v)
-#define PARAM_PY_CAST_enum2(_v) (_v)
+#define PARAM_PY_CAST_enum2(_v) (static_cast<short>(_v))
 
-#define PARAM_CAST_PY_short(_v) (_v)
-#define PARAM_CAST_PY_long(_v) (_v)
-#define PARAM_CAST_PY_double(_v) (_v)
-#define PARAM_CAST_PY_bool(_v) (PyObject_IsTrue(_v) ? true : false)
-#define PARAM_CAST_PY_enum(_v) (_v)
-#define PARAM_CAST_PY_enum2(_v) (_v)
+#define PARAM_CAST_PY_short(_v, _param) (_v)
+#define PARAM_CAST_PY_long(_v, _param) (_v)
+#define PARAM_CAST_PY_double(_v, _param) (_v)
+#define PARAM_CAST_PY_bool(_v, _param) (PyObject_IsTrue(_v) ? true : false)
+#define PARAM_CAST_PY_enum(_v, _param) (_v)
+#define PARAM_CAST_PY_enum2(_v, _param) (static_cast<PARAM_FENUM_TYPE(_param)>(_v))
 
 
 /** Helper for #PARAM_PY_FIELDS */
-#define PARAM_PY_FIELDS_(_1, _src, _i, _param)                                                     \
-    BOOST_PP_COMMA_IF(_i) PARAM_TYPED(PARAM_CAST_PY_, _param)(_src(_param))
+#define PARAM_PY_FIELDS_(_1, _src, _i, _param) \
+    BOOST_PP_COMMA_IF(_i) PARAM_TYPED(PARAM_CAST_PY_, _param)(_src(_param), _param)
 
 /** Expand to a comma separated list of the given field in the sequence
  *
@@ -755,13 +659,13 @@
 
 
 /** Helper for #PARAM_FIELD_STRINGS */
-#define PARAM_FIELD_STRINGS_(_1, _field, _i, _param)                                               \
+#define PARAM_FIELD_STRINGS_(_1, _field, _i, _param) \
     BOOST_PP_COMMA_IF(_i) PARAM_FIELD_STR(_field, _param)
 
 /** Expand to a list of stringified fields
  * \ingroup ParamStringizer ParamPy
  */
-#define PARAM_FIELD_STRINGS(_field, _seq)                                                          \
+#define PARAM_FIELD_STRINGS(_field, _seq) \
     BOOST_PP_SEQ_FOR_EACH_I(PARAM_FIELD_STRINGS_, _field, _seq)
 
 
@@ -800,11 +704,11 @@
 #define PARAM_PY_INIT_double(_v) _v
 #define PARAM_PY_INIT_bool(_v) ((_v) ? Py_True : Py_False)
 #define PARAM_PY_INIT_enum(_v) _v
-#define PARAM_PY_INIT_enum2(_v) _v
+#define PARAM_PY_INIT_enum2(_v) static_cast<short>(_v)
 
 /** Helper for #PARAM_PY_DECLARE_INIT */
-#define PARAM_PY_DECLARE_INIT_(_1, _src, _param)                                                   \
-    PARAM_TYPED(PARAM_PY_TYPE_, _param)                                                            \
+#define PARAM_PY_DECLARE_INIT_(_1, _src, _param) \
+    PARAM_TYPED(PARAM_PY_TYPE_, _param) \
     _src(_param) = PARAM_TYPED(PARAM_PY_INIT_, _param)(PARAM_FDEF(_param));
 
 /** Declare field variables of Python c type with initialization to default
@@ -835,7 +739,7 @@
 #define PARAM_CAST_PYOBJ_double(_v) PyFloat_FromDouble(_v)
 #define PARAM_CAST_PYOBJ_bool(_v) ((_v) ? Py_True : Py_False)
 #define PARAM_CAST_PYOBJ_enum PARAM_CAST_PYOBJ_short
-#define PARAM_CAST_PYOBJ_enum2 PARAM_CAST_PYOBJ_short
+#define PARAM_CAST_PYOBJ_enum2(_v) PARAM_CAST_PYOBJ_short(static_cast<short>(_v))
 
 
 /** Stringize field to a Python string
@@ -844,10 +748,12 @@
 #define PARAM_PY_STR(_field, _param) PyUnicode_FromString(PARAM_FIELD_STR(_field, _param))
 
 /** Helper for #PARAM_PY_DICT_SET_VALUE */
-#define PARAM_PY_DICT_SET_VALUE_(_1, _args, _param)                                                \
-    PyDict_SetItem(BOOST_PP_TUPLE_ELEM(0, _args),                                                  \
-                   PARAM_PY_STR(BOOST_PP_TUPLE_ELEM(1, _args), _param),                            \
-                   PARAM_TYPED(PARAM_CAST_PYOBJ_, _param)(BOOST_PP_TUPLE_ELEM(2, _args)(_param)));
+#define PARAM_PY_DICT_SET_VALUE_(_1, _args, _param) \
+    PyDict_SetItem( \
+        BOOST_PP_TUPLE_ELEM(0, _args), \
+        PARAM_PY_STR(BOOST_PP_TUPLE_ELEM(1, _args), _param), \
+        PARAM_TYPED(PARAM_CAST_PYOBJ_, _param)(BOOST_PP_TUPLE_ELEM(2, _args)(_param)) \
+    );
 
 /** Populate a Python dict with a structure variable
  *
@@ -864,17 +770,17 @@
  * \endcode
  * \ingroup ParamPy
  */
-#define PARAM_PY_DICT_SET_VALUE(_dict, _field, _src, _seq)                                         \
+#define PARAM_PY_DICT_SET_VALUE(_dict, _field, _src, _seq) \
     BOOST_PP_SEQ_FOR_EACH(PARAM_PY_DICT_SET_VALUE_, (_dict, _field, _src), _seq)
 
 
 #define PARAM_PY_DICT_DOC_enum_(_i, _elem) BOOST_PP_IF(_i, ",", " ") #_i "=" #_elem
 
 /** Generate doc for an enum parameter */
-#define PARAM_PY_DICT_DOC_enum(_param)                                                             \
-    "(" PARAM_FDEF_STR(_param) ") - " PARAM_FOREACH_I(                                             \
-        PARAM_PY_DOC_enum_,                                                                        \
-        PARAM_FSEQ(_param)) ".\n" PARAM_FDOC(_param) "\n"
+#define PARAM_PY_DICT_DOC_enum(_param) \
+    "(" PARAM_FDEF_STR( \
+        _param \
+    ) ") - " PARAM_FOREACH_I(PARAM_PY_DOC_enum_, PARAM_FSEQ(_param)) ".\n" PARAM_FDOC(_param) "\n"
 
 /* Generate doc for other type of parameter */
 #define PARAM_PY_DICT_DOC_(_param) "(" PARAM_FDEF_STR(_param) ") - " PARAM_FDOC(_param) "\n"
@@ -887,10 +793,12 @@
 #define PARAM_PY_DICT_DOC_enum2 PARAM_PY_DICT_DOC_enum
 
 /** Helper for #PARAM_PY_DICT_SET_DOC */
-#define PARAM_PY_DICT_SET_DOC_(_1, _args, _param)                                                  \
-    PyDict_SetItem(BOOST_PP_TUPLE_ELEM(0, _args),                                                  \
-                   PARAM_PY_STR(BOOST_PP_TUPLE_ELEM(1, _args), _param),                            \
-                   PyUnicode_FromString(PARAM_TYPED(PARAM_PY_DICT_DOC_, _param)(_param)));
+#define PARAM_PY_DICT_SET_DOC_(_1, _args, _param) \
+    PyDict_SetItem( \
+        BOOST_PP_TUPLE_ELEM(0, _args), \
+        PARAM_PY_STR(BOOST_PP_TUPLE_ELEM(1, _args), _param), \
+        PyUnicode_FromString(PARAM_TYPED(PARAM_PY_DICT_DOC_, _param)(_param)) \
+    );
 
 /** Populate a Python dict with the doc field of the parameter sequence
  *
@@ -905,7 +813,7 @@
  * \endcode
  * \ingroup ParamDoc
  */
-#define PARAM_PY_DICT_SET_DOC(_dict, _field, _seq)                                                 \
+#define PARAM_PY_DICT_SET_DOC(_dict, _field, _seq) \
     BOOST_PP_SEQ_FOR_EACH(PARAM_PY_DICT_SET_DOC_, (_dict, _field), _seq)
 
 
@@ -930,22 +838,25 @@
 #define PARAM_PROP_DECLARE(_seq) PARAM_FOREACH(PARAM_PROP_DECLARE_, _seq)
 
 /** Replace FreeCAD #ADD_PROPERTY_TYPE to fix singifying macro */
-#define PARAM_ADD_PROPERTY_TYPE(_prop_, _defaultval_, _group_, _type_, _Docu_)                     \
-    do {                                                                                           \
-        this->_prop_.setValue _defaultval_;                                                        \
-        this->_prop_.setContainer(this);                                                           \
-        propertyData.addProperty(                                                                  \
-            static_cast<App::PropertyContainer*>(this),                                            \
-            BOOST_PP_STRINGIZE(_prop_), &this->_prop_, (_group_), (_type_), (_Docu_));             \
+#define PARAM_ADD_PROPERTY_TYPE(_prop_, _defaultval_, _group_, _type_, _Docu_) \
+    do { \
+        this->_prop_.setValue _defaultval_; \
+        this->_prop_.setContainer(this); \
+        propertyData.addProperty( \
+            static_cast<App::PropertyContainer*>(this), \
+            BOOST_PP_STRINGIZE(_prop_), &this->_prop_, (_group_), (_type_), (_Docu_) \
+            ); \
     } while (0)
 
 /** Generic property adding */
-#define PARAM_PROP_ADD_(_group, _param)                                                            \
-    PARAM_ADD_PROPERTY_TYPE(PARAM_FNAME(_param),                                                   \
-                            (PARAM_FDEF(_param)),                                                  \
-                            _group,                                                                \
-                            App::Prop_None,                                                        \
-                            PARAM_FDOC(_param));
+#define PARAM_PROP_ADD_(_group, _param) \
+    PARAM_ADD_PROPERTY_TYPE( \
+        PARAM_FNAME(_param), \
+        (PARAM_FDEF(_param)), \
+        _group, \
+        App::Prop_None, \
+        PARAM_FDOC(_param) \
+    );
 
 #define PARAM_PROP_ADD_short PARAM_PROP_ADD_
 #define PARAM_PROP_ADD_long PARAM_PROP_ADD_
@@ -954,15 +865,17 @@
 #define PARAM_PROP_ADD_enum2 PARAM_PROP_ADD_enum
 
 /** Add \c enum type parameter as property */
-#define PARAM_PROP_ADD_enum(_group, _param)                                                        \
-    PARAM_ADD_PROPERTY_TYPE(PARAM_FNAME(_param),                                                   \
-                            ((long)PARAM_FDEF(_param)),                                            \
-                            _group,                                                                \
-                            App::Prop_None,                                                        \
-                            PARAM_FDOC(_param));
+#define PARAM_PROP_ADD_enum(_group, _param) \
+    PARAM_ADD_PROPERTY_TYPE( \
+        PARAM_FNAME(_param), \
+        ((long)PARAM_FDEF(_param)), \
+        _group, \
+        App::Prop_None, \
+        PARAM_FDOC(_param) \
+    );
 
 /** Helper for #PARAM_PROP_ADD */
-#define PARAM_PROP_ADD_TYPED(_1, _group, _i, _param)                                               \
+#define PARAM_PROP_ADD_TYPED(_1, _group, _i, _param) \
     PARAM_TYPED(PARAM_PROP_ADD_, _param)(_group, _param)
 
 /** Add FreeCAD properties
@@ -977,17 +890,17 @@
 #define PARAM_PROP_SET_ENUM_enum2 PARAM_PROP_SET_ENUM_enum
 
 /** Setup \c enum type parameter */
-#define PARAM_PROP_SET_ENUM_enum(_prefix, _param)                                                  \
+#define PARAM_PROP_SET_ENUM_enum(_prefix, _param) \
     PARAM_FNAME(_param).setEnums(BOOST_PP_CAT(_prefix, PARAM_FNAME(_param)));
 
 /** Helper for #PARAM_PROP_SET_ENUM */
-#define PARAM_PROP_SET_ENUM_TYPED(_1, _prefix, _param)                                             \
+#define PARAM_PROP_SET_ENUM_TYPED(_1, _prefix, _param) \
     PARAM_TYPED(PARAM_PROP_SET_ENUM_, _param)(_prefix, _param)
 
 /* Setup the \c enum string list for \c enum type properties
  * \ingroup ParamProperty
  */
-#define PARAM_PROP_SET_ENUM(_prefix, _seq)                                                         \
+#define PARAM_PROP_SET_ENUM(_prefix, _seq) \
     BOOST_PP_SEQ_FOR_EACH(PARAM_PROP_SET_ENUM_TYPED, _prefix, _seq)
 
 
@@ -1006,8 +919,8 @@
 
 
 /** Helper for #PARAM_PROP_TOUCHED */
-#define PARAM_PROP_TOUCHED_(_param)                                                                \
-    if (PARAM_FNAME(_param).isTouched())                                                           \
+#define PARAM_PROP_TOUCHED_(_param) \
+    if (PARAM_FNAME(_param).isTouched()) \
         return 1;
 
 /** Returns 1 if any properties is touched
@@ -1017,8 +930,7 @@
  *      if(name1.isTouched()) return 1;
  *      if(name2.isTouched()) return 1;
  *      ...
+ * \endcode
  * \ingroup ParamProperty
  */
 #define PARAM_PROP_TOUCHED(_seq) PARAM_FOREACH(PARAM_PROP_TOUCHED_, _seq)
-
-#endif  // PARAMS_HELPER_H

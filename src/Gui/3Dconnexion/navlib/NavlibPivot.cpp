@@ -19,8 +19,9 @@
  *   Suite 330, Boston, MA  02111-1307, USA                                *
  *                                                                         *
  ***************************************************************************/
+// clang-format off
 
-#include <PreCompiled.h>
+#include <limits>
 
 #include <QImage>
 #include <QScreen>
@@ -43,12 +44,12 @@
 
 #include <Gui/Application.h>
 #include <Gui/BitmapFactory.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 #include <Gui/View3DInventor.h>
 #include <Gui/View3DInventorViewer.h>
 #include <Gui/ViewProvider.h>
 
-constexpr float MAX_FLOAT = std::numeric_limits<float>::max();
+#include <Base/Console.h>
 
 long NavlibInterface::GetSelectionTransform(navlib::matrix_t&) const
 {
@@ -57,7 +58,7 @@ long NavlibInterface::GetSelectionTransform(navlib::matrix_t&) const
 
 long NavlibInterface::GetIsSelectionEmpty(navlib::bool_t& empty) const
 {
-    empty = !Gui::SelectionSingleton::instance().hasSelection();
+    empty = !Gui::Selection().hasSelection();
     return 0;
 }
 
@@ -66,14 +67,14 @@ long NavlibInterface::SetSelectionTransform(const navlib::matrix_t&)
     return navlib::make_result_code(navlib::navlib_errc::no_data_available);
 }
 
-long NavlibInterface::GetPivotPosition(navlib::point_t& position) const
+long NavlibInterface::GetPivotPosition(navlib::point_t&) const
 {
     return navlib::make_result_code(navlib::navlib_errc::no_data_available);
 }
 
 long NavlibInterface::SetPivotPosition(const navlib::point_t& position)
 {
-    if (pivot.pTransform == nullptr)
+    if (!pivot.pTransform)
         return navlib::make_result_code(navlib::navlib_errc::no_data_available);
 
     pivot.pTransform->translation.setValue(position.x, position.y, position.z);
@@ -88,7 +89,7 @@ long NavlibInterface::IsUserPivot(navlib::bool_t& userPivot) const
 
 long NavlibInterface::GetPivotVisible(navlib::bool_t& visible) const
 {
-    if (pivot.pVisibility == nullptr)
+    if (!pivot.pVisibility)
         return navlib::make_result_code(navlib::navlib_errc::no_data_available);
 
     visible = pivot.pVisibility->whichChild.getValue() == SO_SWITCH_ALL;
@@ -98,7 +99,7 @@ long NavlibInterface::GetPivotVisible(navlib::bool_t& visible) const
 
 long NavlibInterface::SetPivotVisible(bool visible)
 {
-    if (pivot.pVisibility == nullptr)
+    if (!pivot.pVisibility)
         return navlib::make_result_code(navlib::navlib_errc::no_data_available);
 
     if (visible)
@@ -109,56 +110,84 @@ long NavlibInterface::SetPivotVisible(bool visible)
     return 0;
 }
 
+extern template SoCamera* NavlibInterface::getCamera<SoCamera*>() const;
+
 long NavlibInterface::GetHitLookAt(navlib::point_t& position) const
 {
-    if (is2DView())
+    if (is2DView() || !is3DView())
         return navlib::make_result_code(navlib::navlib_errc::no_data_available);
 
     const Gui::View3DInventorViewer* const inventorViewer = currentView.pView3d->getViewer();
-    if (inventorViewer == nullptr)
+    if (!inventorViewer)
         return navlib::make_result_code(navlib::navlib_errc::no_data_available);
 
     SoNode* pSceneGraph = inventorViewer->getSceneGraph();
-    if (pSceneGraph == nullptr)
+    if (!pSceneGraph)
         return navlib::make_result_code(navlib::navlib_errc::no_data_available);
 
     // Prepare the ray-picking object
     SoRayPickAction rayPickAction(inventorViewer->getSoRenderManager()->getViewportRegion());
     SbMatrix cameraMatrix;
     SbVec3f closestHitPoint;
-    float minLength = MAX_FLOAT;
+    float minLength = std::numeric_limits<float>::max();
 
     // Get the camera rotation
     SoCamera* pCamera = getCamera<SoCamera*>();
 
-    if (pCamera == nullptr)
+    if (!pCamera)
         return navlib::make_result_code(navlib::navlib_errc::no_data_available);
 
     pCamera->orientation.getValue().getValue(cameraMatrix);
 
-    // Initialize the samples array if it wasn't done before
+     // Initialize the samples array if it wasn't done before
     initializePattern();
 
+    navlib::bool_t isPerspective;
+    static unsigned long error_count = 0;  // Limit the number of error messages emitted.
+    long error = GetIsViewPerspective(isPerspective);
+    if (error && error_count <= 10) {
+        Base::Console().error("GetHitLookAt: NavlibInterface::GetIsViewPerspective error %ld\n", error);
+        error_count++;
+    }
+
     for (uint32_t i = 0; i < hitTestingResolution; i++) {
-        // Scale the sample like it was defined in camera space (placed on XY plane)
-        SbVec3f transform(
-            hitTestPattern[i][0] * ray.radius, hitTestPattern[i][1] * ray.radius, 0.0f);
 
-        // Apply the model-view transform to a sample (only the rotation)
-        cameraMatrix.multVecMatrix(transform, transform);
+        SbVec3f origin;
 
-        // Calculate origin of current hit-testing ray
-        SbVec3f newOrigin = ray.origin + transform;
+        if (wasPointerPick) {
+            origin = ray.origin;
+        }
+        else {
+            // Scale the sample like it was defined in camera space (placed on XY plane)
+            SbVec3f transform(hitTestPattern[i][0] * ray.radius,
+                              hitTestPattern[i][1] * ray.radius,
+                              0.0f);
+
+            // Apply the model-view transform to a sample (only the rotation)
+            cameraMatrix.multVecMatrix(transform, transform);
+
+            // Calculate origin of current hit-testing ray
+            origin = ray.origin + transform;
+        }
 
         // Perform the hit-test
-        rayPickAction.setRay(newOrigin, ray.direction);
+        if (isPerspective) {
+            rayPickAction.setRay(origin,
+                                 ray.direction,
+                                 pCamera->nearDistance.getValue(),
+                                 pCamera->farDistance.getValue());
+        }
+        else {
+            rayPickAction.setRay(origin, ray.direction);
+        }
+
         rayPickAction.apply(pSceneGraph);
         SoPickedPoint* pickedPoint = rayPickAction.getPickedPoint();
 
         // Check if there was a hit
-        if (pickedPoint != nullptr) {
+        if (pickedPoint) {
             SbVec3f hitPoint = pickedPoint->getPoint();
-            float distance = (newOrigin - hitPoint).length();
+            float distance = (origin - hitPoint).length();
 
             // Save hit of the lowest depth
             if (distance < minLength) {
@@ -166,9 +195,14 @@ long NavlibInterface::GetHitLookAt(navlib::point_t& position) const
                 closestHitPoint = hitPoint;
             }
         }
+
+        if (wasPointerPick) {
+            wasPointerPick = false;
+            break;
+        }
     }
 
-    if (minLength < MAX_FLOAT) {
+    if (minLength < std::numeric_limits<float>::max()) {
         std::copy(closestHitPoint.getValue(), closestHitPoint.getValue() + 3, &position.x);
         return 0;
     }
@@ -187,20 +221,20 @@ long NavlibInterface::GetSelectionExtents(navlib::box_t& extents) const
                       Gui::ViewProvider* pViewProvider =
                           Gui::Application::Instance->getViewProvider(selection.pObject);
 
-                      if (pViewProvider == nullptr)
+                      if (!pViewProvider)
                           return navlib::make_result_code(navlib::navlib_errc::no_data_available);
 
-                      boundingBox.Add(pViewProvider->getBoundingBox(selection.SubName, true));
+                      boundingBox.Add(pViewProvider->getBoundingBox(selection.SubName, nullptr, true));
 
                       return 0l;
                   });
 
-    extents = {boundingBox.MinX,
-               boundingBox.MinY,
-               boundingBox.MinZ,
-               boundingBox.MaxX,
-               boundingBox.MaxY,
-               boundingBox.MaxZ};
+    extents = {{boundingBox.MinX,
+                boundingBox.MinY,
+                boundingBox.MinZ},
+               {boundingBox.MaxX,
+                boundingBox.MaxY,
+                boundingBox.MaxZ}};
 
     return 0;
 }
@@ -219,7 +253,27 @@ long NavlibInterface::SetHitDirection(const navlib::vector_t& direction)
 
 long NavlibInterface::SetHitLookFrom(const navlib::point_t& eye)
 {
-    ray.origin.setValue(eye.x, eye.y, eye.z);
+    navlib::bool_t isPerspective;
+
+    static unsigned long error_count = 0;  // Limit the number of error messages emitted.
+    long error = GetIsViewPerspective(isPerspective);
+    if (error && error_count <= 10) {
+        Base::Console().error("SetHitLookFrom: NavlibInterface::GetIsViewPerspective error %ld\n", error);
+        error_count++;
+    }
+
+    if (isPerspective) {
+        ray.origin.setValue(eye.x, eye.y, eye.z);
+    }
+    else {
+        auto pCamera = getCamera<SoCamera*>();
+        if (!pCamera) {
+            return navlib::make_result_code(navlib::navlib_errc::no_data_available);
+        }
+
+        SbVec3f position = pCamera->position.getValue();
+        ray.origin = position + orthoNearDistance * ray.direction;
+    }
     return 0;
 }
 
@@ -241,7 +295,7 @@ void NavlibInterface::initializePivot()
     pivot.pDepthTestAlways->function.setValue(SoDepthBufferElement::ALWAYS);
     pivot.pDepthTestLess->function.setValue(SoDepthBufferElement::LESS);
 
-    pivot.pivotImage = QImage(QString::fromStdString(":/icons/3dx_pivot.png"));
+    pivot.pivotImage = QImage(QStringLiteral(":/icons/3dx_pivot.png"));
     Gui::BitmapFactory().convert(pivot.pivotImage, pivot.pImage->image);
 
     pivot.pVisibility->ref();

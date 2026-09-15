@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2012 Yorik van Havre <yorik@uncreated.net>              *
  *   Copyright (c) 2015 WandererFan <wandererfan@gmail.com>                *
@@ -21,7 +23,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <App/Link.h>
 
@@ -69,25 +70,15 @@ void DrawViewClip::onChanged(const App::Property* prop)
 
 void DrawViewClip::addView(App::DocumentObject* docObj)
 {
-    if (!docObj->isDerivedFrom<DrawView>() && !docObj->isDerivedFrom<App::Link>()) {
+    if(docObj->isDerivedFrom<App::Link>()) {
+        auto* link = static_cast<App::Link*>(docObj);
+        docObj = link->getLinkedObject();
+    }
+
+    if (!docObj->isDerivedFrom<DrawView>()) {
         return;
     }
-
-    auto* view = dynamic_cast<DrawView*>(docObj);
-
-    if (!view) {
-        auto* link = dynamic_cast<App::Link*>(docObj);
-        if (!link) {
-            return;
-        }
-
-        if (link) {
-            view = dynamic_cast<DrawView*>(link->getLinkedObject());
-            if (!view) {
-                return;
-            }
-        }
-    }
+    auto* view = static_cast<DrawView*>(docObj);
 
     std::vector<App::DocumentObject*> newViews(Views.getValues());
     newViews.push_back(docObj);
@@ -129,11 +120,11 @@ std::vector<App::DocumentObject*> DrawViewClip::getViews() const
     std::vector<App::DocumentObject*> views = Views.getValues();
     std::vector<App::DocumentObject*> allViews;
     for (auto& v : views) {
-        if (v->isDerivedFrom(App::Link::getClassTypeId())) {
+        if (v->isDerivedFrom<App::Link>()) {
             v = static_cast<App::Link*>(v)->getLinkedObject();
         }
 
-        if (!v->isDerivedFrom(DrawView::getClassTypeId())) {
+        if (!v->isDerivedFrom<DrawView>()) {
             continue;
         }
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jan Rheinländer                                    *
  *                                   <jrheinlaender@users.sourceforge.net> *
@@ -21,11 +23,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
-#endif
-
 #include "Gui/Control.h"
 #include <Mod/Fem/App/FemConstraintFixed.h>
 
@@ -41,7 +38,7 @@ PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintFixed, FemGui::ViewProviderFemC
 ViewProviderFemConstraintFixed::ViewProviderFemConstraintFixed()
 {
     sPixmap = "FEM_ConstraintFixed";
-    loadSymbol((resourceSymbolDir + "ConstraintFixed.iv").c_str());
+    loadSymbol(resourceSymbolDir / "ConstraintFixed.iv");
 }
 
 ViewProviderFemConstraintFixed::~ViewProviderFemConstraintFixed() = default;

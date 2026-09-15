@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2021 FreeCAD Developers                                 *
  *   Author: Preslav Aleksandrov <preslav.aleksandrov@protonmail.com>      *
@@ -21,7 +23,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include "FemConstraintSpring.h"
 

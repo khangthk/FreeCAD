@@ -1,18 +1,4 @@
-include_directories(
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_BINARY_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${COIN3D_INCLUDE_DIRS}
-    ${OCC_INCLUDE_DIR}
-    ${PYTHON_INCLUDE_DIRS}
-    ${XercesC_INCLUDE_DIRS}
-    ${ZLIB_INCLUDE_DIR}
-)
-link_directories(${OCC_LIBRARY_DIR})
-
-link_directories(${OCC_LIBRARY_DIR})
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 set(MeasureGui_LIBS
     Measure
@@ -31,13 +17,18 @@ set (Measure_TR_QRC ${CMAKE_CURRENT_BINARY_DIR}/Resources/Measure_translation.qr
 qt_find_and_add_translation(QM_SRCS "Resources/translations/*_*.ts"
     ${CMAKE_CURRENT_BINARY_DIR}/Resources/translations)
 qt_create_resource_file(${Measure_TR_QRC} ${QM_SRCS})
-qt_add_resources(MeasureGui_SRCS Resources/Measure.qrc ${Measure_TR_QRC})
+qt_add_resources(MeasureGui_SRCS
+    Resources/Measure.qrc
+    ${Measure_TR_QRC}
+    OPTIONS ${FREECAD_RCC_OPTIONS}
+)
 
 SET(MeasureGui_UIC_SRCS
     DlgPrefsMeasureAppearanceImp.ui
+    TaskMassProperties.ui
 )
 
-generate_from_xml(QuickMeasurePy)
+generate_from_py(QuickMeasure)
 
 SET(MeasureGui_SRCS
     ${CMAKE_SOURCE_DIR}/src/Mod/Measure/InitGui.py
@@ -45,22 +36,26 @@ SET(MeasureGui_SRCS
     AppMeasureGui.cpp
     Command.cpp
     Resources/Measure.qrc
-    PreCompiled.cpp
     PreCompiled.h
-    QuickMeasurePy.xml
+    QuickMeasure.pyi
     QuickMeasurePyImp.cpp
     QuickMeasure.cpp
     QuickMeasure.h
     TaskMeasure.cpp
     TaskMeasure.h
+    TaskMassProperties.ui
+    TaskMassProperties.cpp
+    TaskMassProperties.h
     ViewProviderMeasureBase.cpp
     ViewProviderMeasureBase.h
     ViewProviderMeasureAngle.cpp
     ViewProviderMeasureAngle.h
     ViewProviderMeasureDistance.cpp
     ViewProviderMeasureDistance.h
-    WorkbenchManipulator.cpp
-    WorkbenchManipulator.h
+    SoScreenSpaceScale.cpp
+    SoScreenSpaceScale.h
+    ViewProviderMassPropertiesResult.cpp
+    ViewProviderMassPropertiesResult.h
     DlgPrefsMeasureAppearanceImp.ui
     DlgPrefsMeasureAppearanceImp.cpp
     DlgPrefsMeasureAppearanceImp.h
@@ -76,23 +71,35 @@ SET(MeasureGuiTaskDlgs_SRCS
 #    ../InitGui.py
 #)
 
-if(FREECAD_USE_PCH)
-    add_definitions(-D_PreComp_)
-    GET_MSVC_PRECOMPILED_SOURCE("PreCompiled.cpp" PCH_SRCS ${MeasureGui_SRCS})
-    ADD_MSVC_PRECOMPILED_HEADER(MeasureGui PreCompiled.h PreCompiled.cpp PCH_SRCS)
-endif(FREECAD_USE_PCH)
-
 SET(MeasureGuiIcon_SVG
     Resources/icons/preferences-measure.svg
 )
 
 add_library(MeasureGui SHARED ${MeasureGui_SRCS} ${MeasureGuiIcon_SVG})
+
+if(FREECAD_USE_PCH)
+    target_precompile_headers(MeasureGui PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_LIST_DIR}/PreCompiled.h">
+    )
+endif(FREECAD_USE_PCH)
+
+target_include_directories(
+    MeasureGui
+    PRIVATE
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_BINARY_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
 target_link_libraries(MeasureGui ${MeasureGui_LIBS})
-if (FREECAD_WARN_ERROR)
-    target_compile_warn_error(MeasureGui)
+
+if (MSVC)
+    target_compile_options(MeasureGui PRIVATE /wd4251 /wd4273)
 endif()
 
-SET_BIN_DIR(MeasureGui MeasureGui /Mod/Measure)
+target_compile_warn_error(MeasureGui)
+
+SET_BIN_DIR(MeasureGui)
 SET_PYTHON_PREFIX_SUFFIX(MeasureGui)
 
 fc_copy_sources(MeasureGui "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}/Mod/Measure/" ${MeasureGuiIcon_SVG})

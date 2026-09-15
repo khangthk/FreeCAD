@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 #include <gtest/gtest.h>
 #include <Base/FileInfo.h>
 #include <Base/Interpreter.h>
@@ -22,11 +24,11 @@ protected:
         fileInfo.setFile(Base::FileInfo::getTempFileName() + ".stl");
 
         const double value = 10.0;
-        cube1 = dynamic_cast<Mesh::Cube*>(document->addObject("Mesh::Cube", "Cube1"));
+        cube1 = document->addObject<Mesh::Cube>("Cube1");
         cube1->Length.setValue(value);
         cube1->Width.setValue(value);
         cube1->Height.setValue(value);
-        cube2 = dynamic_cast<Mesh::Cube*>(document->addObject("Mesh::Cube", "Cube2"));
+        cube2 = document->addObject<Mesh::Cube>("Cube2");
         cube2->Length.setValue(value);
         cube2->Width.setValue(value);
         cube2->Height.setValue(value);
@@ -130,7 +132,7 @@ TEST_F(ExporterTest, TestMeshesInPart)
 
     // add extra scope because the file will be written when destroying the exporter
     {
-        auto part = dynamic_cast<App::Part*>(getDocument()->addObject("App::Part", "Part"));
+        auto part = getDocument()->addObject<App::Part>("Part");
         part->placement().setValue(plm);
         part->addObjects(getObjects());
         Mesh::MergeExporter exporter(getFileName(), MeshCore::MeshIO::Format::STL);

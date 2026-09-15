@@ -1,30 +1,31 @@
-# -*- coding: utf-8 -*-
-# ***************************************************************************
-# *   Copyright (c) 2014 Yorik van Havre <yorik@uncreated.net>              *
-# *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
-# *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
-# *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
-# *                                                                         *
-# ***************************************************************************
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-FileCopyrightText: 2014 Yorik van Havre yorik@uncreated.net
+# SPDX-FileNotice: Part of the FreeCAD project.
+
+################################################################################
+#                                                                              #
+#   FreeCAD is free software: you can redistribute it and/or modify            #
+#   it under the terms of the GNU Lesser General Public License as             #
+#   published by the Free Software Foundation, either version 2.1              #
+#   of the License, or (at your option) any later version.                     #
+#                                                                              #
+#   FreeCAD is distributed in the hope that it will be useful,                 #
+#   but WITHOUT ANY WARRANTY; without even the implied warranty                #
+#   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    #
+#   See the GNU Lesser General Public License for more details.                #
+#                                                                              #
+#   You should have received a copy of the GNU Lesser General Public           #
+#   License along with FreeCAD. If not, see https://www.gnu.org/licenses       #
+#                                                                              #
+################################################################################
 
 import FreeCAD
-import FreeCADGui
+import re
 import os
 import Path
 import Path.Op.Base as PathOp
+import Constants
+from PathScripts import PathUtils
 
 from PySide.QtCore import QT_TRANSLATE_NOOP
 
@@ -68,7 +69,7 @@ class ObjectCustom(PathOp.ObjectOp):
         if dataType == "raw":
             return enums
 
-        data = list()
+        data = []
         idx = 0 if dataType == "translated" else 1
 
         Path.Log.debug(enums)
@@ -104,6 +105,14 @@ class ObjectCustom(PathOp.ObjectOp):
             QT_TRANSLATE_NOOP("App::Property", "The G-code to be inserted"),
         )
 
+        obj.addProperty(
+            "App::PropertyBool",
+            "PostProcessOutput",
+            "Path",
+            QT_TRANSLATE_NOOP("App::Property", "Pass Custom G-code through Post Processor"),
+        )
+        obj.PostProcessOutput = True
+
         # populate the property enumerations
         for n in self.propertyEnumerations():
             setattr(obj, n[0], n[1])
@@ -114,6 +123,9 @@ class ObjectCustom(PathOp.ObjectOp):
     def onChanged(self, obj, prop):
         if prop == "Source":
             self.setEditorModes(obj)
+
+        if prop == "Active" and obj.ViewObject:
+            obj.ViewObject.signalChangeIcon()
 
     def opOnDocumentRestored(self, obj):
         if not hasattr(obj, "Source"):
@@ -131,13 +143,17 @@ class ObjectCustom(PathOp.ObjectOp):
                 "Path",
                 "File containing gcode to be inserted",
             )
-
+        if not hasattr(obj, "PostProcessOutput"):
+            obj.addProperty(
+                "App::PropertyBool",
+                "PostProcessOutput",
+                "Path",
+                QT_TRANSLATE_NOOP("App::Property", "Pass Custom G-code through Post Processor"),
+            )
+            obj.PostProcessOutput = True
         # populate the property enumerations
         for n in self.propertyEnumerations():
             setattr(obj, n[0], n[1])
-
-    def onDocumentRestore(self, obj):
-        self.setEditorModes(self, obj)
 
     def setEditorModes(self, obj, features=None):
         if not hasattr(obj, "Source"):
@@ -161,30 +177,81 @@ class ObjectCustom(PathOp.ObjectOp):
         if os.path.exists(prospective_path):
             return prospective_path
 
+    def parseExpressions(self, obj, line, index):
+        pattern = r"\{\{(.+?)\}\}"
+        while match := re.search(pattern, line):
+            expr = match.group(1)
+            try:
+                value = obj.evalExpression(expr)
+            except Exception:
+                Path.Log.warning(
+                    translate("PathCustom", "Can not parse expression from line %s: %s")
+                    % (index, line)
+                )
+                obj.Path = Path.Path()
+                raise Exception("Can not parse expression!")
+            line = re.sub(pattern, str(value), line, count=1)
+        return line
+
+    def processLines(self, obj, lines):
+        for i, line in enumerate(lines, 1):
+            if line.startswith("!"):
+                newcommand = Path.Command("", {}, {Constants.ANNOT_AS_IS: line[1:]})
+                self.commandlist.append(newcommand)
+            elif not obj.PostProcessOutput:
+                newcommand = Path.Command("", {}, {Constants.ANNOT_AS_IS: line})
+                self.commandlist.append(newcommand)
+            else:
+                line = line.strip()
+                line = self.parseExpressions(obj, line, i)
+                try:
+                    # Custom is strict: supported+non-conforming, or mark "as-is"
+                    newcommand = Path.Command(line, {})
+                    self.commandlist.append(newcommand)
+                except ValueError:
+                    if len(self.errors) < 7:
+                        self.errors.append((i, line))
+                    else:
+                        self.errors.append((i, None))
+
     def opExecute(self, obj):
+        self.errors = []
         self.commandlist.append(Path.Command("(Begin Custom)"))
 
+        if not obj.PostProcessOutput and (job := PathUtils.findParentJob(obj)) and not job.Machine:
+            Path.Log.warning(
+                translate(
+                    "PathCustom",
+                    "Pass Custom G-code through Post Processor"
+                    " should be enabled for legacy post processor",
+                )
+            )
         if obj.Source == "Text" and obj.Gcode:
-            for l in obj.Gcode:
-                newcommand = Path.Command(str(l))
-                self.commandlist.append(newcommand)
-        elif obj.Source == "File" and len(obj.GcodeFile) > 0:
+            self.processLines(obj, obj.Gcode)
+        elif obj.Source == "File" and obj.GcodeFile:
             gcode_file = self.findGcodeFile(obj.GcodeFile)
-
-            # could not determine the path
-            if not gcode_file:
+            if not gcode_file:  # could not determine the path
                 Path.Log.error(
                     translate("PathCustom", "Custom file %s could not be found.") % obj.GcodeFile
                 )
-
+                obj.Path = Path.Path()
+                return
             with open(gcode_file) as fd:
-                for l in fd.readlines():
-                    try:
-                        newcommand = Path.Command(str(l))
-                        self.commandlist.append(newcommand)
-                    except ValueError:
-                        Path.Log.warning(translate("PathCustom", "Invalid G-code line: %s") % l)
-                        continue
+                self.processLines(obj, fd.readlines())
+
+        if self.errors:
+            Path.Log.warning(
+                translate("PathCustom", "Total invalid lines in Custom G-code: %s")
+                % len(self.errors)
+            )
+
+            errorNums = ", ".join((str(i) for i, _ in self.errors))
+            Path.Log.warning(translate("PathCustom", "Check lines: %s") % errorNums)
+
+            errorLines = "\n" + "\n".join((f"{i} {line}" for i, line in self.errors[:7]))
+            if len(self.errors) > 7:
+                errorLines += "\n..."
+            Path.Log.warning(errorLines)
 
         self.commandlist.append(Path.Command("(End Custom)"))
 

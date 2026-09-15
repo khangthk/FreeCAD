@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef TECHDRAWGUI_TASKCOSMETICCIRCLE_H
-#define TECHDRAWGUI_TASKCOSMETICCIRCLE_H
+#pragma once
 
 #include <Base/Vector3D.h>
 #include <Gui/TaskView/TaskDialog.h>
@@ -66,6 +67,7 @@ public:
 
 protected Q_SLOTS:
     void radiusChanged();
+    void arcButtonClicked();
 
 protected:
     void changeEvent(QEvent *e) override;
@@ -75,6 +77,8 @@ protected:
 
     void createCosmeticCircle();
     void updateCosmeticCircle();
+
+    void enableArcWidgets(bool newState);
 
 private:
     std::unique_ptr<Ui_TaskCosmeticCircle> ui;
@@ -126,6 +130,3 @@ private:
 };
 
 } //namespace TechDrawGui
-
-#endif // #ifndef TECHDRAWGUI_TASKCOSMETICCIRCLE_H
-

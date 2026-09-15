@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Authors: Michael Hindley <hindlemp@eskom.co.za>                       *
@@ -23,13 +25,12 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef GUI_TASKVIEW_TaskFemConstraintDisplacement_H
-#define GUI_TASKVIEW_TaskFemConstraintDisplacement_H
+#pragma once
 
 #include <QObject>
 #include <memory>
 
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 #include <Gui/TaskView/TaskView.h>
 
 #include "TaskFemConstraint.h"
@@ -46,8 +47,10 @@ class TaskFemConstraintDisplacement: public TaskFemConstraintOnBoundary
     Q_OBJECT
 
 public:
-    explicit TaskFemConstraintDisplacement(ViewProviderFemConstraintDisplacement* ConstraintView,
-                                           QWidget* parent = nullptr);
+    explicit TaskFemConstraintDisplacement(
+        ViewProviderFemConstraintDisplacement* ConstraintView,
+        QWidget* parent = nullptr
+    );
     ~TaskFemConstraintDisplacement() override;
 
     const std::string getReferences() const override;
@@ -98,11 +101,8 @@ class TaskDlgFemConstraintDisplacement: public TaskDlgFemConstraint
     Q_OBJECT
 
 public:
-    explicit TaskDlgFemConstraintDisplacement(
-        ViewProviderFemConstraintDisplacement* ConstraintView);
+    explicit TaskDlgFemConstraintDisplacement(ViewProviderFemConstraintDisplacement* ConstraintView);
     bool accept() override;
 };
 
 }  // namespace FemGui
-
-#endif  // GUI_TASKVIEW_TaskFemConstraintDisplacement_H

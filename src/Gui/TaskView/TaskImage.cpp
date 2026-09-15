@@ -21,8 +21,6 @@
  *                                                                         *
  **************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <QDialog>
 #include <QPushButton>
 #include <QAction>
@@ -33,7 +31,6 @@
 #include <Inventor/events/SoButtonEvent.h>
 #include <Inventor/events/SoMouseButtonEvent.h>
 #include <Inventor/events/SoKeyboardEvent.h>
-#endif
 
 #include <Base/Console.h>
 #include <Base/Precision.h>
@@ -45,6 +42,8 @@
 #include <Gui/Camera.h>
 #include <Gui/Document.h>
 #include <Gui/EditableDatumLabel.h>
+#include <Gui/InputHint.h>
+#include <Gui/MainWindow.h>
 #include <Gui/View3DInventor.h>
 #include <Gui/View3DInventorViewer.h>
 #include <Gui/ViewProviderDocumentObject.h>
@@ -153,25 +152,29 @@ void TaskImage::changeTransparency(int val)
     }
 }
 
-void TaskImage::changeWidth(double val)
+void TaskImage::changeWidth()
 {
     if (!feature.expired()) {
+        double val = ui->spinBoxWidth->value().getValue();
         feature->XSize.setValue(val);
 
         if (ui->checkBoxRatio->isChecked()) {
-            QSignalBlocker block(ui->spinBoxWidth);
+            feature->YSize.setValue(val / aspectRatio);
+            QSignalBlocker block(ui->spinBoxHeight);
             ui->spinBoxHeight->setValue(val / aspectRatio);
         }
     }
 }
 
-void TaskImage::changeHeight(double val)
+void TaskImage::changeHeight()
 {
     if (!feature.expired()) {
+        double val = ui->spinBoxHeight->value().getValue();
         feature->YSize.setValue(val);
 
         if (ui->checkBoxRatio->isChecked()) {
-            QSignalBlocker block(ui->spinBoxHeight);
+            feature->XSize.setValue(val * aspectRatio);
+            QSignalBlocker block(ui->spinBoxWidth);
             ui->spinBoxWidth->setValue(val * aspectRatio);
         }
     }
@@ -182,7 +185,7 @@ View3DInventorViewer* TaskImage::getViewer() const
     if (!feature.expired()) {
         auto vp = Application::Instance->getViewProvider(feature.get());
         auto doc = static_cast<ViewProviderDocumentObject*>(vp)->getDocument();  // NOLINT
-        auto view = dynamic_cast<View3DInventor*>(doc->getViewOfViewProvider(vp));
+        auto view = qobject_cast<View3DInventor*>(doc->getViewOfViewProvider(vp));
         if (view) {
             return view->getViewer();
         }
@@ -204,6 +207,31 @@ void TaskImage::scaleImage(double factor)
     }
 }
 
+void TaskImage::showToolHints() const
+{
+    using enum Gui::InputHint::UserInput;
+    InteractiveScaleState state = scale->getState();
+
+    InputHint snap = {tr("%1 snap angle"), {ModifierCtrl}};
+    InputHint toggleCenter = {tr("%1 toggle centering"), {KeyC}};
+    InputHint toggleRotation = {tr("%1 toggle rotating to line"), {KeyR}};
+    InputHint acceptDistance = {tr("%1 accept distance"), {KeyEnter}};
+
+    std::list<Gui::InputHint> hints = Gui::lookupHints<InteractiveScaleState>(
+        state,
+        {
+            {.state = InteractiveScaleState::PickingFirst,
+             .hints = {{tr("%1 pick first point"), {MouseLeft}}, toggleCenter, toggleRotation}},
+            {.state = InteractiveScaleState::PickingSecond,
+             .hints = {snap, {tr("%1 pick second point"), {MouseLeft}}, toggleCenter, toggleRotation}},
+            {.state = InteractiveScaleState::Pending, .hints = {acceptDistance}},
+        }
+    );
+
+    Gui::getMainWindow()->showHints(hints);
+}
+
+
 void TaskImage::startScale()
 {
     if (scale) {
@@ -211,20 +239,67 @@ void TaskImage::startScale()
         ui->pushButtonScale->hide();
         ui->groupBoxCalibration->show();
         ui->pushButtonApply->setEnabled(false);
+
+        ui->spinBoxWidth->setEnabled(false);
+        ui->spinBoxHeight->setEnabled(false);
+
+        showToolHints();
     }
 }
 
 void TaskImage::acceptScale()
 {
     if (scale) {
+        bool update = false;
+        if (ui->checkBoxCenterMidpoint->isChecked()) {
+            SbVec3f midpoint = scale->getMidPoint() * scale->getScaleFactor();
+            ui->spinBoxX->setValue(-midpoint[0]);
+            ui->spinBoxY->setValue(-midpoint[1]);
+            update = true;
+        }
+        if (ui->checkBoxOrient->isChecked()) {
+            applyOrientation();
+            update = true;
+        }
+        if (update) {
+            updatePlacement();
+        }
+
         scaleImage(scale->getScaleFactor());
         rejectScale();
     }
 }
 
+void TaskImage::applyOrientation()
+{
+    // Get the display angle we'll use as the snap base
+    double placementAngle = ui->spinBoxRotation->value().getValue();
+    float lineAngle = scale->getAngleDegrees();
+    float displayAngle = placementAngle + lineAngle;
+
+    // Figure out where to snap the measured angle and the adjustment we'll apply
+    const float snapSize = 45.0;
+    float snapTarget = snapSize * std::round(displayAngle / snapSize);
+    float adjustment = snapTarget - displayAngle;
+
+    float newAngle = placementAngle + adjustment;
+
+    ui->spinBoxRotation->setValue(newAngle);
+}
+
 void TaskImage::enableApplyBtn()
 {
     ui->pushButtonApply->setEnabled(true);
+}
+
+void TaskImage::toggleRotation()
+{
+    ui->checkBoxOrient->toggle();
+}
+
+void TaskImage::toggleCentering()
+{
+    ui->checkBoxCenterMidpoint->toggle();
 }
 
 void TaskImage::rejectScale()
@@ -233,6 +308,11 @@ void TaskImage::rejectScale()
         scale->deactivate();
         ui->pushButtonScale->show();
         ui->groupBoxCalibration->hide();
+
+        ui->spinBoxWidth->setEnabled(true);
+        ui->spinBoxHeight->setEnabled(true);
+
+        showToolHints();
     }
 }
 
@@ -246,6 +326,9 @@ void TaskImage::onInteractiveScale()
             connect(scale, &InteractiveScale::scaleRequired, this, &TaskImage::acceptScale);
             connect(scale, &InteractiveScale::scaleCanceled, this, &TaskImage::rejectScale);
             connect(scale, &InteractiveScale::enableApplyBtn, this, &TaskImage::enableApplyBtn);
+            connect(scale, &InteractiveScale::showToolHints, this, &TaskImage::showToolHints);
+            connect(scale, &InteractiveScale::toggleRotation, this, &TaskImage::toggleRotation);
+            connect(scale, &InteractiveScale::toggleCentering, this, &TaskImage::toggleCentering);
         }
     }
 
@@ -422,9 +505,11 @@ void TaskImage::updatePlacement()
     }
     // NOLINTEND
 
-    Base::Vector3d offset = Base::Vector3d(ui->spinBoxX->value().getValue(),
-                                           ui->spinBoxY->value().getValue(),
-                                           ui->spinBoxZ->value().getValue());
+    Base::Vector3d offset = Base::Vector3d(
+        ui->spinBoxX->value().getValue(),
+        ui->spinBoxY->value().getValue(),
+        ui->spinBoxZ->value().getValue()
+    );
     offset = rot.multVec(offset);
     Pos = Base::Placement(offset, rot);
 
@@ -451,22 +536,24 @@ void TaskImage::updateIcon()
     }
 
     ui->previewLabel->setPixmap(
-        Gui::BitmapFactory().pixmapFromSvg(icon.c_str(), ui->previewLabel->size()));
+        Gui::BitmapFactory().pixmapFromSvg(icon.c_str(), ui->previewLabel->size())
+    );
 }
 
 // ----------------------------------------------------------------------------
 
-InteractiveScale::InteractiveScale(View3DInventorViewer* view,
-                                   ViewProvider* vp,
-                                   const Base::Placement& plc)  // NOLINT
+InteractiveScale::InteractiveScale(
+    View3DInventorViewer* view,
+    ViewProvider* vp,
+    const Base::Placement& plc
+)  // NOLINT
     : active(false)
     , placement(plc)
     , viewer(view)
     , viewProv(vp)
-    , midPoint(SbVec3f(0, 0, 0))
 {
-    measureLabel =
-        new EditableDatumLabel(viewer, placement, SbColor(1.0F, 0.149F, 0.0F));  // NOLINT
+    measureLabel = new EditableDatumLabel(viewer, placement);  // NOLINT
+    measureLabel->setActivatedColor();
 }
 
 InteractiveScale::~InteractiveScale()
@@ -474,18 +561,37 @@ InteractiveScale::~InteractiveScale()
     delete measureLabel;
 }
 
+InteractiveScaleState InteractiveScale::getState() const
+{
+    if (!active) {
+        return InteractiveScaleState::Inactive;
+    }
+    else if (points.size() == 0) {
+        return InteractiveScaleState::PickingFirst;
+    }
+    else if (points.size() == 1) {
+        return InteractiveScaleState::PickingSecond;
+    }
+    else {
+        return InteractiveScaleState::Pending;
+    }
+}
+
+
 void InteractiveScale::activate()
 {
     if (viewer) {
         viewer->setEditing(true);
-        viewer->addEventCallback(SoLocation2Event::getClassTypeId(),
-                                 InteractiveScale::getMousePosition,
-                                 this);
-        viewer->addEventCallback(SoButtonEvent::getClassTypeId(),
-                                 InteractiveScale::soEventFilter,
-                                 this);
+        viewer->addEventCallback(
+            SoLocation2Event::getClassTypeId(),
+            InteractiveScale::getMousePosition,
+            this
+        );
+        viewer->addEventCallback(SoButtonEvent::getClassTypeId(), InteractiveScale::soEventFilter, this);
         viewer->setSelectionEnabled(false);
         viewer->getWidget()->setCursor(QCursor(Qt::CrossCursor));
+        // Focus the 3D view so our keybinds won't appear to be broken
+        viewer->setFocus();
         active = true;
     }
 }
@@ -496,15 +602,20 @@ void InteractiveScale::deactivate()
         points.clear();
         measureLabel->deactivate();
         viewer->setEditing(false);
-        viewer->removeEventCallback(SoLocation2Event::getClassTypeId(),
-                                    InteractiveScale::getMousePosition,
-                                    this);
-        viewer->removeEventCallback(SoButtonEvent::getClassTypeId(),
-                                    InteractiveScale::soEventFilter,
-                                    this);
+        viewer->removeEventCallback(
+            SoLocation2Event::getClassTypeId(),
+            InteractiveScale::getMousePosition,
+            this
+        );
+        viewer->removeEventCallback(
+            SoButtonEvent::getClassTypeId(),
+            InteractiveScale::soEventFilter,
+            this
+        );
         viewer->setSelectionEnabled(true);
         viewer->getWidget()->setCursor(QCursor(Qt::ArrowCursor));
         active = false;
+        Gui::getMainWindow()->hideHints();
     }
 }
 
@@ -517,6 +628,25 @@ double InteractiveScale::getScaleFactor() const
     return measureLabel->getValue() / (points[0] - points[1]).length();
 }
 
+double InteractiveScale::getAngleDegrees() const
+{
+    if (points.size() < 2) {
+        return 0.0;
+    }
+
+    SbVec3f delta = points[1] - points[0];
+    return Base::toDegrees(std::atan2(delta[1], delta[0]));
+}
+
+SbVec3f InteractiveScale::getMidPoint() const
+{
+    if (points.size() < 2) {
+        return {0.0F, 0.0F, 0.0F};
+    }
+
+    return (points[0] + points[1]) / 2;
+}
+
 double InteractiveScale::getDistance(const SbVec3f& pt) const
 {
     if (points.empty()) {
@@ -524,6 +654,23 @@ double InteractiveScale::getDistance(const SbVec3f& pt) const
     }
 
     return (points[0] - pt).length();
+}
+
+SbVec3f InteractiveScale::snapAtAngle(const SbVec3f& pt) const
+{
+    if (points.size() < 1) {
+        return pt;
+    }
+    const SbVec3f& first = points[0];
+    SbVec3f delta = pt - first;
+
+    float angle = std::atan2(delta[1], delta[0]);
+    // Snap in radians, since we'll use them for the vector
+    const float snapSize = Base::toRadians(5.0);
+    angle = snapSize * round(angle / snapSize);
+
+    SbVec3f snapPos = first + delta.length() * SbVec3f {cos(angle), sin(angle), 0.0F};
+    return snapPos;
 }
 
 void InteractiveScale::setDistance(const SbVec3f& pos3d)
@@ -534,11 +681,11 @@ void InteractiveScale::setDistance(const SbVec3f& pos3d)
 
     // Update the displayed distance
     double factor {};
-    QString unitStr;
-    QString valueStr;
+    std::string unitStr;
+    std::string valueStr;
     valueStr = quantity.getUserString(factor, unitStr);
-    measureLabel->label->string = SbString(valueStr.toUtf8().constData());
-    measureLabel->label->setPoints(getCoordsOnImagePlane(points[0]), getCoordsOnImagePlane(pos3d));
+    measureLabel->label->string = SbString(valueStr.c_str());
+    measureLabel->label->setPoints(points[0], pos3d);
 }
 
 void InteractiveScale::findPointOnImagePlane(SoEventCallback* ecb)
@@ -555,26 +702,34 @@ void InteractiveScale::findPointOnImagePlane(SoEventCallback* ecb)
 
 void InteractiveScale::collectPoint(const SbVec3f& pos3d)
 {
+    SbVec3f planePoint = getCoordsOnImagePlane(pos3d);
     if (points.empty()) {
-        points.push_back(pos3d);
+        points.push_back(planePoint);
 
-        measureLabel->label->setPoints(getCoordsOnImagePlane(pos3d), getCoordsOnImagePlane(pos3d));
+        measureLabel->label->setPoints(planePoint, planePoint);
         measureLabel->activate();
+        Q_EMIT showToolHints();
     }
     else if (points.size() == 1) {
-        double distance = getDistance(pos3d);
+        // Snap when Ctrl is held
+        if (QApplication::keyboardModifiers() == Qt::ControlModifier) {
+            planePoint = snapAtAngle(planePoint);
+        }
+
+        double distance = getDistance(planePoint);
         if (distance > Base::Precision::Confusion()) {
-            points.push_back(pos3d);
+            points.push_back(planePoint);
 
-            midPoint = (points[0] + points[1]) / 2;
+            measureLabel->startEdit(distance, this, true);
 
-            measureLabel->startEdit(getDistance(points[1]), this, true);
-
+            Q_EMIT showToolHints();
             Q_EMIT enableApplyBtn();
         }
         else {
-            Base::Console().Warning(std::string("Image scale"),
-                                    "The second point is too close. Retry!\n");
+            Base::Console().warning(
+                std::string("Image scale"),
+                "The second point is too close. Retry!\n"
+            );
         }
     }
 }
@@ -590,7 +745,13 @@ void InteractiveScale::getMousePosition(void* ud, SoEventCallback* ecb)
 
         std::unique_ptr<SoPickedPoint> pp(view->getPointOnRay(l2e->getPosition(), scale->viewProv));
         if (pp) {
-            SbVec3f pos3d = pp->getPoint();
+            SbVec3f pos3d = scale->getCoordsOnImagePlane(pp->getPoint());
+
+            // Snap when Ctrl is held
+            if (QApplication::keyboardModifiers() == Qt::ControlModifier) {
+                pos3d = scale->snapAtAngle(pos3d);
+            }
+
             scale->setDistance(pos3d);
         }
     }
@@ -602,12 +763,31 @@ void InteractiveScale::soEventFilter(void* ud, SoEventCallback* ecb)
 
     const SoEvent* soEvent = ecb->getEvent();
     if (soEvent->isOfType(SoKeyboardEvent::getClassTypeId())) {
-        /* If user presses escape, then we cancel the tool.*/
         const auto kbe = static_cast<const SoKeyboardEvent*>(soEvent);  // NOLINT
 
-        if (kbe->getKey() == SoKeyboardEvent::ESCAPE && kbe->getState() == SoButtonEvent::UP) {
-            ecb->setHandled();
-            Q_EMIT scale->scaleCanceled();
+        // We only care about release events
+        if (kbe->getState() != SoButtonEvent::UP) {
+            return;
+        }
+
+        switch (kbe->getKey()) {
+            case SoKeyboardEvent::ESCAPE:
+                // Cancel the tool
+                ecb->setHandled();
+                Q_EMIT scale->scaleCanceled();
+                break;
+            case SoKeyboardEvent::R:
+                // Toggle rotating the image by the line
+                ecb->setHandled();
+                Q_EMIT scale->toggleRotation();
+                break;
+            case SoKeyboardEvent::C:
+                // Toggle centering the image on midpoint
+                ecb->setHandled();
+                Q_EMIT scale->toggleCentering();
+                break;
+            default:
+                break;
         }
     }
     else if (soEvent->isOfType(SoMouseButtonEvent::getClassTypeId())) {
@@ -633,7 +813,7 @@ bool InteractiveScale::eventFilter(QObject* object, QEvent* event)
 
         /* If user press enter in the spinbox, then we validate the tool.*/
         if ((keyEvent->key() == Qt::Key_Enter || keyEvent->key() == Qt::Key_Return)
-            && dynamic_cast<QuantitySpinBox*>(object)) {
+            && qobject_cast<QuantitySpinBox*>(object)) {
             Q_EMIT scaleRequired();
         }
 
@@ -652,7 +832,7 @@ void InteractiveScale::setPlacement(const Base::Placement& plc)
     measureLabel->setPlacement(plc);
 }
 
-SbVec3f InteractiveScale::getCoordsOnImagePlane(const SbVec3f& point)
+SbVec3f InteractiveScale::getCoordsOnImagePlane(const SbVec3f& point) const
 {
     // Plane form
     Base::Vector3d RX(1, 0, 0);
@@ -679,9 +859,7 @@ TaskImageDialog::TaskImageDialog(Image::ImagePlane* obj)
 {
     addTaskBox(Gui::BitmapFactory().pixmap("image-plane"), widget);
 
-    auto doc = obj->getDocument();
-    setDocumentName(doc->getName());
-    setAutoCloseOnDeletedDocument(true);
+    associateToObject3dView(obj);
 }
 
 void TaskImageDialog::open()

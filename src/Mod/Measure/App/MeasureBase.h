@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Friedli <david[at]friedli-be.ch>             *
  *                                                                         *
@@ -20,13 +22,11 @@
  **************************************************************************/
 
 
-#ifndef MEASURE_MEASUREBASE_H
-#define MEASURE_MEASUREBASE_H
+#pragma once
 
 #include <Mod/Measure/MeasureGlobal.h>
 
 #include <memory>
-#include <QString>
 
 #include <App/DocumentObject.h>
 #include <App/MeasureManager.h>
@@ -40,8 +40,6 @@
 #include <Base/Interpreter.h>
 
 #include <Mod/Part/App/MeasureInfo.h>
-#include <Mod/Part/App/MeasureClient.h>  // needed?
-
 
 namespace Measure
 {
@@ -55,8 +53,11 @@ public:
     ~MeasureBase() override = default;
 
     App::PropertyPlacement Placement;
+    App::PropertyString DisplayUnit;
 
-    // boost::signals2::signal<void (const MeasureBase*)> signalGuiInit;
+    std::string formatQuantity(const Base::Quantity& qty) const;
+
+    // fastsignals::signal<void (const MeasureBase*)> signalGuiInit;
 
     // return PyObject as MeasureBasePy
     PyObject* getPyObject() override;
@@ -65,14 +66,13 @@ public:
     virtual void parseSelection(const App::MeasureSelection& selection);
 
 
-    virtual QString getResultString();
+    virtual std::string getResultString();
 
     virtual std::vector<std::string> getInputProps();
     virtual App::Property* getResultProp()
     {
         return {};
     }
-    virtual Base::Placement getPlacement();
 
     // Return the objects that are measured
     virtual std::vector<App::DocumentObject*> getSubject() const;
@@ -126,21 +126,22 @@ public:
         }
 
         // Get the Geometry handler based on the module
-        const char* className = sub->getTypeId().getName();
+        const auto className = sub->getTypeId().getName();
         std::string mod = Base::Type::getModuleName(className);
 
         auto handler = getGeometryHandler(mod);
         if (!handler) {
-            Base::Console().Log("MeasureBaseExtendable::getMeasureInfo: No geometry handler "
-                                "available for submitted element type");
+            Base::Console().log(
+                "MeasureBaseExtendable::getMeasureInfo: No geometry handler "
+                "available for submitted element type"
+            );
             return nullptr;
         }
 
         return handler(subObjT);
     }
 
-    static void addGeometryHandlers(const std::vector<std::string>& modules,
-                                    GeometryHandler callback)
+    static void addGeometryHandlers(const std::vector<std::string>& modules, GeometryHandler callback)
     {
         // TODO: this will replace a callback with a later one.  Should we check that there isn't
         // already a handler defined for this module?
@@ -159,8 +160,8 @@ private:
     inline static HandlerMap _mGeometryHandlers = MeasureBaseExtendable<T>::HandlerMap();
 };
 
+// Datum types are infinite so they have to be handled more delicatly,
+// when comparing 2 datums simply finding extrema may never converge or the result may be infinite.
+bool isDatum(const App::DocumentObject& ob);
 
 }  // namespace Measure
-
-
-#endif  // MEASURE_MEASUREBASE_H

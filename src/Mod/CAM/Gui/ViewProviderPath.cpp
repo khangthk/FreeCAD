@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2014 Yorik van Havre <yorik@uncreated.net>              *
  *                                                                         *
@@ -20,12 +22,11 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
+#include <limits>
 #include <boost/algorithm/string/replace.hpp>
 
 #include <Inventor/SbVec3f.h>
+#include <Inventor/SbXfBox3d.h>
 #include <Inventor/details/SoLineDetail.h>
 #include <Inventor/nodes/SoBaseColor.h>
 #include <Inventor/nodes/SoCoordinate3.h>
@@ -36,17 +37,17 @@
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoSwitch.h>
 #include <Inventor/nodes/SoTransform.h>
-#endif
 
 #include <App/Application.h>
 #include <App/DocumentObject.h>
 #include <Base/Parameter.h>
 #include <Base/Stream.h>
+#include <Mod/CAM/App/Command.h>
 #include <Gui/Application.h>
 #include <Gui/BitmapFactory.h>
-#include <Gui/SoAxisCrossKit.h>
-#include <Gui/SoFCBoundingBox.h>
-#include <Gui/SoFCUnifiedSelection.h>
+#include <Gui/Inventor/SoAxisCrossKit.h>
+#include <Gui/Inventor/SoFCBoundingBox.h>
+#include <Gui/Selection/SoFCUnifiedSelection.h>
 #include <Mod/CAM/App/FeaturePath.h>
 #include <Mod/CAM/App/PathSegmentWalker.h>
 
@@ -110,8 +111,7 @@ public:
         }
         Base::Matrix4D linkMat;
         auto linked = sobj->getLinkedObject(true, &linkMat, false);
-        auto vp = Base::freecad_dynamic_cast<ViewProviderPath>(
-            Application::Instance->getViewProvider(linked));
+        auto vp = freecad_cast<ViewProviderPath*>(Application::Instance->getViewProvider(linked));
         if (!vp) {
             setArrow();
             return;
@@ -148,59 +148,48 @@ ViewProviderPath::ViewProviderPath()
     , edgeStart(-1)
     , coordStart(-1)
     , coordEnd(-1)
+    , bboxCached(false)
 {
-    ParameterGrp::handle hGrp =
-        App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/CAM");
-    unsigned long lcol =
-        hGrp->GetUnsigned("DefaultNormalPathColor", 11141375UL);  // dark green (0,170,0)
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/Mod/CAM"
+    );
+    unsigned long lcol = hGrp->GetUnsigned("DefaultNormalPathColor", 11141375UL);  // dark green
+                                                                                   // (0,170,0)
     float lr, lg, lb;
     lr = ((lcol >> 24) & 0xff) / 255.0;
     lg = ((lcol >> 16) & 0xff) / 255.0;
     lb = ((lcol >> 8) & 0xff) / 255.0;
-    unsigned long mcol =
-        hGrp->GetUnsigned("DefaultPathMarkerColor", 1442775295UL);  // lime green (85,255,0)
+    unsigned long mcol = hGrp->GetUnsigned("DefaultPathMarkerColor", 1442775295UL);  // lime green
+                                                                                     // (85,255,0)
     float mr, mg, mb;
     mr = ((mcol >> 24) & 0xff) / 255.0;
     mg = ((mcol >> 16) & 0xff) / 255.0;
     mb = ((mcol >> 8) & 0xff) / 255.0;
     int lwidth = hGrp->GetInt("DefaultPathLineWidth", 1);
-    ADD_PROPERTY_TYPE(NormalColor,
-                      (lr, lg, lb),
-                      "Path",
-                      App::Prop_None,
-                      "The color of the feed rate moves");
-    ADD_PROPERTY_TYPE(MarkerColor,
-                      (mr, mg, mb),
-                      "Path",
-                      App::Prop_None,
-                      "The color of the markers");
+    float arrowScale = hGrp->GetFloat("DefaultArrowScale", 3.0f);
+    ADD_PROPERTY_TYPE(NormalColor, (lr, lg, lb), "Path", App::Prop_None, "The color of the feed rate moves");
+    ADD_PROPERTY_TYPE(MarkerColor, (mr, mg, mb), "Path", App::Prop_None, "The color of the markers");
     ADD_PROPERTY_TYPE(LineWidth, (lwidth), "Path", App::Prop_None, "The line width of this path");
-    ADD_PROPERTY_TYPE(ShowNodes,
-                      (false),
-                      "Path",
-                      App::Prop_None,
-                      "Turns the display of nodes on/off");
+    ADD_PROPERTY_TYPE(ShowNodes, (false), "Path", App::Prop_None, "Turns the display of nodes on/off");
 
 
     ShowCountConstraints.LowerBound = 0;
-    ShowCountConstraints.UpperBound = INT_MAX;
+    ShowCountConstraints.UpperBound = std::numeric_limits<int>::max();
     ShowCountConstraints.StepSize = 1;
     ShowCount.setConstraints(&ShowCountConstraints);
     StartIndexConstraints.LowerBound = 0;
-    StartIndexConstraints.UpperBound = INT_MAX;
+    StartIndexConstraints.UpperBound = std::numeric_limits<int>::max();
     StartIndexConstraints.StepSize = 1;
     StartIndex.setConstraints(&StartIndexConstraints);
-    ADD_PROPERTY_TYPE(StartPosition,
-                      (Base::Vector3d()),
-                      "Show",
-                      App::Prop_None,
-                      "Tool initial position");
+    ADD_PROPERTY_TYPE(StartPosition, (Base::Vector3d()), "Show", App::Prop_None, "Tool initial position");
     ADD_PROPERTY_TYPE(StartIndex, (0), "Show", App::Prop_None, "The index of first GCode to show");
-    ADD_PROPERTY_TYPE(ShowCount,
-                      (0),
-                      "Show",
-                      App::Prop_None,
-                      "Number of movement GCode to show, 0 means all");
+    ADD_PROPERTY_TYPE(
+        ShowCount,
+        (0),
+        "Show",
+        App::Prop_None,
+        "Number of movement GCode to show, 0 means all"
+    );
 
     pcLineCoords = new SoCoordinate3();
     pcLineCoords->ref();
@@ -215,10 +204,9 @@ ViewProviderPath::ViewProviderPath()
     pcMarkerStyle = new SoDrawStyle();
     pcMarkerStyle->ref();
     pcMarkerStyle->style = SoDrawStyle::POINTS;
-    pcMarkerStyle->pointSize =
-        App::GetApplication()
-            .GetParameterGroupByPath("User parameter:BaseApp/Preferences/View")
-            ->GetInt("MarkerSize", 4);
+    pcMarkerStyle->pointSize = App::GetApplication()
+                                   .GetParameterGroupByPath("User parameter:BaseApp/Preferences/View")
+                                   ->GetInt("MarkerSize", 4);
 
     pcDrawStyle = new SoDrawStyle();
     pcDrawStyle->ref();
@@ -242,7 +230,7 @@ ViewProviderPath::ViewProviderPath()
     pcArrowSwitch = new SoSwitch();
     pcArrowSwitch->ref();
 
-    auto pArrowGroup = new SoSkipBoundingGroup;
+    auto pArrowGroup = new SoSeparator;
     pcArrowTransform = new SoTransform();
     pArrowGroup->addChild(pcArrowTransform);
 
@@ -255,7 +243,7 @@ ViewProviderPath::ViewProviderPath()
     pArrow->set("zAxis.appearance.drawStyle", "style INVISIBLE");
     pArrow->set("zHead.transform", "translation 0 0 0");
     pArrowScale->setPart("shape", pArrow);
-    pArrowScale->scaleFactor = 1.0f;
+    pArrowScale->scaleFactor = arrowScale;
     pArrowGroup->addChild(pArrowScale);
 
     pcArrowSwitch->addChild(pArrowGroup);
@@ -387,18 +375,19 @@ void ViewProviderPath::onChanged(const App::Property* prop)
     }
     else if (prop == &NormalColor) {
         if (!colorindex.empty() && coordStart >= 0 && coordStart < (int)colorindex.size()) {
-            const App::Color& c = NormalColor.getValue();
+            const Base::Color& c = NormalColor.getValue();
             ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath(
-                "User parameter:BaseApp/Preferences/Mod/CAM");
-            unsigned long rcol =
-                hGrp->GetUnsigned("DefaultRapidPathColor", 2852126975UL);  // dark red (170,0,0)
+                "User parameter:BaseApp/Preferences/Mod/CAM"
+            );
+            unsigned long rcol
+                = hGrp->GetUnsigned("DefaultRapidPathColor", 2852126975UL);  // dark red (170,0,0)
             float rr, rg, rb;
             rr = ((rcol >> 24) & 0xff) / 255.0;
             rg = ((rcol >> 16) & 0xff) / 255.0;
             rb = ((rcol >> 8) & 0xff) / 255.0;
 
-            unsigned long pcol =
-                hGrp->GetUnsigned("DefaultProbePathColor", 4293591295UL);  // yellow (255,255,5)
+            unsigned long pcol
+                = hGrp->GetUnsigned("DefaultProbePathColor", 4293591295UL);  // yellow (255,255,5)
             float pr, pg, pb;
             pr = ((pcol >> 24) & 0xff) / 255.0;
             pg = ((pcol >> 16) & 0xff) / 255.0;
@@ -429,7 +418,7 @@ void ViewProviderPath::onChanged(const App::Property* prop)
         }
     }
     else if (prop == &MarkerColor) {
-        const App::Color& c = MarkerColor.getValue();
+        const Base::Color& c = MarkerColor.getValue();
         pcMarkerColor->rgb.setValue(c.r, c.g, c.b);
     }
     else if (prop == &ShowNodes) {
@@ -472,8 +461,9 @@ void ViewProviderPath::showBoundingBox(bool show)
 
 unsigned long ViewProviderPath::getBoundColor() const
 {
-    ParameterGrp::handle hGrp =
-        App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/CAM");
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/Mod/CAM"
+    );
     if (SelectionStyle.getValue() == 0 || !Selectable.getValue()) {
         return hGrp->GetUnsigned("DefaultBBoxNormalColor", 4294967295UL);  // white (255,255,255)
     }
@@ -509,6 +499,28 @@ void ViewProviderPath::updateData(const App::Property* prop)
 {
     Path::Feature* pcPathObj = static_cast<Path::Feature*>(pcObject);
     if (prop == &pcPathObj->Path) {
+        // Check if we should hide the first rapid moves
+        ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath(
+            "User parameter:BaseApp/Preferences/Mod/CAM"
+        );
+        bool hideFirstRapid = hGrp->GetBool("HideFirstRapid", false);
+
+        if (hideFirstRapid) {
+            // Find the first feed move and set StartIndex accordingly
+            long firstFeedIndex = findFirstFeedMoveIndex(pcPathObj->Path.getValue());
+            if (firstFeedIndex > 0) {
+                StartIndex.setValue(firstFeedIndex);
+                StartIndex.purgeTouched();
+            }
+        }
+        else {
+            // Reset StartIndex to show all commands from the beginning
+            if (StartIndex.getValue() != 0) {
+                StartIndex.setValue(0);
+                StartIndex.purgeTouched();
+            }
+        }
+
         updateVisual(true);
         return;
     }
@@ -532,15 +544,17 @@ void ViewProviderPath::hideSelection()
 class VisualPathSegmentVisitor: public PathSegmentVisitor
 {
 public:
-    VisualPathSegmentVisitor(const Toolpath& tp,
-                             SoCoordinate3* pcLineCoords_,
-                             SoCoordinate3* pcMarkerCoords_,
-                             std::vector<int>& command2Edge_,
-                             std::deque<int>& edge2Command_,
-                             std::deque<int>& edgeIndices_,
-                             std::vector<int>& colorindex_,
-                             std::deque<Base::Vector3d>& points_,
-                             std::deque<Base::Vector3d>& markers_)
+    VisualPathSegmentVisitor(
+        const Toolpath& tp,
+        SoCoordinate3* pcLineCoords_,
+        SoCoordinate3* pcMarkerCoords_,
+        std::vector<int>& command2Edge_,
+        std::deque<int>& edge2Command_,
+        std::deque<int>& edgeIndices_,
+        std::vector<int>& colorindex_,
+        std::deque<Base::Vector3d>& points_,
+        std::deque<Base::Vector3d>& markers_
+    )
         : pcLineCoords(pcLineCoords_)
         , pcMarkerCoords(pcMarkerCoords_)
         , command2Edge(command2Edge_)
@@ -568,55 +582,63 @@ public:
         markers.push_back(last);
     }
 
-    void g0(int id,
-            const Base::Vector3d& last,
-            const Base::Vector3d& next,
-            const std::deque<Base::Vector3d>& pts) override
+    void g0(
+        int id,
+        const Base::Vector3d& last,
+        const Base::Vector3d& next,
+        const std::deque<Base::Vector3d>& pts
+    ) override
     {
         (void)last;
         gx(id, &next, pts, 0);
     }
 
-    void g1(int id,
-            const Base::Vector3d& last,
-            const Base::Vector3d& next,
-            const std::deque<Base::Vector3d>& pts) override
+    void g1(
+        int id,
+        const Base::Vector3d& last,
+        const Base::Vector3d& next,
+        const std::deque<Base::Vector3d>& pts
+    ) override
     {
         (void)last;
         gx(id, &next, pts, 1);
     }
 
-    void g23(int id,
-             const Base::Vector3d& last,
-             const Base::Vector3d& next,
-             const std::deque<Base::Vector3d>& pts,
-             const Base::Vector3d& center) override
+    void g23(
+        int id,
+        const Base::Vector3d& last,
+        const Base::Vector3d& next,
+        const std::deque<Base::Vector3d>& pts,
+        const Base::Vector3d& center
+    ) override
     {
         (void)last;
         gx(id, &next, pts, 1);
         markers.push_back(center);
     }
 
-    void g8x(int id,
-             const Base::Vector3d& last,
-             const Base::Vector3d& next,
-             const std::deque<Base::Vector3d>& pts,
-             const std::deque<Base::Vector3d>& p,
-             const std::deque<Base::Vector3d>& q) override
+    void g8x(
+        int id,
+        const Base::Vector3d& last,
+        const Base::Vector3d& next,
+        const std::deque<Base::Vector3d>& pts,
+        const std::deque<Base::Vector3d>& p,
+        const std::deque<Base::Vector3d>& q
+    ) override
     {
         (void)last;
 
         gx(id, nullptr, pts, 0);
 
-        points.push_back(p[0]);
+        points.push_back(p[0]);  // Position above hole
         markers.push_back(p[0]);
         colorindex.push_back(0);
 
-        points.push_back(p[1]);
+        points.push_back(p[1]);  // Rapid to retract height
         markers.push_back(p[1]);
         colorindex.push_back(0);
 
-        points.push_back(next);
+        points.push_back(next);  // Feed to hole bottom
         markers.push_back(next);
         colorindex.push_back(1);
 
@@ -624,7 +646,7 @@ public:
             markers.push_back(*it);
         }
 
-        points.push_back(p[2]);
+        points.push_back(p[2]);  // Rapid to final retract position
         markers.push_back(p[2]);
         colorindex.push_back(0);
 
@@ -665,8 +687,7 @@ private:
     std::deque<Base::Vector3d>& points;
     std::deque<Base::Vector3d>& markers;
 
-    virtual void
-    gx(int id, const Base::Vector3d* next, const std::deque<Base::Vector3d>& pts, int color)
+    virtual void gx(int id, const Base::Vector3d* next, const std::deque<Base::Vector3d>& pts, int color)
     {
         for (std::deque<Base::Vector3d>::const_iterator it = pts.begin(); pts.end() != it; ++it) {
             points.push_back(*it);
@@ -706,15 +727,17 @@ void ViewProviderPath::updateVisual(bool rebuild)
         std::deque<Base::Vector3d> points;
         std::deque<Base::Vector3d> markers;
 
-        VisualPathSegmentVisitor collect(tp,
-                                         pcLineCoords,
-                                         pcMarkerCoords,
-                                         command2Edge,
-                                         edge2Command,
-                                         edgeIndices,
-                                         colorindex,
-                                         points,
-                                         markers);
+        VisualPathSegmentVisitor collect(
+            tp,
+            pcLineCoords,
+            pcMarkerCoords,
+            command2Edge,
+            edge2Command,
+            edgeIndices,
+            colorindex,
+            points,
+            markers
+        );
 
         PathSegmentWalker segments(tp);
         segments.walk(collect, StartPosition.getValue());
@@ -734,7 +757,8 @@ void ViewProviderPath::updateVisual(bool rebuild)
                 pcMarkerCoords->point.set1Value(i, markers[i].x, markers[i].y, markers[i].z);
             }
 
-            recomputeBoundingBox();
+            bboxCached = false;
+            updateBoundingBox();
         }
     }
 
@@ -787,45 +811,75 @@ void ViewProviderPath::updateVisual(bool rebuild)
     NormalColor.touch();
 }
 
-void ViewProviderPath::recomputeBoundingBox()
+Base::BoundBox3d ViewProviderPath::_getBoundingBox(
+    const char*,
+    const Base::Matrix4D* _mat,
+    bool transform,
+    const Gui::View3DInventorViewer*,
+    int
+) const
 {
     // update the boundbox
-    double MinX, MinY, MinZ, MaxX, MaxY, MaxZ;
-    MinX = 999999999.0;
-    MinY = 999999999.0;
-    MinZ = 999999999.0;
-    MaxX = -999999999.0;
-    MaxY = -999999999.0;
-    MaxZ = -999999999.0;
-    Path::Feature* pcPathObj = static_cast<Path::Feature*>(pcObject);
-    Base::Placement pl = *(&pcPathObj->Placement.getValue());
-    Base::Vector3d pt;
-    for (int i = 1; i < pcLineCoords->point.getNum(); i++) {
-        pt.x = pcLineCoords->point[i].getValue()[0];
-        pt.y = pcLineCoords->point[i].getValue()[1];
-        pt.z = pcLineCoords->point[i].getValue()[2];
-        pl.multVec(pt, pt);
-        if (pt.x < MinX) {
-            MinX = pt.x;
-        }
-        if (pt.y < MinY) {
-            MinY = pt.y;
-        }
-        if (pt.z < MinZ) {
-            MinZ = pt.z;
-        }
-        if (pt.x > MaxX) {
-            MaxX = pt.x;
-        }
-        if (pt.y > MaxY) {
-            MaxY = pt.y;
-        }
-        if (pt.z > MaxZ) {
-            MaxZ = pt.z;
-        }
+    Base::Matrix4D mat;
+    if (_mat) {
+        mat = *_mat;
     }
-    pcBoundingBox->minBounds.setValue(MinX, MinY, MinZ);
-    pcBoundingBox->maxBounds.setValue(MaxX, MaxY, MaxZ);
+    if (transform & Gui::ViewProvider::Transform) {
+        Path::Feature* pcPathObj = static_cast<Path::Feature*>(pcObject);
+        mat *= pcPathObj->Placement.getValue().toMatrix();
+    }
+
+    if (!bboxCached) {
+        bboxCached = true;
+        Base::BoundBox3d bbox;
+        Base::Vector3d pt;
+        for (int i = 1; i < pcLineCoords->point.getNum(); i++) {
+            pt.x = pcLineCoords->point[i].getValue()[0];
+            pt.y = pcLineCoords->point[i].getValue()[1];
+            pt.z = pcLineCoords->point[i].getValue()[2];
+            bbox.Add(pt);
+        }
+        bboxCache = bbox;
+    }
+
+    SbXfBox3d xbox;
+    xbox.setBounds(
+        bboxCache.MinX,
+        bboxCache.MinY,
+        bboxCache.MinZ,
+        bboxCache.MaxX,
+        bboxCache.MaxY,
+        bboxCache.MaxZ
+    );
+    xbox.setTransform(ViewProvider::convert(mat));
+
+    Base::BoundBox3d bbox;
+    xbox.project().getBounds(bbox.MinX, bbox.MinY, bbox.MinZ, bbox.MaxX, bbox.MaxY, bbox.MaxZ);
+    return bbox;
+}
+
+long ViewProviderPath::findFirstFeedMoveIndex(const Path::Toolpath& path) const
+{
+    const std::vector<Path::Command>& commands = path.getCommands();
+    for (size_t i = 0; i < commands.size(); ++i) {
+        std::string name = commands[i].Name;
+
+        // Skip comments and empty commands
+        if (name.empty() || name[0] == '(' || name[0] == ';' || name[0] == '%') {
+            continue;
+        }
+
+        // Skip rapid moves (G0)
+        if (name == "G0" || name == "G00") {
+            continue;
+        }
+
+        // Found the first non-rapid move
+        return static_cast<long>(i);
+    }
+
+    // If no feed move found, return 0 to show from the beginning
+    return 0;
 }
 
 QIcon ViewProviderPath::getIcon() const

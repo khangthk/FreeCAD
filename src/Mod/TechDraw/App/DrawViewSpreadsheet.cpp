@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 Yorik van Havre <yorik@uncreated.net>              *
  *   Copyright (c) 2016 WandererFan <wandererfan@gmail.com>                *
@@ -21,13 +23,11 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <iomanip>
 #include <sstream>
 #include <boost_regex.hpp>
-#endif
+
 
 #include <App/Property.h>
 #include <Base/Console.h>
@@ -62,6 +62,9 @@ DrawViewSpreadsheet::DrawViewSpreadsheet()
     ADD_PROPERTY_TYPE(TextColor, (0.0f, 0.0f, 0.0f), vgroup, App::Prop_None, "The default color of the text and lines");
     ADD_PROPERTY_TYPE(TextSize, (12.0), vgroup, App::Prop_None, "The size of the text");
     ADD_PROPERTY_TYPE(LineWidth, (0.35), vgroup, App::Prop_None, "The thickness of the cell lines");
+
+    ADD_PROPERTY_TYPE(Owner, (nullptr), vgroup, (App::PropertyType)(App::Prop_None),
+                      "Feature to which this sheet is attached");
 
     EditableTexts.setStatus(App::Property::Hidden, true);
 
@@ -142,7 +145,6 @@ std::string DrawViewSpreadsheet::getSVGTail()
 std::string DrawViewSpreadsheet::getSheetImage()
 {
     App::DocumentObject* link = Source.getValue();
-    link->recomputeFeature();   //make sure s/s is up to date
 
     std::string scellstart = CellStart.getValue();
     std::string scellend = CellEnd.getValue();
@@ -160,7 +162,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
     std::string sColStart, sColEnd;
     if (boost::regex_search(scellstart, what, re)) {
         if (what.size() < 3) {
-            Base::Console().Error("%s - start cell (%s) is invalid\n", getNameInDocument(),
+            Base::Console().error("%s - start cell (%s) is invalid\n", getNameInDocument(),
                                   CellStart.getValue());
             return std::string();
         }
@@ -172,7 +174,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
             iRowStart = std::stoi(rowPart);
         }
         catch (...) {
-            Base::Console().Error("%s - start cell (%s) invalid row\n",
+            Base::Console().error("%s - start cell (%s) invalid row\n",
                                     getNameInDocument(), rowPart.c_str());
             return std::string();
         }
@@ -180,7 +182,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
 
     if (boost::regex_search(scellend, what, re)) {
         if (what.size() < 3) {
-            Base::Console().Error("%s - end cell (%s) is invalid\n", getNameInDocument(), CellEnd.getValue());
+            Base::Console().error("%s - end cell (%s) is invalid\n", getNameInDocument(), CellEnd.getValue());
         } else {
             colPart = what[1];
             sColEnd = colPart;
@@ -189,7 +191,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
                 iRowEnd = std::stoi(rowPart);
             }
             catch (...) {
-                Base::Console().Error("%s - end cell (%s) invalid row\n",
+                Base::Console().error("%s - end cell (%s) invalid row\n",
                                       getNameInDocument(), rowPart.c_str());
                 return std::string();
             }
@@ -201,7 +203,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
     //validate range start column in sheet's available columns
     int iAvailColStart = colInList(availcolumns, sColStart);
     if (iAvailColStart < 0) {               //not found range start column in availcolumns list
-        Base::Console().Error("DVS - %s - start Column (%s) is invalid\n",
+        Base::Console().error("DVS - %s - start Column (%s) is invalid\n",
                                getNameInDocument(), sColStart.c_str());
         return std::string();
     }
@@ -209,7 +211,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
     //validate range end column in sheet's available columns
     int iAvailColEnd = colInList(availcolumns, sColEnd);
     if (iAvailColEnd < 0) {
-        Base::Console().Error("DVS - %s - end Column (%s) is invalid\n",
+        Base::Console().error("DVS - %s - end Column (%s) is invalid\n",
                               getNameInDocument(), sColEnd.c_str());
         return std::string();
     }
@@ -217,7 +219,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
     //check for logical range
     if ( (iAvailColStart > iAvailColEnd) ||
          (iRowStart > iRowEnd) ) {
-        Base::Console().Error("%s - cell range is illogical\n", getNameInDocument());
+        Base::Console().error("%s - cell range is illogical\n", getNameInDocument());
         return std::string();
     }
 
@@ -240,7 +242,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
     result << getSVGHead();
 
     std::string ViewName = Label.getValue();
-    App::Color c = TextColor.getValue();
+    Base::Color c = TextColor.getValue();
     result << "<g id=\"" << ViewName << "\">" << std::endl;
 
     // fill the cells
@@ -256,12 +258,16 @@ std::string DrawViewSpreadsheet::getSheetImage()
          col != validColNames.end(); ++col) {
         // create a group for each column
         result << "  <g id=\"" << ViewName << "_col" << (*col) << "\">" << std::endl;
+        float naturalColumnWidth = 0.0;
         for (std::vector<int>::const_iterator row = validRowNumbers.begin();
              row != validRowNumbers.end(); ++row) {
             // get cell size
             std::stringstream srow;
             srow << (*row);
             App::CellAddress address((*col) + srow.str());
+            if (naturalColumnWidth == 0.0) {
+                naturalColumnWidth = sheet->getColumnWidth(address.col());
+            }
             cellwidth = sheet->getColumnWidth(address.col());
             cellheight = sheet->getRowHeight(address.row());
             celltext = "";
@@ -270,21 +276,20 @@ std::string DrawViewSpreadsheet::getSheetImage()
             App::Property* prop = sheet->getPropertyByName(address.toString().c_str());
             std::stringstream field;
             if (prop && cell) {
-                if (prop->isDerivedFrom(App::PropertyQuantity::getClassTypeId())) {
+                if (prop->isDerivedFrom<App::PropertyQuantity>()) {
                     auto contentAsQuantity = static_cast<App::PropertyQuantity*>(prop)->getQuantityValue();
-                    auto ustring = contentAsQuantity.getUserString();
-                    field << Base::Tools::toStdString(ustring);
-                } else if (prop->isDerivedFrom(App::PropertyFloat::getClassTypeId()) ||
-                           prop->isDerivedFrom(App::PropertyInteger::getClassTypeId())) {
+                    field << contentAsQuantity.getUserString();
+                } else if (prop->isDerivedFrom<App::PropertyFloat>() ||
+                           prop->isDerivedFrom<App::PropertyInteger>()) {
                     std::string temp = cell->getFormattedQuantity();
                     DrawUtil::encodeXmlSpecialChars(temp);
                     field << temp;
-                } else if (prop->isDerivedFrom(App::PropertyString::getClassTypeId())) {
+                } else if (prop->isDerivedFrom<App::PropertyString>()) {
                     std::string temp = static_cast<App::PropertyString*>(prop)->getValue();
                     DrawUtil::encodeXmlSpecialChars(temp);
                     field << temp;
                 } else {
-                    Base::Console().Error("DVSS: Unknown property type\n");
+                    Base::Console().error("DVSS: Unknown property type\n");
                 }
                 celltext = field.str();
             }
@@ -294,7 +299,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
             std::string fcolor = c.asHexString();
             std::string textstyle;
             if (cell) {
-                App::Color f, b;
+                Base::Color f, b;
                 std::set<std::string> st;
                 int colspan, rowspan;
                 if (cell->getBackground(b)) {
@@ -329,7 +334,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
                 cell->getAlignment(alignment);
             }
             // skip cell if found in skiplist
-            if (std::find(skiplist.begin(), skiplist.end(), address.toString()) == skiplist.end()) {
+            if (std::ranges::find(skiplist, address.toString()) == skiplist.end()) {
                 result << "    <rect x=\"" << coloffset << "\" y=\"" << rowoffset << "\" width=\""
                        << cellwidth << "\" height=\"" << cellheight << "\" style=\"fill:" << bcolor
                        << ";stroke-width:" << LineWidth.getValue() / getScale()
@@ -337,15 +342,15 @@ std::string DrawViewSpreadsheet::getSheetImage()
                 if (alignment & Spreadsheet::Cell::ALIGNMENT_LEFT)
                     result << "    <text style=\"" << textstyle << "\" x=\""
                            << coloffset + TextSize.getValue() / 2 << "\" y=\""
-                           << rowoffset + 0.75 * cellheight << "\" font-family=\"";
+                           << rowoffset + TextBaselineHeightRatio * cellheight << "\" font-family=\"";
                 if (alignment & Spreadsheet::Cell::ALIGNMENT_HCENTER)
                     result << "    <text text-anchor=\"middle\" style=\"" << textstyle << "\" x=\""
                            << coloffset + cellwidth / 2 << "\" y=\""
-                           << rowoffset + 0.75 * cellheight << "\" font-family=\"";
+                           << rowoffset + TextBaselineHeightRatio * cellheight << "\" font-family=\"";
                 if (alignment & Spreadsheet::Cell::ALIGNMENT_RIGHT)
                     result << "    <text text-anchor=\"end\" style=\"" << textstyle << "\" x=\""
                            << coloffset + (cellwidth - TextSize.getValue() / 2) << "\" y=\""
-                           << rowoffset + 0.75 * cellheight << "\" font-family=\"";
+                           << rowoffset + TextBaselineHeightRatio * cellheight << "\" font-family=\"";
                 if ((alignment & Spreadsheet::Cell::ALIGNMENT_LEFT)
                     || (alignment & Spreadsheet::Cell::ALIGNMENT_HCENTER)
                     || (alignment & Spreadsheet::Cell::ALIGNMENT_RIGHT)) {
@@ -360,7 +365,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
                     // Spreadsheet::Cell::ALIGNMENT_LEFT
                     result << "    <text style=\"" << textstyle << "\" x=\""
                            << coloffset + TextSize.getValue() / 2 << "\" y=\""
-                           << rowoffset + 0.75 * cellheight << "\" font-family=\"";
+                           << rowoffset + TextBaselineHeightRatio * cellheight << "\" font-family=\"";
                     result << Font.getValue() << "\""
                            << " font-size=\"" << TextSize.getValue() << "\""
                            << " fill=\"" << fcolor << "\">" << celltext << "</text>" << std::endl;
@@ -370,7 +375,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
         }
         result << "  </g>" << std::endl;
         rowoffset = 0.0;
-        coloffset += cellwidth;
+        coloffset += naturalColumnWidth;
     }
 
     // close the containing group
@@ -386,7 +391,7 @@ std::string DrawViewSpreadsheet::getSheetImage()
 int DrawViewSpreadsheet::colInList(const std::vector<std::string>& list,
                                    const std::string& toFind)
 {
-    auto match = std::find(std::begin(list), std::end(list), toFind);
+    const auto match = std::ranges::find(list, toFind);
     if (match == std::end(list)) {
         return -1; // Error value
     }
@@ -407,3 +412,4 @@ template<> const char* TechDraw::DrawViewSpreadsheetPython::getViewProviderName(
 // explicit template instantiation
 template class TechDrawExport FeaturePythonT<TechDraw::DrawViewSpreadsheet>;
 }
+

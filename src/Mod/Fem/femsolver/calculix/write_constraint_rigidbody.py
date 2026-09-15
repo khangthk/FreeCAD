@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2022 Ajinkya Dahale <dahale.a.p@gmail.com>              *
 # *                                                                         *
@@ -23,7 +25,7 @@
 
 __title__ = "FreeCAD FEM calculix constraint rigid body"
 __author__ = "Ajinkya Dahale"
-__url__ = "https://www.freecadweb.org"
+__url__ = "https://www.freecad.org"
 
 
 def get_analysis_types():

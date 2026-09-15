@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 Peter McB                                          *
  *   Copyright (c) 2013 Jürgen Riegel (FreeCAD@juergen-riegel.net)         *
@@ -20,9 +22,10 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
+#include <fstream>
+
 #include <boost/algorithm/string.hpp>
+#include <fmt/ostream.h>
 
 #include <Inventor/events/SoMouseButtonEvent.h>
 #include <Inventor/nodes/SoCamera.h>
@@ -34,7 +37,6 @@
 #include <SMESH_Mesh.hxx>
 #include <SMESHDS_Mesh.hxx>
 #include <SMESH_MeshEditor.hxx>
-#endif
 
 #include <Base/Console.h>
 #include <Gui/Application.h>
@@ -101,15 +103,17 @@ void addFaceToMesh(const std::vector<const SMDS_MeshNode*> nodes, SMESHDS_Mesh* 
             MeshDS->AddFaceWithID(nodes[0], nodes[1], nodes[2], nodes[3], nodes[4], nodes[5], EID);
             break;
         case 8:  // 8 node quadrilateral
-            MeshDS->AddFaceWithID(nodes[0],
-                                  nodes[1],
-                                  nodes[2],
-                                  nodes[3],
-                                  nodes[4],
-                                  nodes[5],
-                                  nodes[6],
-                                  nodes[7],
-                                  EID);
+            MeshDS->AddFaceWithID(
+                nodes[0],
+                nodes[1],
+                nodes[2],
+                nodes[3],
+                nodes[4],
+                nodes[5],
+                nodes[6],
+                nodes[7],
+                EID
+            );
             break;
     }
 }  // addFaceToMesh
@@ -127,89 +131,98 @@ void addVolumeToMesh(const std::vector<const SMDS_MeshNode*> nodes, SMESHDS_Mesh
             MeshDS->AddVolumeWithID(nodes[0], nodes[1], nodes[2], nodes[3], nodes[4], EID);
             break;
         case 6:  // 6 node pentahedron
-            MeshDS
-                ->AddVolumeWithID(nodes[0], nodes[1], nodes[2], nodes[3], nodes[4], nodes[5], EID);
+            MeshDS->AddVolumeWithID(nodes[0], nodes[1], nodes[2], nodes[3], nodes[4], nodes[5], EID);
             break;
         case 8:  // 8 node hexahedron
-            MeshDS->AddVolumeWithID(nodes[0],
-                                    nodes[1],
-                                    nodes[2],
-                                    nodes[3],
-                                    nodes[4],
-                                    nodes[5],
-                                    nodes[6],
-                                    nodes[7],
-                                    EID);
+            MeshDS->AddVolumeWithID(
+                nodes[0],
+                nodes[1],
+                nodes[2],
+                nodes[3],
+                nodes[4],
+                nodes[5],
+                nodes[6],
+                nodes[7],
+                EID
+            );
             break;
         case 10:  // 10 node tetrahedron
-            MeshDS->AddVolumeWithID(nodes[0],
-                                    nodes[1],
-                                    nodes[2],
-                                    nodes[3],
-                                    nodes[4],
-                                    nodes[5],
-                                    nodes[6],
-                                    nodes[7],
-                                    nodes[8],
-                                    nodes[9],
-                                    EID);
+            MeshDS->AddVolumeWithID(
+                nodes[0],
+                nodes[1],
+                nodes[2],
+                nodes[3],
+                nodes[4],
+                nodes[5],
+                nodes[6],
+                nodes[7],
+                nodes[8],
+                nodes[9],
+                EID
+            );
             break;
         case 13:  // 13 node pyramid
-            MeshDS->AddVolumeWithID(nodes[0],
-                                    nodes[1],
-                                    nodes[2],
-                                    nodes[3],
-                                    nodes[4],
-                                    nodes[5],
-                                    nodes[6],
-                                    nodes[7],
-                                    nodes[8],
-                                    nodes[9],
-                                    nodes[10],
-                                    nodes[11],
-                                    nodes[12],
-                                    EID);
+            MeshDS->AddVolumeWithID(
+                nodes[0],
+                nodes[1],
+                nodes[2],
+                nodes[3],
+                nodes[4],
+                nodes[5],
+                nodes[6],
+                nodes[7],
+                nodes[8],
+                nodes[9],
+                nodes[10],
+                nodes[11],
+                nodes[12],
+                EID
+            );
             break;
         case 15:  // 15 node pentahedron
-            MeshDS->AddVolumeWithID(nodes[0],
-                                    nodes[1],
-                                    nodes[2],
-                                    nodes[3],
-                                    nodes[4],
-                                    nodes[5],
-                                    nodes[6],
-                                    nodes[7],
-                                    nodes[8],
-                                    nodes[9],
-                                    nodes[10],
-                                    nodes[11],
-                                    nodes[12],
-                                    nodes[13],
-                                    nodes[14],
-                                    EID);
+            MeshDS->AddVolumeWithID(
+                nodes[0],
+                nodes[1],
+                nodes[2],
+                nodes[3],
+                nodes[4],
+                nodes[5],
+                nodes[6],
+                nodes[7],
+                nodes[8],
+                nodes[9],
+                nodes[10],
+                nodes[11],
+                nodes[12],
+                nodes[13],
+                nodes[14],
+                EID
+            );
             break;
         case 20:  // 20 node hexahedron
-            MeshDS->AddVolumeWithID(nodes[0],
-                                    nodes[1],
-                                    nodes[2],
-                                    nodes[3],
-                                    nodes[4],
-                                    nodes[5],
-                                    nodes[6],
-                                    nodes[7],
-                                    nodes[8],
-                                    nodes[9],
-                                    nodes[10],
-                                    nodes[11],
-                                    nodes[12],
-                                    nodes[13],
-                                    nodes[14],
-                                    nodes[15],
-                                    nodes[16],
-                                    nodes[17],
-                                    nodes[18],
-                                    nodes[19],
-                                    EID);
+            MeshDS->AddVolumeWithID(
+                nodes[0],
+                nodes[1],
+                nodes[2],
+                nodes[3],
+                nodes[4],
+                nodes[5],
+                nodes[6],
+                nodes[7],
+                nodes[8],
+                nodes[9],
+                nodes[10],
+                nodes[11],
+                nodes[12],
+                nodes[13],
+                nodes[14],
+                nodes[15],
+                nodes[16],
+                nodes[17],
+                nodes[18],
+                nodes[19],
+                EID
+            );
             break;
     }  // default: {}
 
@@ -219,38 +232,48 @@ void myCopyResultsMesh(std::string oldName, std::string newName)
 {
     int error = 0;
 
-    Base::Console().Warning("copy: %s and %s\n", oldName.c_str(), newName.c_str());
+    Base::Console().warning("copy: %s and %s\n", oldName.c_str(), newName.c_str());
     if (oldName.compare(newName) == 0 && error == 0) {
         error = 1;
-        Base::Console().Warning("Can't copy ResultMesh to ResultMesh: %s and %s\n",
-                                oldName.c_str(),
-                                newName.c_str());
+        Base::Console().warning(
+            "Cannot copy ResultMesh to ResultMesh: %s and %s\n",
+            oldName.c_str(),
+            newName.c_str()
+        );
         QMessageBox::warning(
             Gui::getMainWindow(),
             //        QMessageBox::warning(Gui::MainWindow(),
             qApp->translate("CmdFemCreateElementsSet", "Wrong selection"),
-            qApp->translate("CmdFemCreateElementsSet", "Can't copy ResultMesh to ResultMesh"));
+            qApp->translate("CmdFemCreateElementsSet", "Cannot copy ResultMesh to ResultMesh")
+        );
     }
     if ((oldName.find("Result") == std::string::npos || newName.find("Result") == std::string::npos)
         && error == 0) {
         error = 1;
-        Base::Console().Warning("Mesh must be results: %s\n", oldName.c_str());
+        Base::Console().warning("Mesh must be results: %s\n", oldName.c_str());
         QMessageBox::warning(
             Gui::getMainWindow(),
             //        QMessageBox::warning(Gui::MainWindow(),
             qApp->translate("CmdFemCreateElementsSet", "Wrong selection"),
-            qApp->translate("CmdFemCreateElementsSet", "Mesh must be a Results mesh"));
+            qApp->translate("CmdFemCreateElementsSet", "Mesh must be a ResultMesh")
+        );
     }
     if (error == 0) {
-        Gui::Command::doCommand(Gui::Command::Doc,
-                                "c = FreeCADGui.ActiveDocument.getObject(\'%s\')",
-                                oldName.c_str());
-        Gui::Command::doCommand(Gui::Command::Doc,
-                                "FreeCAD.ActiveDocument.%s.FemMesh = c.Object.FemMesh",
-                                newName.c_str());
-        Gui::Command::doCommand(Gui::Command::Doc,
-                                "Gui.ActiveDocument.getObject(\'%s\').BackfaceCulling = False",
-                                newName.c_str());
+        Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "c = FreeCADGui.ActiveDocument.getObject(\'%s\')",
+            oldName.c_str()
+        );
+        Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "FreeCAD.ActiveDocument.%s.FemMesh = c.Object.FemMesh",
+            newName.c_str()
+        );
+        Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "Gui.ActiveDocument.getObject(\'%s\').BackfaceCulling = False",
+            newName.c_str()
+        );
     }
 }  // copyresultsmesh
 
@@ -267,13 +290,18 @@ void generateMesh(std::string meshType)
             Gui::Command::doCommand(
                 Gui::Command::Doc,
                 "obj1 = App.ActiveDocument.addObject('Fem::FemMeshObject', \'%s\')",
-                startResultMesh.c_str());
-            Gui::Command::doCommand(Gui::Command::Doc,
-                                    "Gui.ActiveDocument.getObject(\'%s\').Visibility = False",
-                                    startResultMesh.c_str());
-            Gui::Command::doCommand(Gui::Command::Doc,
-                                    "ne = Gui.ActiveDocument.getObject(\'%s\')",
-                                    actualResultMesh.c_str());
+                startResultMesh.c_str()
+            );
+            Gui::Command::doCommand(
+                Gui::Command::Doc,
+                "Gui.ActiveDocument.getObject(\'%s\').Visibility = False",
+                startResultMesh.c_str()
+            );
+            Gui::Command::doCommand(
+                Gui::Command::Doc,
+                "ne = Gui.ActiveDocument.getObject(\'%s\')",
+                actualResultMesh.c_str()
+            );
             Gui::Command::doCommand(Gui::Command::Doc, "obj1.FemMesh = ne.Object.FemMesh");
         }
         else if (passResult > 0) {
@@ -294,47 +322,67 @@ void generateMesh(std::string meshType)
     App::Document* doc = App::GetApplication().getActiveDocument();
     uniqueMesh = doc->getUniqueObjectName(createdMesh.c_str());
 
-    Gui::Command::doCommand(Gui::Command::Doc,
-                            "Gui.ActiveDocument.getObject(\'%s\').Visibility = False",
-                            highLightMesh.c_str());
+    Gui::Command::doCommand(
+        Gui::Command::Doc,
+        "Gui.ActiveDocument.getObject(\'%s\').Visibility = False",
+        highLightMesh.c_str()
+    );
     Gui::Command::doCommand(Gui::Command::Doc, "newermesh = Fem.read(\'%s\')", inp_file.c_str());
-    Gui::Command::doCommand(Gui::Command::Doc,
-                            "obj = App.ActiveDocument.addObject('Fem::FemMeshObject', \'%s\')",
-                            uniqueMesh.c_str());
+    Gui::Command::doCommand(
+        Gui::Command::Doc,
+        "obj = App.ActiveDocument.addObject('Fem::FemMeshObject', \'%s\')",
+        uniqueMesh.c_str()
+    );
     Gui::Command::doCommand(Gui::Command::Doc, "obj.FemMesh = newermesh");
-    Gui::Command::doCommand(Gui::Command::Doc,
-                            "Gui.ActiveDocument.getObject(\'%s\').BackfaceCulling = False",
-                            uniqueMesh.c_str());
-    Gui::Command::doCommand(Gui::Command::Doc,
-                            "Gui.ActiveDocument.getObject(\'%s\').Visibility = True",
-                            uniqueMesh.c_str());
+    Gui::Command::doCommand(
+        Gui::Command::Doc,
+        "Gui.ActiveDocument.getObject(\'%s\').BackfaceCulling = False",
+        uniqueMesh.c_str()
+    );
+    Gui::Command::doCommand(
+        Gui::Command::Doc,
+        "Gui.ActiveDocument.getObject(\'%s\').Visibility = True",
+        uniqueMesh.c_str()
+    );
     Gui::Command::doCommand(Gui::Command::Doc, "os.remove(\'%s\')", inp_file.c_str());
 
     if (strcmp(meshType.c_str(), "result") == 0) {
-        Gui::Command::doCommand(Gui::Command::Doc,
-                                "c = FreeCADGui.ActiveDocument.getObject(\'%s\')",
-                                uniqueMesh.c_str());
-        Gui::Command::doCommand(Gui::Command::Doc,
-                                "FreeCAD.ActiveDocument.%s.FemMesh = c.Object.FemMesh",
-                                actualResultMesh.c_str());
-        Gui::Command::doCommand(Gui::Command::Doc,
-                                "Gui.ActiveDocument.getObject(\'%s\').BackfaceCulling = False",
-                                actualResultMesh.c_str());
-        Gui::Command::doCommand(Gui::Command::Doc,
-                                "Gui.ActiveDocument.getObject(\'%s\').Visibility = True",
-                                actualResultMesh.c_str());
-        Gui::Command::doCommand(Gui::Command::Doc,
-                                "Gui.ActiveDocument.getObject(\'%s\').Visibility = False",
-                                uniqueMesh.c_str());
+        Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "c = FreeCADGui.ActiveDocument.getObject(\'%s\')",
+            uniqueMesh.c_str()
+        );
+        Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "FreeCAD.ActiveDocument.%s.FemMesh = c.Object.FemMesh",
+            actualResultMesh.c_str()
+        );
+        Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "Gui.ActiveDocument.getObject(\'%s\').BackfaceCulling = False",
+            actualResultMesh.c_str()
+        );
+        Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "Gui.ActiveDocument.getObject(\'%s\').Visibility = True",
+            actualResultMesh.c_str()
+        );
+        Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "Gui.ActiveDocument.getObject(\'%s\').Visibility = False",
+            uniqueMesh.c_str()
+        );
     }
 }  // generate mesh
 
-void writeToFile(std::string fileName,
-                 SMESHDS_Mesh* newMesh,
-                 int* nodeNumbers,
-                 double** nodeCoords,
-                 int rows,
-                 int requiredType)
+void writeToFile(
+    std::string fileName,
+    SMESHDS_Mesh* newMesh,
+    int* nodeNumbers,
+    double** nodeCoords,
+    int rows,
+    int requiredType
+)
 {
     std::map<int, std::string> elType2D;
     std::map<int, std::string> elType3D;
@@ -351,26 +399,28 @@ void writeToFile(std::string fileName,
     elType3D[15] = "C3D15";  // 15 node pentahedron
     elType3D[20] = "C3D20";  // 20 node hexahedron
                              // no pyramid elements
-    FILE* fptr = fopen(fileName.c_str(), "w");
-    if (fptr == NULL) {
+    std::ofstream out(fileName);
+    if (!out) {
         return;
     }
-    fprintf(fptr, "** written by Erase Elements inp file writer for CalculiX,Abaqus meshes\n");
-    fprintf(fptr, "** all mesh elements.\n");
+    fmt::print(out, "** written by Erase Elements inp file writer for CalculiX,Abaqus meshes\n");
+    fmt::print(out, "** all mesh elements.\n");
 
-    fprintf(fptr, "\n");
-    fprintf(fptr, "\n");
-    fprintf(fptr, "** Nodes\n");
-    fprintf(fptr, "*Node, NSET=Nall\n");
+    fmt::print(out, "\n");
+    fmt::print(out, "\n");
+    fmt::print(out, "** Nodes\n");
+    fmt::print(out, "*Node, NSET=Nall\n");
 
     for (int i = 1; i < rows + 1; i++) {
         if (nodeNumbers[i] > 0) {
-            fprintf(fptr,
-                    "%d, %e, %e, %e\n",
-                    nodeNumbers[i],
-                    nodeCoords[i][0],
-                    nodeCoords[i][1],
-                    nodeCoords[i][2]);
+            fmt::print(
+                out,
+                "{}, {:e}, {:e}, {:e}\n",
+                nodeNumbers[i],
+                nodeCoords[i][0],
+                nodeCoords[i][1],
+                nodeCoords[i][2]
+            );
         }
     }
 
@@ -394,53 +444,43 @@ void writeToFile(std::string fileName,
 
         if (numberNodes != elem->NbNodes()) {
             if (requiredType == 4) {
-                fprintf(fptr, "\n");
-                fprintf(fptr, "\n");
-                fprintf(fptr, "%s", "** Volume elements\n");
-                fprintf(fptr,
-                        "*Element, TYPE=%s, ELSET=Evolumes\n",
-                        elType3D[elem->NbNodes()].c_str());
+                fmt::print(out, "\n");
+                fmt::print(out, "\n");
+                fmt::print(out, "** Volume elements\n");
+                fmt::print(out, "*Element, TYPE={}, ELSET=Evolumes\n", elType3D[elem->NbNodes()]);
             }
             else if (requiredType == 3) {
-                fprintf(fptr, "%s", "** Face elements\n");
-                fprintf(fptr,
-                        "*Element, TYPE=%s, ELSET=Efaces\n",
-                        elType2D[elem->NbNodes()].c_str());
+                fmt::print(out, "** Face elements\n");
+                fmt::print(out, "*Element, TYPE={}, ELSET=Efaces\n", elType2D[elem->NbNodes()]);
             }
             numberNodes = elem->NbNodes();
         }
         SMDS_ElemIteratorPtr nIt = elem->nodesIterator();
-        fprintf(fptr, "%d", EID);
+        fmt::print(out, "{}", EID);
         while (nIt->more()) {
             nSrc = static_cast<const SMDS_MeshNode*>(nIt->next());
             NID = nSrc->GetID();
-            fprintf(fptr, ", %d", NID);
+            fmt::print(out, ", {}", NID);
         }
-        fprintf(fptr, "\n");
+        fmt::print(out, "\n");
     }  // while print
     if (requiredType == 4) {
-        fprintf(fptr, "\n");
-        fprintf(fptr, "\n");
-        fprintf(fptr, "%s", "** Define element set Eall\n");
-        fprintf(fptr, "%s", "*ELSET, ELSET=Eall\n");
-        fprintf(fptr, "%s", "Evolumes\n");
+        fmt::print(out, "\n");
+        fmt::print(out, "\n");
+        fmt::print(out, "** Define element set Eall\n");
+        fmt::print(out, "*ELSET, ELSET=Eall\n");
+        fmt::print(out, "Evolumes\n");
     }
     else if (requiredType == 3) {
-        fprintf(fptr, "%s", "** Define element set Eall\n");
-        fprintf(fptr, "%s", "*ELSET, ELSET=Eall\n");
-        fprintf(fptr, "%s", "Efaces\n");
+        fmt::print(out, "** Define element set Eall\n");
+        fmt::print(out, "*ELSET, ELSET=Eall\n");
+        fmt::print(out, "Efaces\n");
     }
-
-    fclose(fptr);
-    return;
 }
 }  // namespace
 
 TaskCreateElementSet::TaskCreateElementSet(Fem::FemSetElementNodesObject* pcObject, QWidget* parent)
-    : TaskBox(Gui::BitmapFactory().pixmap("FEM_CreateElementsSet"),
-              tr("Elements set"),
-              true,
-              parent)
+    : TaskBox(Gui::BitmapFactory().pixmap("FEM_CreateElementsSet"), tr("Elements set"), true, parent)
     , pcObject(pcObject)
     , selectionMode(none)
 {
@@ -449,14 +489,19 @@ TaskCreateElementSet::TaskCreateElementSet(Fem::FemSetElementNodesObject* pcObje
     ui->setupUi(proxy);
     QMetaObject::connectSlotsByName(this);
     this->groupLayout()->addWidget(proxy);
-    QObject::connect(ui->toolButton_Poly, SIGNAL(clicked()), this, SLOT(Poly()));
-    QObject::connect(ui->toolButton_Restore, SIGNAL(clicked()), this, SLOT(Restore()));
-    QObject::connect(ui->toolButton_Rename, SIGNAL(clicked()), this, SLOT(CopyResultsMesh()));
+    QObject::connect(ui->toolButton_Poly, &QToolButton::clicked, this, &TaskCreateElementSet::Poly);
+    QObject::connect(ui->toolButton_Restore, &QToolButton::clicked, this, &TaskCreateElementSet::Restore);
+    QObject::connect(
+        ui->toolButton_Rename,
+        &QToolButton::clicked,
+        this,
+        &TaskCreateElementSet::CopyResultsMesh
+    );
     // check if the Link to the FemMesh is defined
     assert(pcObject->FemMesh.getValue<Fem::FemMeshObject*>());
-    MeshViewProvider =
-        dynamic_cast<ViewProviderFemMesh*>(Gui::Application::Instance->getViewProvider(
-            pcObject->FemMesh.getValue<Fem::FemMeshObject*>()));
+    MeshViewProvider = freecad_cast<ViewProviderFemMesh*>(
+        Gui::Application::Instance->getViewProvider(pcObject->FemMesh.getValue<Fem::FemMeshObject*>())
+    );
     assert(MeshViewProvider);
 
     elementTempSet = pcObject->Elements.getValues();
@@ -465,12 +510,13 @@ TaskCreateElementSet::TaskCreateElementSet(Fem::FemSetElementNodesObject* pcObje
     info = "Delete the generated data in the other project: " + std::string(currentProject);
     App::Document* doc = App::GetApplication().getActiveDocument();
     newProject = doc->Label.getValue();
-    if (strcmp(currentProject.c_str(), newProject.c_str()) != 0
-        && (passResult + passFemMesh != 0)) {
-        QMessageBox::warning(Gui::getMainWindow(),
-                             //        QMessageBox::warning(Gui::MainWindow(),
-                             qApp->translate("CmdFemCreateElementsSet", "Wrong selection"),
-                             qApp->translate("CmdFemCreateElementsSet", info.c_str()));
+    if (strcmp(currentProject.c_str(), newProject.c_str()) != 0 && (passResult + passFemMesh != 0)) {
+        QMessageBox::warning(
+            Gui::getMainWindow(),
+            //        QMessageBox::warning(Gui::MainWindow(),
+            qApp->translate("CmdFemCreateElementsSet", "Wrong selection"),
+            qApp->translate("CmdFemCreateElementsSet", info.c_str())
+        );
         return;
     }
 }
@@ -479,20 +525,17 @@ void TaskCreateElementSet::Poly(void)
 {
     Gui::Document* doc = Gui::Application::Instance->activeDocument();
     Gui::MDIView* view = doc->getActiveView();
-    if (view->getTypeId().isDerivedFrom(Gui::View3DInventor::getClassTypeId())) {
+    if (view->isDerivedFrom<Gui::View3DInventor>()) {
         Gui::View3DInventorViewer* viewer = ((Gui::View3DInventor*)view)->getViewer();
         viewer->setEditing(true);
         viewer->startSelection(Gui::View3DInventorViewer::Clip);
-        viewer->addEventCallback(SoMouseButtonEvent::getClassTypeId(),
-                                 DefineElementsCallback,
-                                 this);
+        viewer->addEventCallback(SoMouseButtonEvent::getClassTypeId(), DefineElementsCallback, this);
     }
 }
 
 void TaskCreateElementSet::CopyResultsMesh(void)
 {
-    std::vector<Gui::SelectionSingleton::SelObj> selection =
-        Gui::Selection().getSelection();  // [0];
+    std::vector<Gui::SelectionSingleton::SelObj> selection = Gui::Selection().getSelection();  // [0];
     highLightMesh = selection[0].FeatName;
     myCopyResultsMesh(highLightMesh, actualResultMesh);
     Gui::Command::doCommand(Gui::Command::Doc, "Gui.activeDocument().resetEdit()");
@@ -507,8 +550,7 @@ void TaskCreateElementSet::Restore(void)
     // put reverse here
 
     std::vector<string> STR;
-    for (std::vector<App::DocumentObject*>::const_iterator it = all.begin(); it != all.end();
-         ++it) {
+    for (std::vector<App::DocumentObject*>::const_iterator it = all.begin(); it != all.end(); ++it) {
         std::string objectN = all[xpos]->getNameInDocument();
         STR.push_back(objectN);
         xpos++;
@@ -520,32 +562,40 @@ void TaskCreateElementSet::Restore(void)
         if (objectN.find(startResultMesh) != std::string::npos) {
             number++;
             myCopyResultsMesh(objectN, actualResultMesh);
-            Gui::Command::doCommand(Gui::Command::Doc,
-                                    "App.ActiveDocument.removeObject(\'%s\')",
-                                    objectN.c_str());
+            Gui::Command::doCommand(
+                Gui::Command::Doc,
+                "App.ActiveDocument.removeObject(\'%s\')",
+                objectN.c_str()
+            );
             Gui::Command::doCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
         }
         else if (objectN.find(newResultMesh) != std::string::npos) {
             number++;
-            Gui::Command::doCommand(Gui::Command::Doc,
-                                    "App.ActiveDocument.removeObject(\'%s\')",
-                                    objectN.c_str());
+            Gui::Command::doCommand(
+                Gui::Command::Doc,
+                "App.ActiveDocument.removeObject(\'%s\')",
+                objectN.c_str()
+            );
             Gui::Command::doCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
         }
-        else if (objectN.find(actualResultMesh) != std::string::npos) {}
+        else if (objectN.find(actualResultMesh) != std::string::npos) {
+        }
         else if (objectN.find(newFemMesh) != std::string::npos) {
             number++;
-            Gui::Command::doCommand(Gui::Command::Doc,
-                                    "App.ActiveDocument.removeObject(\'%s\')",
-                                    objectN.c_str());
+            Gui::Command::doCommand(
+                Gui::Command::Doc,
+                "App.ActiveDocument.removeObject(\'%s\')",
+                objectN.c_str()
+            );
             Gui::Command::doCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
         }
-        else if (objectN.find(Fem::FemSetElementNodesObject::getElementName())
-                 != std::string::npos) {
+        else if (objectN.find(Fem::FemSetElementNodesObject::getElementName()) != std::string::npos) {
             if (elList > 0) {
-                Gui::Command::doCommand(Gui::Command::Doc,
-                                        "App.ActiveDocument.removeObject(\'%s\')",
-                                        objectN.c_str());
+                Gui::Command::doCommand(
+                    Gui::Command::Doc,
+                    "App.ActiveDocument.removeObject(\'%s\')",
+                    objectN.c_str()
+                );
                 Gui::Command::doCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
             }
             else if (elList == 0) {
@@ -558,10 +608,12 @@ void TaskCreateElementSet::Restore(void)
         // blank last name - no action
     }
     else if (number == 0) {
-        QMessageBox::warning(Gui::getMainWindow(),
-                             //        QMessageBox::warning(Gui::MainWindow(),
-                             qApp->translate("CmdFemCreateElementsSet", "Wrong selection"),
-                             qApp->translate("CmdFemCreateElementsSet", "No Data To Restore\n"));
+        QMessageBox::warning(
+            Gui::getMainWindow(),
+            //        QMessageBox::warning(Gui::MainWindow(),
+            qApp->translate("CmdFemCreateElementsSet", "Wrong selection"),
+            qApp->translate("CmdFemCreateElementsSet", "No Data To Restore\n")
+        );
         return;
     }
     passResult = 0;
@@ -576,8 +628,7 @@ void TaskCreateElementSet::DefineElementsCallback(void* ud, SoEventCallback* n)
     Gui::WaitCursor wc;
     TaskCreateElementSet* taskBox = static_cast<TaskCreateElementSet*>(ud);
     // When this callback function is invoked we must in either case leave the edit mode
-    Gui::View3DInventorViewer* view =
-        reinterpret_cast<Gui::View3DInventorViewer*>(n->getUserData());
+    Gui::View3DInventorViewer* view = reinterpret_cast<Gui::View3DInventorViewer*>(n->getUserData());
     view->setEditing(false);
     view->removeEventCallback(SoMouseButtonEvent::getClassTypeId(), DefineElementsCallback, ud);
     n->setHandled();
@@ -602,17 +653,19 @@ void TaskCreateElementSet::DefineElementsCallback(void* ud, SoEventCallback* n)
     taskBox->DefineNodes(polygon, proj, role == Gui::SelectionRole::Inner ? true : false);
 }  // DefineElementsCallback
 
-void TaskCreateElementSet::DefineNodes(const Base::Polygon2d& polygon,
-                                       const Gui::ViewVolumeProjection& proj,
-                                       bool inner)
+void TaskCreateElementSet::DefineNodes(
+    const Base::Polygon2d& polygon,
+    const Gui::ViewVolumeProjection& proj,
+    bool inner
+)
 {
-    const SMESHDS_Mesh* srcMeshDS =
-        const_cast<SMESH_Mesh*>(
-            pcObject->FemMesh.getValue<Fem::FemMeshObject*>()->FemMesh.getValue().getSMesh())
-            ->GetMeshDS();
+    const SMESHDS_Mesh* srcMeshDS
+        = const_cast<SMESH_Mesh*>(
+              pcObject->FemMesh.getValue<Fem::FemMeshObject*>()->FemMesh.getValue().getSMesh()
+        )
+              ->GetMeshDS();
 
-    std::vector<Gui::SelectionSingleton::SelObj> selection =
-        Gui::Selection().getSelection();  // [0];
+    std::vector<Gui::SelectionSingleton::SelObj> selection = Gui::Selection().getSelection();  // [0];
     highLightMesh = selection[0].FeatName;
 
     meshType = "NULL";
@@ -746,9 +799,11 @@ void TaskCreateElementSet::DefineNodes(const Base::Polygon2d& polygon,
         erase = nElements - keepElement;
     }
     if (keepElement > 0) {
-        Base::Console().Warning("Number of Elements Kept: %d, Number of Elements Erased: %d\n",
-                                keepElement,
-                                erase);
+        Base::Console().warning(
+            "Number of Elements Kept: %d, Number of Elements Erased: %d\n",
+            keepElement,
+            erase
+        );
         writeToFile(inp_file, newMeshDS, nodeNumbers, nodeCoords, maxNode, requiredType);
         generateMesh(meshType);
     }
@@ -757,7 +812,8 @@ void TaskCreateElementSet::DefineNodes(const Base::Polygon2d& polygon,
             Gui::getMainWindow(),
             //        QMessageBox::warning(Gui::MainWindow(),
             qApp->translate("CmdFemCreateElementsSet", "Erased Elements"),
-            qApp->translate("CmdFemCreateElementsSet", "All Elements Erased - no mesh generated."));
+            qApp->translate("CmdFemCreateElementsSet", "All Elements Erased - no mesh generated.")
+        );
     }
     newMeshDS->Modified();
     Gui::Command::doCommand(Gui::Command::Doc, "Gui.activeDocument().resetEdit()");
@@ -781,10 +837,11 @@ void TaskCreateElementSet::onSelectionChanged(const Gui::SelectionChanges& msg)
         int elem = atoi(subName.substr(4).c_str());
         int face = atoi(subName.substr(i + 1).c_str());
         elementTempSet.clear();
-        std::set<long> tmp =
-            pcObject->FemMesh.getValue<Fem::FemMeshObject*>()->FemMesh.getValue().getSurfaceNodes(
+        std::set<long> tmp
+            = pcObject->FemMesh.getValue<Fem::FemMeshObject*>()->FemMesh.getValue().getSurfaceNodes(
                 elem,
-                face);
+                face
+            );
         elementTempSet.insert(tmp.begin(), tmp.end());
 
         selectionMode = none;
@@ -798,9 +855,11 @@ TaskCreateElementSet::~TaskCreateElementSet()
 {
     // delete last elementsset
     if (strcmp(lastName.c_str(), "") != 0) {
-        Gui::Command::doCommand(Gui::Command::Doc,
-                                "App.ActiveDocument.removeObject(\'%s\')",
-                                lastName.c_str());
+        Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "App.ActiveDocument.removeObject(\'%s\')",
+            lastName.c_str()
+        );
         Gui::Command::doCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
         lastName = "";
     }

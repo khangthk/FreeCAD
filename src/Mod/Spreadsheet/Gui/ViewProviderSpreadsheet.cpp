@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2011 Juergen Riegel <juergen.riegel@web.de>             *
  *   Copyright (c) 2015 Eivind Kvedalen <eivind@kvedalen.name>             *
@@ -21,13 +23,11 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <QMenu>
 #include <QString>
 #include <sstream>
-#endif
+
 
 #include <Gui/Application.h>
 #include <Gui/BitmapFactory.h>
@@ -37,6 +37,7 @@
 #include <Gui/MainWindow.h>
 #include <Gui/View3DInventor.h>
 #include <Mod/Spreadsheet/App/Sheet.h>
+#include <Mod/Spreadsheet/App/SheetParameter.h>
 
 #include "ViewProviderSpreadsheet.h"
 #include "ViewProviderSpreadsheetPy.h"
@@ -50,25 +51,16 @@ using namespace Spreadsheet;
 
 PROPERTY_SOURCE(SpreadsheetGui::ViewProviderSheet, Gui::ViewProviderDocumentObject)
 
-ViewProviderSheet::ViewProviderSheet() = default;
+ViewProviderSheet::ViewProviderSheet()
+{
+    setToggleVisibility(ToggleVisibilityMode::NoToggleVisibility);
+}
 
 ViewProviderSheet::~ViewProviderSheet()
 {
     if (!view.isNull()) {
         Gui::getMainWindow()->removeWindow(view);
     }
-}
-
-void ViewProviderSheet::setDisplayMode(const char* ModeName)
-{
-    ViewProviderDocumentObject::setDisplayMode(ModeName);
-}
-
-std::vector<std::string> ViewProviderSheet::getDisplayModes() const
-{
-    std::vector<std::string> StrList;
-    StrList.emplace_back("Spreadsheet");
-    return StrList;
 }
 
 QIcon ViewProviderSheet::getIcon() const
@@ -87,12 +79,7 @@ bool ViewProviderSheet::setEdit(int ModNum)
 bool ViewProviderSheet::doubleClicked()
 {
     // assure the SpreadSheet workbench
-    if (App::GetApplication()
-            .GetUserParameter()
-            .GetGroup("BaseApp")
-            ->GetGroup("Preferences")
-            ->GetGroup("Mod/Spreadsheet")
-            ->GetBool("SwitchToWB", true)) {
+    if (SheetParameter::instance()->getSwitchToWorkbench()) {
         Gui::Command::assureWorkbench("SpreadsheetWorkbench");
     }
 
@@ -111,14 +98,17 @@ void ViewProviderSheet::showSheetMdi()
 
 void ViewProviderSheet::exportAsFile()
 {
-    auto* sheet = static_cast<Spreadsheet::Sheet*>(getObject());
-    QString selectedFilter;
-    QString formatList = QObject::tr("CSV (*.csv *.CSV);;All (*)");
-    QString fileName = Gui::FileDialog::getSaveFileName(Gui::getMainWindow(),
-                                                        QObject::tr("Export file"),
-                                                        QString(),
-                                                        formatList,
-                                                        &selectedFilter);
+    auto* sheet = getObject<Spreadsheet::Sheet>();
+    const Gui::FileDialog::FilterList formatList {
+        {QStringLiteral("CSV"), {"*.csv", "*.CSV"}},
+        Gui::FileDialog::Filter::AllFiles(),
+    };
+    QString fileName = Gui::FileDialog::getSaveFileName(
+        Gui::getMainWindow(),
+        QObject::tr("Export File"),
+        QString(),
+        formatList
+    );
     if (!fileName.isEmpty()) {
         if (sheet) {
             char delim = '\0';
@@ -131,7 +121,7 @@ void ViewProviderSheet::exportAsFile()
                 sheet->exportToFile(fileName.toStdString(), delim, quote, escape);
             }
             else {
-                Base::Console().Error(errMsg.c_str());
+                Base::Console().error(errMsg.c_str());
             }
         }
     }
@@ -140,13 +130,13 @@ void ViewProviderSheet::exportAsFile()
 void ViewProviderSheet::setupContextMenu(QMenu* menu, QObject* receiver, const char* member)
 {
     QAction* act;
-    act = menu->addAction(QObject::tr("Show spreadsheet"), receiver, member);
+    act = menu->addAction(QObject::tr("Show Spreadsheet"), receiver, member);
     act->setData(QVariant((int)ViewProvider::Default));
 }
 
 Sheet* ViewProviderSheet::getSpreadsheetObject() const
 {
-    return freecad_dynamic_cast<Sheet>(pcObject);
+    return freecad_cast<Sheet*>(pcObject);
 }
 
 void ViewProviderSheet::beforeDelete()
@@ -167,8 +157,7 @@ SheetView* ViewProviderSheet::showSpreadsheetView()
         Gui::Document* doc = Gui::Application::Instance->getDocument(this->pcObject->getDocument());
         view = new SheetView(doc, this->pcObject, Gui::getMainWindow());
         view->setWindowIcon(Gui::BitmapFactory().pixmap(":icons/Spreadsheet.svg"));
-        view->setWindowTitle(QString::fromUtf8(pcObject->Label.getValue())
-                             + QString::fromLatin1("[*]"));
+        view->setWindowTitle(QString::fromUtf8(pcObject->Label.getValue()) + QStringLiteral("[*]"));
         Gui::getMainWindow()->addWindow(view);
         startEditing();
     }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef STDLINEENUMS_H_
-#define STDLINEENUMS_H_
+#pragma once
 
 #include <string>
 #include <vector>
@@ -49,7 +50,8 @@ class TechDrawExport ISOLineName {
     Q_DECLARE_TR_FUNCTIONS(TechDraw::ISOLineName)
 
 public:
-    enum ISOLineType { NOLINE = 0,
+    enum class ISOLine {
+        NOLINE = 0,
         Continuous,
         Dashed,
         DashedSpaced,
@@ -64,7 +66,8 @@ public:
         DashedDoubleDotted,
         DoubleDashedDoubleDotted,
         DashedTripleDotted,
-        DoubleDashedTripleDotted };
+        DoubleDashedTripleDotted
+    };
 
     static const char* ISOLineNameEnums[];
     static const int   ISOLineNameCount;
@@ -77,11 +80,13 @@ class TechDrawExport ANSILineName {
     Q_DECLARE_TR_FUNCTIONS(TechDraw::ANSILineName)
 
 public:
-    enum ANSILineType { NOLINE = 0,
+    enum class ANSILineType {
+        NOLINE = 0,
         Continuous,
         Dashed,
         LongDashedDashed,
-        LongDashedDoubleDashed };
+        LongDashedDoubleDashed
+    };
 
     static const char* ANSILineNameEnums[];
     static const int   ANSILineNameCount;
@@ -94,25 +99,26 @@ class TechDrawExport ASMELineName {
     Q_DECLARE_TR_FUNCTIONS(TechDraw::ASMELineName)
 
 public:
-    enum ASMELineType { NOLINE = 0,
-            Visible,
-            Hidden,
-            Section,
-            Center,
-            Symmetry,
-            Dimension,
-            Extension,
-            Leader,
-            CuttingPlane,
-            ViewingPlane,
-            OtherPlane,
-            Break1,
-            Break2,
-            Phantom,
-            Stitch1,
-            Stitch2,
-            Chain
-            };
+    enum class ASMELineType {
+        NOLINE = 0,
+        Visible,
+        Hidden,
+        Section,
+        Center,
+        Symmetry,
+        Dimension,
+        Extension,
+        Leader,
+        CuttingPlane,
+        ViewingPlane,
+        OtherPlane,
+        Break1,
+        Break2,
+        Phantom,
+        Stitch1,
+        Stitch2,
+        Chain
+    };
 
     static const char* ASMELineNameEnums[];
     static const int   ASMELineNameCount;
@@ -121,5 +127,3 @@ private:
 
 };
 } //end namespace TechDraw
-#endif
-

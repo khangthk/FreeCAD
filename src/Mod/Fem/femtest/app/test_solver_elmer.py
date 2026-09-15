@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2018 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -30,7 +32,7 @@ from os.path import join
 
 import FreeCAD
 
-import femsolver.run
+from femsolver.elmer import writer
 from . import support_utils as testtools
 from .support_utils import fcc_print
 from .support_utils import get_namefromdef
@@ -101,7 +103,7 @@ class TestSolverElmer(unittest.TestCase):
         # set up the Elmer static analysis example
         from femexamples.boxanalysis_static import setup
 
-        setup(self.document, "elmer")
+        setup(self.document, "elmer", test_mode=True)
 
         # for information:
         # elmer needs gmsh mesho object
@@ -118,12 +120,8 @@ class TestSolverElmer(unittest.TestCase):
 
         # write input files
         # fcc_print("Checking FEM input file writing for Elmer solver framework solver ...")
-        machine_elmer = self.document.SolverElmer.Proxy.createMachine(
-            self.document.SolverElmer, analysis_dir, True
-        )
-        machine_elmer.target = femsolver.run.PREPARE
-        machine_elmer.start()
-        machine_elmer.join()  # wait for the machine to finish.
+        w = writer.Writer(self.document.SolverElmer, analysis_dir, testmode=True)
+        w.write_solver_input()
 
         fcc_print("Test writing STARTINFO file")
         startinfo_given = join(self.test_file_dir, "ELMERSOLVER_STARTINFO")
@@ -139,20 +137,13 @@ class TestSolverElmer(unittest.TestCase):
         ret = testtools.compare_files(casefile_given, casefile_totest)
         self.assertFalse(ret, f"case write file test failed.\n{ret}")
 
-        fcc_print("Test writing GMSH geo file")
-        gmshgeofile_given = join(self.test_file_dir, "group_mesh.geo")
-        gmshgeofile_totest = join(analysis_dir, "group_mesh.geo")
-        # fcc_print("Comparing {} to {}".format(gmshgeofile_given, gmshgeofile_totest))
-        ret = testtools.compare_files(gmshgeofile_given, gmshgeofile_totest)
-        self.assertFalse(ret, f"GMSH geo write file test failed.\n{ret}")
-
     # ********************************************************************************************
     def test_ccxcantilever_faceload_0_mm(self):
         fcc_print("")
         self.set_unit_schema(0)  # mm/kg/s
         from femexamples.ccx_cantilever_faceload import setup
 
-        setup(self.document, "elmer")
+        setup(self.document, "elmer", test_mode=True)
         self.input_file_writing_test(get_namefromdef("test_"))
 
     # ********************************************************************************************
@@ -161,7 +152,7 @@ class TestSolverElmer(unittest.TestCase):
         self.set_unit_schema(1)  # SI-units m/kg/s
         from femexamples.ccx_cantilever_faceload import setup
 
-        setup(self.document, "elmer")
+        setup(self.document, "elmer", test_mode=True)
         self.input_file_writing_test(get_namefromdef("test_"))
 
     # ********************************************************************************************
@@ -170,7 +161,7 @@ class TestSolverElmer(unittest.TestCase):
         self.set_unit_schema(0)  # mm/kg/s
         from femexamples.ccx_cantilever_nodeload import setup
 
-        setup(self.document, "elmer")
+        setup(self.document, "elmer", test_mode=True)
         self.input_file_writing_test(get_namefromdef("test_"))
 
     # ********************************************************************************************
@@ -179,7 +170,7 @@ class TestSolverElmer(unittest.TestCase):
         self.set_unit_schema(0)  # mm/kg/s
         from femexamples.ccx_cantilever_prescribeddisplacement import setup
 
-        setup(self.document, "elmer")
+        setup(self.document, "elmer", test_mode=True)
         self.input_file_writing_test(get_namefromdef("test_"))
 
     # ********************************************************************************************
@@ -193,12 +184,8 @@ class TestSolverElmer(unittest.TestCase):
         self.document.saveAs(save_fc_file)
 
         # write input file
-        machine = self.document.SolverElmer.Proxy.createMachine(
-            self.document.SolverElmer, working_dir, True  # set testmode to True
-        )
-        machine.target = femsolver.run.PREPARE
-        machine.start()
-        machine.join()  # wait for the machine to finish
+        w = writer.Writer(self.document.SolverElmer, working_dir)
+        w.write_solver_input()
 
         # compare input file with the given one
         inpfile_given = join(self.test_file_dir, base_name + self.ending)

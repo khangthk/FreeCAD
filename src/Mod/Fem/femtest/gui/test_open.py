@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2020 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -28,13 +30,13 @@ __url__ = "https://www.freecad.org"
 import tempfile
 import unittest
 from os.path import join
+from os import remove
 
 import FreeCAD
 
 from femtest.app import support_utils as testtools
 from femtest.app.support_utils import fcc_print
 from femtest.app.test_object import create_all_fem_objects_doc
-
 
 """
 FIXME TODO HACK
@@ -104,6 +106,7 @@ class TestObjectOpen(unittest.TestCase):
         # standard name changed
         from femsolver.elmer.equations.flux import ViewProxy
 
+        remove(file_path)
         self.assertEqual(ViewProxy, self.document.Flux.ViewObject.Proxy.__class__)
 
     # ********************************************************************************************
@@ -124,6 +127,13 @@ class TestObjectOpen(unittest.TestCase):
 
         self.assertEqual(ViewProxy, self.document.Fluxsolver.ViewObject.Proxy.__class__)
 
+        from femviewprovider.view_constraint_electromagnetic import VPConstraintElectromagnetic
+
+        self.assertEqual(
+            VPConstraintElectromagnetic,
+            self.document.ConstraintElectrostaticPotential.ViewObject.Proxy.__class__,
+        )
+
     # ********************************************************************************************
     def compare_feature_pythons_class_gui(self, doc):
         import ObjectsFem
@@ -140,15 +150,6 @@ class TestObjectOpen(unittest.TestCase):
         self.assertEqual(
             "Fem::ConstraintCurrentDensity",
             type_of_obj(ObjectsFem.makeConstraintCurrentDensity(doc)),
-        )
-
-        from femviewprovider.view_constraint_electrostaticpotential import (
-            VPConstraintElectroStaticPotential,
-        )
-
-        self.assertEqual(
-            VPConstraintElectroStaticPotential,
-            doc.ConstraintElectrostaticPotential.ViewObject.Proxy.__class__,
         )
 
         from femviewprovider.view_constraint_flowvelocity import VPConstraintFlowVelocity
@@ -242,10 +243,6 @@ class TestObjectOpen(unittest.TestCase):
         from femviewprovider.view_solver_ccxtools import VPSolverCcxTools
 
         self.assertEqual(VPSolverCcxTools, doc.SolverCcxTools.ViewObject.Proxy.__class__)
-
-        from femsolver.calculix.solver import ViewProxy
-
-        self.assertEqual(ViewProxy, doc.SolverCalculix.ViewObject.Proxy.__class__)
 
         from femsolver.elmer.solver import ViewProxy
 

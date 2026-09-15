@@ -1,30 +1,29 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2018 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 """This module contains FreeCAD commands for the BIM workbench"""
 
-import os
 import FreeCAD
 import FreeCADGui
 
@@ -37,10 +36,10 @@ class BIM_IfcElements:
     def GetResources(self):
         return {
             "Pixmap": "BIM_IfcElements",
-            "MenuText": QT_TRANSLATE_NOOP("BIM_IfcElements", "Manage IFC elements..."),
+            "MenuText": QT_TRANSLATE_NOOP("BIM_IfcElements", "Manage IFC Elements"),
             "ToolTip": QT_TRANSLATE_NOOP(
                 "BIM_IfcElements",
-                "Manage how the different elements of of your BIM project will be exported to IFC",
+                "Manages how the different elements of the BIM project will be exported to IFC",
             ),
         }
 
@@ -49,8 +48,14 @@ class BIM_IfcElements:
         return v
 
     def Activated(self):
+
+        # only raise the dialog if it is already open
+        if getattr(self, "form", None):
+            self.form.raise_()
+            return
+
         import Draft
-        from PySide import QtCore, QtGui
+        from PySide import QtGui
 
         # build objects list
         self.objectslist = {}
@@ -87,26 +92,24 @@ class BIM_IfcElements:
         self.form.globalMaterial.addItem(translate("BIM", "Create new multi-material"))
         self.materials = []
         for o in FreeCAD.ActiveDocument.Objects:
-            if o.isDerivedFrom("App::MaterialObject") or (
-                Draft.getType(o) == "MultiMaterial"
-            ):
+            if o.isDerivedFrom("App::MaterialObject") or (Draft.getType(o) == "MultiMaterial"):
                 self.materials.append(o.Name)
-                self.form.globalMaterial.addItem(
-                    o.Label, QtGui.QIcon(":/icons/Arch_Material.svg")
-                )
+                self.form.globalMaterial.addItem(o.Label, QtGui.QIcon(":/icons/Arch_Material.svg"))
         self.form.groupMode.currentIndexChanged.connect(self.update)
         self.form.tree.clicked.connect(self.onClickTree)
-        self.form.onlyVisible.stateChanged.connect(self.update)
+        if hasattr(self.form.onlyVisible, "checkStateChanged"):  # Qt version >= 6.7.0
+            self.form.onlyVisible.checkStateChanged.connect(self.update)
+        else:  # Qt version < 6.7.0
+            self.form.onlyVisible.stateChanged.connect(self.update)
         self.form.buttonBox.accepted.connect(self.accept)
+        self.form.rejected.connect(self.reject)  # also triggered by self.form.buttonBox.rejected
         self.form.globalMode.currentIndexChanged.connect(self.onObjectTypeChanged)
         self.form.globalMaterial.currentIndexChanged.connect(self.onMaterialChanged)
 
         # center the dialog over FreeCAD window
         mw = FreeCADGui.getMainWindow()
         self.form.move(
-            mw.frameGeometry().topLeft()
-            + mw.rect().center()
-            - self.form.rect().center()
+            mw.frameGeometry().topLeft() + mw.rect().center() - self.form.rect().center()
         )
 
         self.update()
@@ -162,9 +165,7 @@ class BIM_IfcElements:
             mat = rolemat[1]
             obj = FreeCAD.ActiveDocument.getObject(name)
             if obj:
-                if (
-                    not self.form.onlyVisible.isChecked()
-                ) or obj.ViewObject.isVisible():
+                if (not self.form.onlyVisible.isChecked()) or obj.ViewObject.isVisible():
                     groups.setdefault(role, []).append([name, mat])
         for group in groups.keys():
             s1 = group + " (" + str(len(groups[group])) + ")"
@@ -205,9 +206,7 @@ class BIM_IfcElements:
                 mat = "Undefined"
             obj = FreeCAD.ActiveDocument.getObject(name)
             if obj:
-                if (
-                    not self.form.onlyVisible.isChecked()
-                ) or obj.ViewObject.isVisible():
+                if (not self.form.onlyVisible.isChecked()) or obj.ViewObject.isVisible():
                     groups.setdefault(mat, []).append([name, role])
 
         for group in groups.keys():
@@ -324,9 +323,7 @@ class BIM_IfcElements:
             mat = rolemat[1]
             obj = FreeCAD.ActiveDocument.getObject(name)
             if obj:
-                if (
-                    not self.form.onlyVisible.isChecked()
-                ) or obj.ViewObject.isVisible():
+                if (not self.form.onlyVisible.isChecked()) or obj.ViewObject.isVisible():
                     it1 = QtGui.QStandardItem(obj.Label)
                     it1.setIcon(getIcon(obj))
                     it1.setToolTip(obj.Name)
@@ -371,9 +368,7 @@ class BIM_IfcElements:
         mat = None
         for index in sel:
             if index.column() == 0:
-                obj = FreeCAD.ActiveDocument.getObject(
-                    self.model.itemFromIndex(index).toolTip()
-                )
+                obj = FreeCAD.ActiveDocument.getObject(self.model.itemFromIndex(index).toolTip())
                 if obj:
                     FreeCADGui.Selection.addSelection(obj)
 
@@ -447,48 +442,43 @@ class BIM_IfcElements:
         import Draft
         from PySide import QtCore, QtGui
 
+        if getattr(self, "form", None) is None:
+            return
         if FreeCADGui.Control.activeDialog():
             QtCore.QTimer.singleShot(500, self.checkMatChanged)
-        else:
-            mats = [
-                o.Name
-                for o in FreeCAD.ActiveDocument.Objects
-                if (
-                    o.isDerivedFrom("App::MaterialObject")
-                    or (Draft.getType(o) == "MultiMaterial")
-                )
-            ]
-            if len(mats) != len(self.materials):
-                newmats = [m for m in mats if not m in self.materials]
-                self.materials = mats
-                self.form.globalMaterial.clear()
-                self.form.globalMaterial.addItem(" ")
-                self.form.globalMaterial.addItem(
-                    translate("BIM", "Create new material")
-                )
-                self.form.globalMaterial.addItem(
-                    translate("BIM", "Create new multi-material")
-                )
-                for m in self.materials:
-                    o = FreeCAD.ActiveDocument.getObject(m)
-                    if o:
-                        self.form.globalMaterial.addItem(
-                            o.Label, QtGui.QIcon(":/icons/Arch_Material.svg")
-                        )
-                changed = False
-                sel = self.form.tree.selectedIndexes()
-                for index in sel:
-                    if index.column() == 2:
-                        for mat in newmats:
-                            mobj = FreeCAD.ActiveDocument.getObject(mat)
-                            if mobj:
-                                item = self.model.itemFromIndex(index)
-                                if item.toolTip() != mat:
-                                    item.setText(mobj.Label)
-                                    item.setToolTip(mat)
-                                    changed = True
-                if changed:
-                    self.update()
+            return
+        mats = [
+            o.Name
+            for o in FreeCAD.ActiveDocument.Objects
+            if (o.isDerivedFrom("App::MaterialObject") or (Draft.getType(o) == "MultiMaterial"))
+        ]
+        if len(mats) != len(self.materials):
+            newmats = [m for m in mats if not m in self.materials]
+            self.materials = mats
+            self.form.globalMaterial.clear()
+            self.form.globalMaterial.addItem(" ")
+            self.form.globalMaterial.addItem(translate("BIM", "Create new material"))
+            self.form.globalMaterial.addItem(translate("BIM", "Create new multi-material"))
+            for m in self.materials:
+                o = FreeCAD.ActiveDocument.getObject(m)
+                if o:
+                    self.form.globalMaterial.addItem(
+                        o.Label, QtGui.QIcon(":/icons/Arch_Material.svg")
+                    )
+            changed = False
+            sel = self.form.tree.selectedIndexes()
+            for index in sel:
+                if index.column() == 2:
+                    for mat in newmats:
+                        mobj = FreeCAD.ActiveDocument.getObject(mat)
+                        if mobj:
+                            item = self.model.itemFromIndex(index)
+                            if item.toolTip() != mat:
+                                item.setText(mobj.Label)
+                                item.setToolTip(mat)
+                                changed = True
+            if changed:
+                self.update()
 
     def accept(self):
         # get current state of tree
@@ -530,22 +520,23 @@ class BIM_IfcElements:
                         if obj.Material:
                             if obj.Material.Name != mat:
                                 if not changed:
-                                    FreeCAD.ActiveDocument.openTransaction(
-                                        "Change material"
-                                    )
+                                    FreeCAD.ActiveDocument.openTransaction("Change material")
                                     changed = True
                                 obj.Material = mobj
                         else:
                             if not changed:
-                                FreeCAD.ActiveDocument.openTransaction(
-                                    "Change material"
-                                )
+                                FreeCAD.ActiveDocument.openTransaction("Change material")
                                 changed = True
                             obj.Material = mobj
-
         if changed:
             FreeCAD.ActiveDocument.commitTransaction()
             FreeCAD.ActiveDocument.recompute()
+        return self.reject()
+
+    def reject(self):
+        self.form.hide()
+        del self.form
+        return True
 
 
 if FreeCAD.GuiUp:
@@ -634,7 +625,7 @@ if FreeCAD.GuiUp:
 def getIcon(obj):
     """returns a QIcon for an object"""
 
-    from PySide import QtCore, QtGui
+    from PySide import QtGui
     import Arch_rc
 
     if hasattr(obj.ViewObject, "Icon"):

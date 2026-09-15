@@ -1,31 +1,20 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 if(MSVC)
     add_definitions(-DHAVE_ACOSH -DHAVE_ATANH -DHAVE_ASINH)
 else(MSVC)
     add_definitions(-DHAVE_LIMITS_H -DHAVE_CONFIG_H)
 endif(MSVC)
 
-include_directories(
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_BINARY_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${COIN3D_INCLUDE_DIRS}
-    ${OCC_INCLUDE_DIR}
-    ${PYTHON_INCLUDE_DIRS}
-    ${XercesC_INCLUDE_DIRS}
-    ${ZLIB_INCLUDE_DIR}
-)
-link_directories(${OCC_LIBRARY_DIR})
+if(BUILD_MATERIAL_EXTERNAL)
+    add_definitions(-DBUILD_MATERIAL_EXTERNAL)
+endif(BUILD_MATERIAL_EXTERNAL)
 
 set(MatGui_LIBS
     Materials
     FreeCADGui
 )
 
-include_directories(
-    ${QtConcurrent_INCLUDE_DIRS}
-)
 list(APPEND MatGui_LIBS
     ${QtConcurrent_LIBRARIES}
 )
@@ -34,12 +23,16 @@ set(Material_TR_QRC ${CMAKE_CURRENT_BINARY_DIR}/Resources/Material_translation.q
 qt_find_and_add_translation(QM_SRCS "Resources/translations/*_*.ts"
     ${CMAKE_CURRENT_BINARY_DIR}/Resources/translations)
 qt_create_resource_file(${Material_TR_QRC} ${QM_SRCS})
-qt_add_resources(MatGui_QRC_SRCS Resources/Material.qrc ${Material_TR_QRC})
+qt_add_resources(MatGui_QRC_SRCS
+    Resources/Material.qrc
+    ${Material_TR_QRC}
+    OPTIONS ${FREECAD_RCC_OPTIONS}
+)
 
-generate_from_xml(MaterialTreeWidgetPy)
+generate_from_py(MaterialTreeWidget)
 
 SET(Python_SRCS
-    MaterialTreeWidgetPy.xml
+    MaterialTreeWidget.pyi
     MaterialTreeWidgetPyImp.cpp
 )
 SOURCE_GROUP("Python" FILES ${Python_SRCS})
@@ -60,6 +53,12 @@ set(MatGui_UIC_SRCS
     ModelSelect.ui
     TextEdit.ui
 )
+if(BUILD_MATERIAL_EXTERNAL)
+    list(APPEND MatGui_UIC_SRCS
+        DlgSettingsExternal.ui
+        TaskMigrateExternal.ui
+    )
+endif(BUILD_MATERIAL_EXTERNAL)
 
 SET(MatGui_SRCS
     ${Python_SRCS}
@@ -122,7 +121,6 @@ SET(MatGui_SRCS
     ModelSelect.cpp
     ModelSelect.h
     ModelSelect.ui
-    PreCompiled.cpp
     PreCompiled.h
     TextEdit.cpp
     TextEdit.h
@@ -132,16 +130,20 @@ SET(MatGui_SRCS
     WorkbenchManipulator.cpp
     WorkbenchManipulator.h
 )
-
-if(FREECAD_USE_PCH)
-    add_definitions(-D_PreComp_)
-    GET_MSVC_PRECOMPILED_SOURCE("PreCompiled.cpp" PCH_SRCS ${MatGui_SRCS})
-    ADD_MSVC_PRECOMPILED_HEADER(MatGui PreCompiled.h PreCompiled.cpp PCH_SRCS)
-endif(FREECAD_USE_PCH)
+if(BUILD_MATERIAL_EXTERNAL)
+    list(APPEND MatGui_SRCS
+        DlgSettingsExternal.cpp
+        DlgSettingsExternal.h
+        DlgSettingsExternal.ui
+        TaskMigrateExternal.cpp
+        TaskMigrateExternal.h
+        TaskMigrateExternal.ui
+    )
+endif(BUILD_MATERIAL_EXTERNAL)
 
 SET(MatGuiIcon_SVG
     Resources/icons/list.svg
-    Resources/icons/Materials_Edit.svg
+    Resources/icons/Material_Edit.svg
     Resources/icons/MaterialWorkbench.svg
     Resources/icons/multiline.svg
     Resources/icons/preferences-material.svg
@@ -158,13 +160,43 @@ SET(Material_Ui_Files
     Resources/ui/materials-editor.ui
 )
 
-add_library(MatGui SHARED ${MatGui_SRCS} ${MatGuiIcon_SVG} ${MatGuiImages} ${Material_Ui_Files})
+add_library(MatGui SHARED
+    ${MatGui_SRCS}
+    ${MatGuiIcon_SVG}
+    ${MatGuiImages}
+    ${Material_Ui_Files}
+)
+
+if(FREECAD_USE_PCH)
+    target_precompile_headers(MatGui PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_LIST_DIR}/PreCompiled.h">
+    )
+endif(FREECAD_USE_PCH)
+
+target_include_directories(
+    MatGui
+    PRIVATE
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_BINARY_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+target_include_directories(
+    MatGui
+    SYSTEM
+    PUBLIC
+    ${QtConcurrent_INCLUDE_DIRS}
+)
 target_link_libraries(MatGui ${MatGui_LIBS})
-if (FREECAD_WARN_ERROR)
-    target_compile_warn_error(MatGui)
+
+if (MSVC)
+    target_compile_options(MatGui PRIVATE /wd4251 /wd4273)
 endif()
 
-SET_BIN_DIR(MatGui MatGui /Mod/Material)
+target_compile_warn_error(MatGui)
+
+SET_BIN_DIR(MatGui)
 SET_PYTHON_PREFIX_SUFFIX(MatGui)
 
 fc_copy_sources(MatGui "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}/Mod/Material" ${MatGuiIcon_SVG})

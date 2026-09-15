@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Carter <dcarter@david.carter.ca>             *
  *                                                                         *
@@ -19,8 +21,7 @@
  *                                                                         *
  **************************************************************************/
 
-#ifndef MATERIAL_MATERIALCONFIGLOADER_H
-#define MATERIAL_MATERIALCONFIGLOADER_H
+#pragma once
 
 #include <memory>
 
@@ -36,6 +37,8 @@
 namespace Materials
 {
 
+class MaterialLibraryLocal;
+
 class MaterialConfigLoader
 {
 public:
@@ -45,7 +48,7 @@ public:
 
     static bool isConfigStyle(const QString& path);
     static std::shared_ptr<Material>
-    getMaterialFromPath(const std::shared_ptr<MaterialLibrary>& library, const QString& path);
+    getMaterialFromPath(const std::shared_ptr<MaterialLibraryLocal>& library, const QString& path);
 
 private:
     static QString value(const QMap<QString, QString>& fcmat,
@@ -96,7 +99,7 @@ private:
 
     static bool isTexture(const QString& value)
     {
-        return value.contains(QString::fromStdString("Texture"), Qt::CaseInsensitive);
+        return value.contains(QStringLiteral("Texture"), Qt::CaseInsensitive);
     }
 
     static bool readFile(const QString& path, QMap<QString, QString>& map);
@@ -160,5 +163,3 @@ private:
 };
 
 }  // namespace Materials
-
-#endif  // MATERIAL_MATERIALCONFIGLOADER_H

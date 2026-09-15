@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 if(MSVC)
     add_compile_options(/utf-8)
 endif(MSVC)
@@ -11,24 +13,9 @@ if(NOT ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
     endif()
 endif()
 
-include_directories(
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${COIN3D_INCLUDE_DIRS}
-    ${PYTHON_INCLUDE_DIRS}
-    ${OCC_INCLUDE_DIR}
-    ${ZLIB_INCLUDE_DIR}
-    ${XercesC_INCLUDE_DIRS}
-)
-
 # The XML files
 set(TechDrawGui_XML_SRCS
 )
-
-link_directories(${OCC_LIBRARY_DIR})
 
 set(TechDrawGui_LIBS
     TechDraw
@@ -39,10 +26,13 @@ set (TechDraw_TR_QRC ${CMAKE_CURRENT_BINARY_DIR}/Resources/TechDraw_translation.
 qt_find_and_add_translation(QM_SRCS "Resources/translations/*_*.ts"
     ${CMAKE_CURRENT_BINARY_DIR}/Resources/translations)
 qt_create_resource_file(${TechDraw_TR_QRC} ${QM_SRCS})
-qt_add_resources(TechDrawGui_SRCS Resources/TechDraw.qrc ${TechDraw_TR_QRC})
+qt_add_resources(TechDrawGui_SRCS
+    Resources/TechDraw.qrc
+    ${TechDraw_TR_QRC}
+    OPTIONS ${FREECAD_RCC_OPTIONS}
+)
 
 set(TechDrawGui_UIC_SRCS
-    DlgStringListEditor.ui
     DlgPageChooser.ui
     DlgPrefsTechDrawAdvanced.ui
     DlgPrefsTechDrawAnnotation.ui
@@ -71,6 +61,7 @@ set(TechDrawGui_UIC_SRCS
     TaskRestoreLines.ui
     TaskRichAnno.ui
     TaskSectionView.ui
+    TaskSpreadsheetView.ui
     TaskWeldingSymbol.ui
     TaskSurfaceFinishSymbols.ui
     SymbolChooser.ui
@@ -101,23 +92,22 @@ SET(TechDrawGui_SRCS
     CommandCreateDims.cpp
     CommandDecorate.cpp
     CommandAnnotate.cpp
+    CommandAlign.cpp
     CommandExtensionDims.cpp
     CommandExtensionDims.h
     CommandExtensionPack.cpp
     CommandStack.cpp
+    CommandHelpers.cpp
+    CommandHelpers.h
     DimensionValidators.cpp
     DimensionValidators.h
     Resources/TechDraw.qrc
-    PreCompiled.cpp
     PreCompiled.h
     Workbench.cpp
     Workbench.h
     TaskProjGroup.ui
     TaskProjGroup.cpp
     TaskProjGroup.h
-    DlgStringListEditor.ui
-    DlgStringListEditor.cpp
-    DlgStringListEditor.h
     DlgPageChooser.ui
     DlgPageChooser.cpp
     DlgPageChooser.h
@@ -148,6 +138,9 @@ SET(TechDrawGui_SRCS
     TaskSectionView.ui
     TaskSectionView.cpp
     TaskSectionView.h
+    TaskSpreadsheetView.ui
+    TaskSpreadsheetView.cpp
+    TaskSpreadsheetView.h
     TaskBalloon.ui
     TaskBalloon.cpp
     TaskBalloon.h
@@ -267,6 +260,8 @@ SET(TechDrawGuiView_SRCS
     QGIView.h
     QGIArrow.cpp
     QGIArrow.h
+    QGIDatumLabel.cpp
+    QGIDatumLabel.h
     QGIEdge.cpp
     QGIEdge.h
     QGIFace.cpp
@@ -331,6 +326,7 @@ SET(TechDrawGuiView_SRCS
     QGIWeldSymbol.cpp
     QGITile.h
     QGITile.cpp
+    QGIUserTypes.h
     TemplateTextField.cpp
     TemplateTextField.h
     ZVALUE.h
@@ -361,6 +357,8 @@ SET(TechDrawGuiNav_SRCS
     QGVNavStyleOpenSCAD.h
     QGVNavStyleRevit.cpp
     QGVNavStyleRevit.h
+    QGVNavStyleSolidWorks.cpp
+    QGVNavStyleSolidWorks.h
     QGVNavStyleTinkerCAD.cpp
     QGVNavStyleTinkerCAD.h
     QGVNavStyleTouchpad.cpp
@@ -422,6 +420,7 @@ SET(TechDrawGuiTaskDlgs_SRCS
     TaskProjGroup.ui
     TaskLinkDim.ui
     TaskSectionView.ui
+    TaskSpreadsheetView.ui
     TaskGeomHatch.ui
     TaskHatch.ui
     TaskLeaderLine.ui
@@ -468,20 +467,38 @@ SET(TechDrawGuiFonts
     Resources/fonts/Y14.5-FreeCAD.ttf
 )
 
+add_library(TechDrawGui SHARED
+    ${TechDrawGui_SRCS}
+    ${TechDrawGuiView_SRCS}
+    ${TechDrawGuiViewProvider_SRCS}
+    ${TechDrawGuiNav_SRCS}
+    ${TechDrawGuiIcon_SVG}
+    ${TechDrawGuiFonts}
+    ${MRTE_SRCS}
+)
+
 if(FREECAD_USE_PCH)
-    add_definitions(-D_PreComp_)
-    GET_MSVC_PRECOMPILED_SOURCE("PreCompiled.cpp" PCH_SRCS ${TechDrawGui_SRCS} ${TechDrawGuiView_SRCS}
-                                                           ${TechDrawGuiNav_SRCS}
-                                                           ${TechDrawGuiViewProvider_SRCS} ${MRTE_SRCS})
-    ADD_MSVC_PRECOMPILED_HEADER(TechDrawGui PreCompiled.h PreCompiled.cpp PCH_SRCS)
+    target_precompile_headers(TechDrawGui PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_LIST_DIR}/PreCompiled.h">
+    )
 endif(FREECAD_USE_PCH)
 
-add_library(TechDrawGui SHARED ${TechDrawGui_SRCS} ${TechDrawGuiView_SRCS} ${TechDrawGuiViewProvider_SRCS}
-                               ${TechDrawGuiNav_SRCS} ${TechDrawGuiIcon_SVG} ${TechDrawGuiFonts} ${MRTE_SRCS})
+target_include_directories(
+    TechDrawGui
+    PRIVATE
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 target_link_libraries(TechDrawGui ${TechDrawGui_LIBS})
-if (FREECAD_WARN_ERROR)
-    target_compile_warn_error(TechDrawGui)
+
+if (MSVC)
+    target_compile_definitions(TechDrawGui PRIVATE WIN32_LEAN_AND_MEAN)
 endif()
+
+target_compile_warn_error(TechDrawGui)
 
 fc_copy_sources(TechDrawGui "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}/Mod/TechDraw/" ${TechDrawGuiIcon_SVG})
 INSTALL(FILES ${TechDrawGuiIcon_SVG} DESTINATION "${CMAKE_INSTALL_DATADIR}/Mod/TechDraw/Resources/icons")
@@ -489,7 +506,7 @@ INSTALL(FILES ${TechDrawGuiIcon_SVG} DESTINATION "${CMAKE_INSTALL_DATADIR}/Mod/T
 fc_copy_sources(TechDrawGui "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}/Mod/TechDraw" ${TechDrawGuiFonts})
 INSTALL(FILES ${TechDrawGuiFonts} DESTINATION "${CMAKE_INSTALL_DATADIR}/Mod/TechDraw/Resources/fonts")
 
-SET_BIN_DIR(TechDrawGui TechDrawGui /Mod/TechDraw)
+SET_BIN_DIR(TechDrawGui)
 SET_PYTHON_PREFIX_SUFFIX(TechDrawGui)
 
 INSTALL(TARGETS TechDrawGui DESTINATION ${CMAKE_INSTALL_LIBDIR})

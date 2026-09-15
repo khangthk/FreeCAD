@@ -8,6 +8,7 @@
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include "PartTestHelpers.h"
 #include "App/MappedElement.h"
+#include <Base/Interpreter.h>
 
 using namespace Part;
 using namespace PartTestHelpers;
@@ -24,7 +25,7 @@ protected:
     void SetUp() override
     {
         createTestDoc();
-        _common = dynamic_cast<Common*>(_doc->addObject("Part::Common"));
+        _common = _doc->addObject<Common>();
     }
 
     void TearDown() override
@@ -111,7 +112,7 @@ TEST_F(FeaturePartTest, create)
     // without modifications
     EXPECT_STREQ(_doc->getObjectName(featureNoDoc), "Vertex");
 
-    // The feature is created in otherDoc, which doesn't have other features and thertherefor the
+    // The feature is created in otherDoc, which doesn't have other features and thertherefore the
     // feature's name will be assigned without modifications
     EXPECT_STREQ(otherDoc->getObjectName(feature), "Vertex");
 
@@ -153,14 +154,18 @@ TEST_F(FeaturePartTest, getRelatedElements)
     auto label2 = _boxes[1]->Label.getValue();
     const TopoShape& ts = _common->Shape.getShape();
     boost::ignore_unused(ts);
-    auto result = Feature::getRelatedElements(_doc->getObject(label1),
-                                              "Edge2",
-                                              HistoryTraceType::followTypeChange,
-                                              true);
-    auto result2 = Feature::getRelatedElements(_doc->getObject(label2),
-                                               "Edge1",
-                                               HistoryTraceType::followTypeChange,
-                                               true);
+    auto result = Feature::getRelatedElements(
+        _doc->getObject(label1),
+        "Edge2",
+        HistoryTraceType::followTypeChange,
+        true
+    );
+    auto result2 = Feature::getRelatedElements(
+        _doc->getObject(label2),
+        "Edge1",
+        HistoryTraceType::followTypeChange,
+        true
+    );
     // Assert
     EXPECT_EQ(result.size(), 1);   // Found the one.
     EXPECT_EQ(result2.size(), 0);  // No element map, so no related elements
@@ -185,11 +190,13 @@ TEST_F(FeaturePartTest, getElementFromSource)
     boost::ignore_unused(label1);
     boost::ignore_unused(label2);
     boost::ignore_unused(ts);
-    auto element = Feature::getElementFromSource(_common,
-                                                 "Part__Box001",  // "Edge1",
-                                                 _boxes[0],
-                                                 "Face1",  // "Edge1",
-                                                 false);
+    auto element = Feature::getElementFromSource(
+        _common,
+        "Part__Box001",  // "Edge1",
+        _boxes[0],
+        "Face1",  // "Edge1",
+        false
+    );
     // Assert
     EXPECT_EQ(element.size(), 0);
 }
@@ -201,6 +208,7 @@ TEST_F(FeaturePartTest, getSubObject)
     _common->Tool.setValue(_boxes[1]);
     App::DocumentObject sourceObject;
     PyObject* pyObj;
+    Base::PyGILStateLocker lock;  // getSubObject builds a Python wrapper for the shape
     // Act
     _common->execute();
     auto result = _boxes[1]->getSubObject("Face5", &pyObj, nullptr, false, 10);

@@ -15,6 +15,60 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
+    <widget class="QCheckBox" name="ckb_working_directory">
+     <property name="text">
+      <string>Working directory</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="gpb_working_directory">
+     <property name="title">
+      <string></string>
+     </property>
+     <layout class="QVBoxLayout" name="vbl_working_directory">
+      <item>
+       <layout class="QHBoxLayout" name="hbl_working_directory">
+        <item>
+         <widget class="QPushButton" name="pb_write_input">
+          <property name="text">
+           <string>Write</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pb_edit_input">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Edit</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="hbl_working_directory">
+        <item>
+         <widget class="Gui::FileChooser" name="fc_working_directory">
+          <property name="toolTip">
+           <string>Path to working directory. Leave blank to use user preferences</string>
+          </property>
+          <property name="readOnly">
+           <bool>false</bool>
+          </property>
+          <property name="mode">
+            <enum>Gui::FileChooser::Mode::Directory</enum>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QGroupBox" name="gpb_mesh_params">
      <property name="maximumSize">
       <size>
@@ -34,7 +88,7 @@
         <item row="0" column="0">
          <widget class="QLabel" name="lbl_fineness">
           <property name="text">
-           <string>Fineness:</string>
+           <string>Fineness</string>
           </property>
          </widget>
         </item>
@@ -44,7 +98,7 @@
         <item row="1" column="0">
          <widget class="QLabel" name="l_max">
           <property name="text">
-           <string>Maximal Size:</string>
+           <string>Maximum size</string>
           </property>
          </widget>
         </item>
@@ -55,12 +109,6 @@
           </property>
           <property name="unit" stdset="0">
            <string notr="true">mm</string>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>100</width>
-            <height>20</height>
-           </size>
           </property>
           <property name="alignment">
            <set>Qt::AlignLeft|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -85,7 +133,7 @@
         <item row="2" column="0">
          <widget class="QLabel" name="l_min">
           <property name="text">
-           <string>Minimal Size:</string>
+           <string>Minimum size</string>
           </property>
          </widget>
         </item>
@@ -96,12 +144,6 @@
           </property>
           <property name="unit" stdset="0">
            <string notr="true">mm</string>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>100</width>
-            <height>20</height>
-           </size>
           </property>
           <property name="alignment">
            <set>Qt::AlignLeft|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -126,19 +168,19 @@
         <item row="6" column="0">
          <widget class="QCheckBox" name="ckb_second_order">
           <property name="text">
-           <string>Second Order</string>
+           <string>Second order</string>
           </property>
          </widget>
         </item>
         <item row="3" column="0">
          <widget class="QLabel" name="label_3">
           <property name="text">
-           <string>Growth Rate:</string>
+           <string>Growth rate</string>
           </property>
          </widget>
         </item>
         <item row="3" column="1">
-         <widget class="QDoubleSpinBox" name="dsb_growth_rate">
+         <widget class="Gui::DoubleSpinBox" name="dsb_growth_rate">
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -156,12 +198,12 @@
         <item row="4" column="0">
          <widget class="QLabel" name="label_3">
           <property name="text">
-           <string>Curvature Safety:</string>
+           <string>Curvature safety</string>
           </property>
          </widget>
         </item>
         <item row="4" column="1">
-         <widget class="QDoubleSpinBox" name="dsb_curvature_safety">
+         <widget class="Gui::DoubleSpinBox" name="dsb_curvature_safety">
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -173,12 +215,12 @@
         <item row="5" column="0">
          <widget class="QLabel" name="label_3">
           <property name="text">
-           <string>Segments Per Edge:</string>
+           <string>Segments per edge</string>
           </property>
          </widget>
         </item>
         <item row="5" column="1">
-         <widget class="QDoubleSpinBox" name="dsb_seg_per_edge">
+         <widget class="Gui::DoubleSpinBox" name="dsb_seg_per_edge">
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -216,6 +258,9 @@
             <property name="lineWrapMode">
              <enum>QTextEdit::NoWrap</enum>
             </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
            </widget>
           </item>
           <item row="5" column="0">
@@ -226,7 +271,7 @@
              </font>
             </property>
             <property name="text">
-             <string>Time:</string>
+             <string>Time</string>
             </property>
            </widget>
           </item>
@@ -252,7 +297,7 @@
              </sizepolicy>
             </property>
             <property name="text">
-             <string>Netgen version</string>
+             <string>Netgen Version</string>
             </property>
            </widget>
           </item>
@@ -270,6 +315,11 @@
    <class>Gui::QuantitySpinBox</class>
    <extends>QWidget</extends>
    <header>Gui/QuantitySpinBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>Gui::DoubleSpinBox</class>
+   <extends>QWidget</extends>
+   <header>Gui/SpinBox.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

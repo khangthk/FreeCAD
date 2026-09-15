@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2014 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
@@ -191,7 +193,7 @@ def _identifygcodeByToolNumberList(filename):
     p = re.compile(r"[mM]+?\s?0?6\s?T\d*\s")
 
     # split the gcode on tool changes
-    paths = re.split("([mM]+?\s?0?6\s?T\d*\s)", gcode)
+    paths = re.split(r"([mM]+?\s?0?6\s?T\d*\s)", gcode)
 
     # iterate the gcode sections and add customs for each
     toolnumber = 0

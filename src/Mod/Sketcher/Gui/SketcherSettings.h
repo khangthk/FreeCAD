@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2014 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef SKETCHERGUI_SKETCHERSETTINGS_H
-#define SKETCHERGUI_SKETCHERSETTINGS_H
+#pragma once
 
 #include <Gui/PropertyPage.h>
 #include <memory>
@@ -71,6 +72,8 @@ public:
     explicit SketcherSettingsGrid(QWidget* parent = nullptr);
     ~SketcherSettingsGrid() override;
 
+    bool event(QEvent* event) override;
+
     void saveSettings() override;
     void loadSettings() override;
 
@@ -90,6 +93,12 @@ class SketcherSettingsDisplay: public Gui::Dialog::PreferencePage
     Q_OBJECT
 
 public:
+    // Characters required to be present in the selected font:
+    //   degree sign, micro sign, f with hook, stroke overlay, diameter sign,
+    //   upper half circle, mathematical f, mathematical x
+    static constexpr const char* const RequiredCharacters
+        = "\u00B0\u00B5\u0192\u0336\u2300\u25E0\U0001D453\U0001D465";
+
     explicit SketcherSettingsDisplay(QWidget* parent = nullptr);
     ~SketcherSettingsDisplay() override;
 
@@ -98,9 +107,15 @@ public:
 
 protected:
     void changeEvent(QEvent* e) override;
+    void showEvent(QShowEvent* e) override;
+
+    QColor getSketcherBackgroundColor();
+    QColor getSketcherConstraintColor();
 
 private Q_SLOTS:
     void onBtnTVApplyClicked(bool);
+    void onFontNameChanged(const QFont& font);
+    void onFontSizeChanged(int size);
 
 private:
     std::unique_ptr<Ui_SketcherSettingsDisplay> ui;
@@ -118,6 +133,8 @@ public:
     explicit SketcherSettingsAppearance(QWidget* parent = nullptr);
     ~SketcherSettingsAppearance() override;
 
+    bool event(QEvent* event) override;
+
     void saveSettings() override;
     void loadSettings() override;
 
@@ -128,6 +145,17 @@ private:
     std::unique_ptr<Ui_SketcherSettingsAppearance> ui;
 };
 
-}  // namespace SketcherGui
+// Mode for the sketch autoscale feature which scales
+// the geometry and zooms the camera when the first
+// scale defining constraint is set
+enum class AutoScaleMode : int
+{
+    Always = 0,
+    Never = 1,
 
-#endif  // SKETCHERGUI_SKETCHERSETTINGS_H
+    // Attempts to find scale reference objects int the viewport
+    // (such as a 3d body) and disable the feature if it finds one
+    WhenNoScaleFeatureIsVisible = 2
+};
+
+}  // namespace SketcherGui

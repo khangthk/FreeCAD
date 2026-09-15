@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 Pierre-Louis Boyer <development@Ondsel.com>        *
  *                                                                         *
@@ -21,14 +23,13 @@
  ***************************************************************************/
 
 
-#ifndef MEASUREGUI_QUICKMEASURE_H
-#define MEASUREGUI_QUICKMEASURE_H
+#pragma once
 
 #include <QObject>
 
 #include <Mod/Measure/MeasureGlobal.h>
 
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 
 class QTimer;
 
@@ -47,6 +48,7 @@ class QuickMeasure: public QObject, Gui::SelectionObserver
 public:
     explicit QuickMeasure(QObject* parent = nullptr);
     ~QuickMeasure() override;
+    void print(const QString& message);
 
 private:
     void onSelectionChanged(const Gui::SelectionChanges& msg) override;
@@ -56,7 +58,6 @@ private:
     void addSelectionToMeasurement();
     bool isObjAcceptable(App::DocumentObject* obj);
     void printResult();
-    void print(const QString& message);
 
     void processSelection();
 
@@ -67,5 +68,3 @@ private:
 };
 
 }  // namespace MeasureGui
-
-#endif  // MEASUREGUI_QUICKMEASURE_H

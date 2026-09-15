@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Luke Parry <l.parry@warwick.ac.uk>                 *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef TECHDRAWGUI_QGVIEW_H
-#define TECHDRAWGUI_QGVIEW_H
+#pragma once
 
 #include <Mod/TechDraw/TechDrawGlobal.h>
 
@@ -78,7 +79,7 @@ class TechDrawGuiExport QGVPage: public QGraphicsView
     Q_OBJECT
 
 public:
-    enum RendererType
+    enum class RendererType
     {
         Native,
         OpenGL,
@@ -88,7 +89,7 @@ public:
     QGVPage(ViewProviderPage* vpPage, QGSPage* scenePage, QWidget* parent = nullptr);
     ~QGVPage() override;
 
-    void setRenderer(RendererType type = Native);
+    void setRenderer(RendererType type = RendererType::Native);
     void drawBackground(QPainter* painter, const QRectF& rect) override;
 
     QGSPage* getScene() { return m_scene; }
@@ -152,7 +153,6 @@ protected:
 
     QColor getBackgroundColor();
 
-    double getDevicePixelRatio() const;
     QPixmap prepareCursorPixmap(const char* iconName, QPoint& hotspot);
 
     void drawForeground(QPainter* painter, const QRectF& rect) override;
@@ -163,7 +163,7 @@ protected:
     void initNavigationStyle();
     void setNavigationStyle(std::string navParm);
 
-    void createStandardCursors(double dpr);
+    void createStandardCursors();
 
 private:
     RendererType m_renderer;
@@ -206,5 +206,3 @@ private:
 };
 
 }// namespace TechDrawGui
-
-#endif// TECHDRAWGUI_QGVIEW_H

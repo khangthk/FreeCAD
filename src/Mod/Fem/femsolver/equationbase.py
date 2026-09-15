@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
 # *                                                                         *
@@ -40,7 +42,7 @@ class BaseProxy:
 
     def __init__(self, obj):
         obj.Proxy = self
-        obj.addProperty("App::PropertyLinkSubList", "References", "Base", "")
+        obj.addProperty("App::PropertyLinkSubList", "References", "Base", "", locked=True)
 
     def execute(self, obj):
         return True
@@ -155,6 +157,16 @@ class Magnetodynamic2DViewProxy(BaseViewProxy):
 
     def getIcon(self):
         return ":/icons/FEM_EquationMagnetodynamic2D.svg"
+
+
+class StaticCurrentProxy(BaseProxy):
+    pass
+
+
+class StaticCurrentViewProxy(BaseViewProxy):
+
+    def getIcon(self):
+        return ":/icons/FEM_EquationStaticCurrent.svg"
 
 
 ##  @}

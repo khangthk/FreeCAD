@@ -1,34 +1,38 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2018 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 """This is the tutorial of the BIM workbench"""
 
-
+import ast
 import os
+
 import FreeCAD
 import FreeCADGui
 
 QT_TRANSLATE_NOOP = FreeCAD.Qt.QT_TRANSLATE_NOOP
 translate = FreeCAD.Qt.translate
+
 PARAMS = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM")
 
 
@@ -36,7 +40,7 @@ html = """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" "http://www.w3.org/TR
 <html><head><meta name="qrichtext" content="1" /><style type="text/css">
 p, li { white-space: pre-wrap; }</style></head><body>inserthere</body></html>"""
 
-URL = "https://www.freecadweb.org/wiki/BIM_ingame_tutorial"
+URL = "https://www.freecad.org/wiki/BIM_ingame_tutorial"
 TESTINTERVAL = 1000  # interval between tests
 
 
@@ -84,19 +88,16 @@ class BIM_Tutorial:
             self.pixempty = QtGui.QPixmap()
 
             # fire the loading after displaying the widget
-            from DraftGui import todo
+            from draftutils import todo
 
             # self.load()
-            # todo.delay(self.load,None)
+            # todo.ToDo.delay(self.load,None)
             QtCore.QTimer.singleShot(1000, self.load)
 
     def load(self, arg=None):
-        import re, sys, codecs
-
-        if sys.version_info.major < 3:
-            import urllib2
-        else:
-            import urllib.request as urllib2
+        import re
+        import sys
+        from urllib.request import urlopen
 
         # initial loading
 
@@ -104,19 +105,15 @@ class BIM_Tutorial:
             return
 
         # load tutorial from wiki
-        offlineloc = os.path.join(
-            FreeCAD.getUserAppDataDir(), "BIM", "Tutorial", "Tutorial.html"
-        )
+        offlineloc = os.path.join(FreeCAD.getUserAppDataDir(), "BIM", "Tutorial", "Tutorial.html")
         try:
-            u = urllib2.urlopen(URL)
+            u = urlopen(URL)
             html = u.read()
             if sys.version_info.major >= 3:
                 html = html.decode("utf8")
             html = html.replace("\n", " ")
-            html = html.replace('"/wiki/', '"https://www.freecadweb.org/wiki/')
-            html = re.sub(
-                '<div id="toc".*?</ul> </div>', "", html
-            )  # remove table of contents
+            html = html.replace('href="/', 'href="https://wiki.freecad.org/')
+            html = re.sub('<div id="toc".*?</ul> </div>', "", html)  # remove table of contents
             u.close()
         except:
             # unable to load tutorial. Look for offline version
@@ -128,7 +125,7 @@ class BIM_Tutorial:
                 FreeCAD.Console.PrintError(
                     translate(
                         "BIM",
-                        "Unable to access the tutorial. Verify that you are online (This is needed only once).",
+                        "Unable to access the tutorial. Verify the internet connection (This is needed only once).",
                     )
                     + "\n"
                 )
@@ -136,7 +133,7 @@ class BIM_Tutorial:
         else:
             if not os.path.exists(os.path.dirname(offlineloc)):
                 os.makedirs(os.path.dirname(offlineloc))
-            f = codecs.open(offlineloc, "w", "utf-8")
+            f = open(offlineloc, "w", encoding="utf-8")
             f.write(html)
             f.close()
 
@@ -149,8 +146,10 @@ class BIM_Tutorial:
         )
         self.goal1 = re.findall(r'goal1">(.*?)</div', html)
         self.goal2 = re.findall(r'goal2">(.*?)</div', html)
-        self.test1 = re.findall(r'test1".*?>(.*?)</div', html)
-        self.test2 = re.findall(r'test2".*?>(.*?)</div', html)
+        # self.test1 = re.findall(r'test1".*?>(.*?)</div', html)
+        # self.test2 = re.findall(r'test2".*?>(.*?)</div', html)
+        self.test1 = ["False"] * len(self.goal1)
+        self.test2 = ["False"] * len(self.goal2)
 
         # fix mediawiki encodes
         self.test1 = [t.replace("&lt;", "<").replace("&gt;", ">") for t in self.test1]
@@ -158,7 +157,7 @@ class BIM_Tutorial:
 
         # download images (QTextEdit cannot load online images)
         self.form.textEdit.setHtml(
-            html.replace("inserthere", translate("BIM", "Downloading images..."))
+            html.replace("inserthere", translate("BIM", "Downloading images…"))
         )
         nd = []
         for descr in self.descriptions:
@@ -169,17 +168,20 @@ class BIM_Tutorial:
                     os.makedirs(store)
                 for path in imagepaths:
                     # name = re.findall(r"[\\w.-]+\\.(?i)(?:jpg|png|gif|bmp)",path)
-                    name = re.findall(r"(?i)[\\w.-]+\\.(?:jpg|png|gif|bmp)", path)
-                    if name:
-                        name = name[-1]
+                    # name = re.findall(r"(?i)[\\w.-]+\\.(?:jpg|png|gif|bmp)", path)
+                    try:
+                        name = os.path.splitext(os.path.basename(path))[0]
+                    except:
+                        print("unparsable image path:", path)
+                    else:
                         storename = os.path.join(store, name)
                         if not os.path.exists(storename):
                             if path.startswith("/images"):
                                 # relative path
-                                fullpath = "https://www.freecadweb.org/wiki" + path
+                                fullpath = "https://www.freecad.org/wiki" + path
                             else:
                                 fullpath = path
-                            u = urllib2.urlopen(fullpath)
+                            u = urlopen(fullpath)
                             imagedata = u.read()
                             f = open(storename, "wb")
                             f.write(imagedata)
@@ -187,11 +189,7 @@ class BIM_Tutorial:
                             u.close()
                         # descr = descr.replace(path,"file://"+storename.replace("\\","/"))
                         # fix for windows - seems to work everywhere else too...
-                        descr = descr.replace(
-                            path, "file:///" + storename.replace("\\", "/")
-                        )
-                    else:
-                        print("unparsable image path:", path)
+                        descr = descr.replace(path, "file:///" + storename.replace("\\", "/"))
             nd.append(descr)
         self.descriptions = nd
 
@@ -211,7 +209,7 @@ class BIM_Tutorial:
         self.update()
 
     def update(self):
-        from PySide import QtCore, QtGui
+        from PySide import QtCore
 
         if not hasattr(self, "form") or not self.form or not hasattr(self, "dock"):
             return
@@ -243,11 +241,7 @@ class BIM_Tutorial:
         else:
             self.form.labelTasks.hide()
         self.dock.setWindowTitle(
-            translate("BIM", "BIM Tutorial - step")
-            + " "
-            + str(self.step)
-            + " / "
-            + str(self.steps)
+            translate("BIM", "BIM Tutorial - Step") + " " + str(self.step) + " / " + str(self.steps)
         )
         self.form.progressBar.setValue(int((float(self.step) / self.steps) * 100))
 
@@ -270,7 +264,7 @@ class BIM_Tutorial:
             QtCore.QTimer.singleShot(TESTINTERVAL, self.checkGoals)
 
     def checkGoals(self):
-        from PySide import QtCore, QtGui
+        from PySide import QtCore
 
         if not hasattr(self, "form"):
             return
@@ -279,9 +273,9 @@ class BIM_Tutorial:
             if self.test1[self.step]:
                 if not self.done1:
                     try:
-                        result = eval(self.test1[self.step])
+                        result = ast.literal_eval(self.test1[self.step])
                     except:
-                        print("BIM Tutorial: unable to eval: " + self.test1[self.step])
+                        print("BIM Tutorial: unable to ast.literal_eval: " + self.test1[self.step])
                         result = False
                         self.done1 = True
                     if result:
@@ -292,9 +286,9 @@ class BIM_Tutorial:
             if self.test2[self.step]:
                 if not self.done2:
                     try:
-                        result = eval(self.test2[self.step])
+                        result = ast.literal_eval(self.test2[self.step])
                     except:
-                        print("BIM Tutorial: unable to eval: " + self.test2[self.step])
+                        print("BIM Tutorial: unable to ast.literal_eval: " + self.test2[self.step])
                         result = False
                         self.done2 = True
                     if result:

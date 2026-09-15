@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2024 Shai Seger <shaise at gmail>                       *
  *                                                                         *
@@ -22,23 +24,28 @@
 
 #include "TextureLoader.h"
 
-using namespace MillSim;
+namespace CAMSimulator
+{
 
 TextureItem texItems[] = {
-    {1, 36, 0, 0},
+    {1, 40, 0, 0},
     {1, 1, 0, 0},
     {70, 1, 0, 0},
     {100, 1, 0, 0},
-    {134, 1, 0, 0},
-    {172, 1, 0, 0},
+    {135, 1, 0, 0},
+    {30, 1, 0, 0},
+    {170, 1, 0, 0},
+    {1, 130, 0, 0},
+    {30, 130, 0, 0},
+    {55, 130, 0, 0},
+    {85, 130, 0, 0},
+    {140, 130, 0, 0},
+    {195, 130, 0, 0},
     {210, 1, 0, 0},
-    {2, 50, 0, 0},
-    {70, 50, 0, 0},
-    {27, 50, 0, 0},
-    {44, 50, 0, 0},
-    {90, 50, 0, 0},
-    {128, 50, 0, 0},
-    {168, 50, 0, 0},
+    {95, 50, 0, 0},
+    {130, 50, 0, 0},
+    {170, 50, 0, 0},
+    {210, 50, 0, 0},
 };
 
 
@@ -46,12 +53,11 @@ TextureItem texItems[] = {
 
 int sssize = -1;
 
-TextureLoader::TextureLoader(std::string imgFolder,
-                             std::vector<std::string> fileNames,
-                             int textureSize)
+TextureLoader::TextureLoader(std::string imgFolder, std::vector<std::string> fileNames, int textureSize)
     : mImageFolder(imgFolder)
 {
-    int buffsize = textureSize * textureSize * sizeof(unsigned int);
+    size_t buffsize = static_cast<size_t>(textureSize) * static_cast<size_t>(textureSize)
+        * sizeof(unsigned int);
     mRawData = (unsigned int*)malloc(buffsize);
     if (mRawData == nullptr) {
         return;
@@ -64,10 +70,7 @@ TextureLoader::TextureLoader(std::string imgFolder,
 }
 
 // parse compressed image into a texture buffer
-bool TextureLoader::AddImage(TextureItem* texItem,
-                             QImage& pixmap,
-                             unsigned int* buffPos,
-                             int stride)
+bool TextureLoader::AddImage(TextureItem* texItem, QImage& pixmap, unsigned int* buffPos, int stride)
 {
     int width = pixmap.width();
     int height = pixmap.height();
@@ -84,19 +87,21 @@ bool TextureLoader::AddImage(TextureItem* texItem,
     return true;
 }
 
-MillSim::TextureLoader::~TextureLoader()
+TextureLoader::~TextureLoader()
 {
     if (mRawData != nullptr) {
         free(mRawData);
     }
 }
 
-unsigned int* MillSim::TextureLoader::GetRawData()
+unsigned int* TextureLoader::GetRawData()
 {
     return mRawData;
 }
 
-TextureItem* MillSim::TextureLoader::GetTextureItem(int i)
+TextureItem* TextureLoader::GetTextureItem(int i)
 {
     return texItems + i;
 }
+
+}  // namespace CAMSimulator

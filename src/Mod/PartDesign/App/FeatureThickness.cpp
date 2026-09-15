@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 Stefan Tröger <stefantroeger@gmx.net>              *
  *                                                                         *
@@ -20,15 +22,15 @@
  *                                                                         *
  ***************************************************************************/
 
+#include <cmath>
 #include <map>
 #include <string>
 #include <vector>
 
-#include "PreCompiled.h"    // NOLINT
-#ifndef _PreComp_
-# include <Precision.hxx>
-# include <TopoDS.hxx>
-#endif
+#include <BRepOffset_Mode.hxx>
+#include <Precision.hxx>
+#include <TopoDS.hxx>
+
 
 #include <Base/Exception.h>
 #include "FeatureThickness.h"
@@ -37,34 +39,111 @@ FC_LOG_LEVEL_INIT("PartDesign", true, true)
 
 using namespace PartDesign;
 
-const char *PartDesign::Thickness::ModeEnums[] = {"Skin", "Pipe", "RectoVerso", nullptr};
-const char *PartDesign::Thickness::JoinEnums[] = {"Arc", "Intersection", nullptr};
+namespace
+{
+void ensureValidWall(const Part::TopoShape& wall, const char* message)
+{
+    if (wall.isNull() || !wall.isValid() || wall.countSubShapes(TopAbs_SOLID) != 1) {
+        throw Base::CADKernelError(message);
+    }
+}
+
+/** Build a wall centered on the retained shell of a solid.
+ *
+ * The closing faces are removed by the ordinary skin-thickness operation.
+ * Two exact one-sided walls are built at half the requested thickness in
+ * each direction and regular-fused across their shared source shell.
+ */
+Part::TopoShape makeRectoVersoThickness(
+    const Part::TopoShape& solid,
+    const std::vector<Part::TopoShape>& closingFaces,
+    double thickness,
+    double tolerance,
+    bool intersection,
+    Part::JoinType join,
+    long tag
+)
+{
+    const double distance = std::abs(thickness) / 2.0;
+    if (distance <= tolerance) {
+        throw Base::CADKernelError("Recto-verso half-thickness must exceed the modeling tolerance");
+    }
+
+    // Signed offsets are only meaningful for consistently oriented solids.
+    // Imported and programmatically constructed solids are not guaranteed to
+    // have that orientation, so normalize it without resetting element names.
+    Part::TopoShape orientedSolid = solid;
+    orientedSolid.fixSolidOrientation();
+
+    constexpr auto skinMode = static_cast<short>(BRepOffset_Skin);
+    Part::TopoShape recto = orientedSolid.makeElementThickSolid(
+        closingFaces,
+        distance,
+        tolerance,
+        intersection,
+        false,
+        skinMode,
+        join,
+        "RectoVersoRecto"
+    );
+    Part::TopoShape verso = orientedSolid.makeElementThickSolid(
+        closingFaces,
+        -distance,
+        tolerance,
+        intersection,
+        false,
+        skinMode,
+        join,
+        "RectoVersoVerso"
+    );
+    ensureValidWall(recto, "Recto-verso positive-side wall is invalid");
+    ensureValidWall(verso, "Recto-verso negative-side wall is invalid");
+
+    Part::TopoShape result(tag);
+    result.makeElementFuse({recto, verso}, "RectoVerso", tolerance);
+    if (result.isNull() || !result.isValid() || result.countSubShapes(TopAbs_SOLID) != 1) {
+        throw Base::CADKernelError("Recto-verso thickness produced an invalid solid");
+    }
+    return result;
+}
+}  // namespace
+
+const char* PartDesign::Thickness::ModeEnums[] = {"Skin", "Pipe", "RectoVerso", nullptr};
+const char* PartDesign::Thickness::JoinEnums[] = {"Arc", "Intersection", nullptr};
 
 PROPERTY_SOURCE(PartDesign::Thickness, PartDesign::DressUp)
 
-Thickness::Thickness() {
+Thickness::Thickness()
+{
     ADD_PROPERTY_TYPE(Value, (1.0), "Thickness", App::Prop_None, "Thickness value");
     ADD_PROPERTY_TYPE(Mode, (0L), "Thickness", App::Prop_None, "Mode");
     Mode.setEnums(ModeEnums);
     ADD_PROPERTY_TYPE(Join, (0L), "Thickness", App::Prop_None, "Join type");
     Join.setEnums(JoinEnums);
-    ADD_PROPERTY_TYPE(Reversed, (true), "Thickness", App::Prop_None,
-                      "Apply the thickness towards the solids interior");
-    ADD_PROPERTY_TYPE(Intersection, (false), "Thickness", App::Prop_None,
-                      "Enable intersection-handling");
+    ADD_PROPERTY_TYPE(
+        Reversed,
+        (true),
+        "Thickness",
+        App::Prop_None,
+        "Apply the thickness towards the solids interior"
+    );
+    ADD_PROPERTY_TYPE(Intersection, (false), "Thickness", App::Prop_None, "Enable intersection-handling");
 }
 
-int16_t Thickness::mustExecute() const {
-    if (Placement.isTouched() ||
-        Value.isTouched() ||
-        Mode.isTouched() ||
-        Join.isTouched()) {
+int16_t Thickness::mustExecute() const
+{
+    if (Placement.isTouched() || Value.isTouched() || Mode.isTouched() || Join.isTouched()) {
         return 1;
     }
     return DressUp::mustExecute();
 }
 
-App::DocumentObjectExecReturn *Thickness::execute() {
+App::DocumentObjectExecReturn* Thickness::execute()
+{
+    if (onlyHaveRefined()) {
+        return App::DocumentObject::StdReturn;
+    }
+
     // Base shape
     Part::TopoShape TopShape;
     try {
@@ -74,31 +153,34 @@ App::DocumentObjectExecReturn *Thickness::execute() {
         return new App::DocumentObjectExecReturn(e.what());
     }
 
+    // Set transform to identity so occ will perform this operation
+    // in local coordinates
+    TopShape.setTransform(Base::Matrix4D());
+    if (auto* base = getBaseObject(/* silent = */ true)) {
+        Placement.setValue(base->Placement.getValue());
+    }
+
     const std::vector<std::string>& subStrings = Base.getSubValues(true);
 
     // If the base has no sub elements listed just return a copy of the base.
     if (subStrings.empty()) {
-        // We must set the placement of the feature in case it's empty.
-        this->positionByBaseFeature();
         this->Shape.setValue(TopShape);
         return App::DocumentObject::StdReturn;
     }
 
-    /* If the feature was ever empty, then Placement was set by positionByBaseFeature.  However,
-     * makeThickSolid apparently requires the placement to be empty, so we have to clear it */
-    this->Placement.setValue(Base::Placement());
-
     std::map<int, std::vector<TopoShape>> closeFaces;
-    for ( const auto& it : subStrings ) {
+    for (const auto& it : subStrings) {
         TopoDS_Shape face;
         try {
             face = TopShape.getSubShape(it.c_str());
         }
         catch (...) {
         }
-        if (face.IsNull())
+        if (face.IsNull()) {
             return new App::DocumentObjectExecReturn(
-                QT_TRANSLATE_NOOP("Exception", "Invalid face reference"));
+                QT_TRANSLATE_NOOP("Exception", "Invalid face reference")
+            );
+        }
         // We found the sub element (face) so let's get its history index in our shape
         int index = TopShape.findAncestor(face, TopAbs_SOLID);
         if (!index) {
@@ -117,11 +199,13 @@ App::DocumentObjectExecReturn *Thickness::execute() {
 
     std::vector<TopoShape> shapes;
     auto count = static_cast<int>(TopShape.countSubShapes(TopAbs_SOLID));
-    if (!count)
+    if (!count) {
         return new App::DocumentObjectExecReturn("No solid");
+    }
     // we do not offer tangent join type
-    if (join == 1)
+    if (join == 1) {
         join = 2;
+    }
 
     if (fabs(thickness) > 2 * tol) {
         auto mapIterator = closeFaces.begin();
@@ -137,13 +221,29 @@ App::DocumentObjectExecReturn *Thickness::execute() {
             }
             TopoShape res(0);
             try {
-                res = solid.makeElementThickSolid(*faces,
-                                                  thickness,
-                                                  tol,
-                                                  intersection,
-                                                  false,
-                                                  mode,
-                                                  static_cast<Part::JoinType>(join));
+                const auto joinType = static_cast<Part::JoinType>(join);
+                if (mode == BRepOffset_RectoVerso) {
+                    res = makeRectoVersoThickness(
+                        solid,
+                        *faces,
+                        thickness,
+                        tol,
+                        intersection,
+                        joinType,
+                        getID()
+                    );
+                }
+                else {
+                    res = solid.makeElementThickSolid(
+                        *faces,
+                        thickness,
+                        tol,
+                        intersection,
+                        false,
+                        mode,
+                        joinType
+                    );
+                }
                 shapes.push_back(res);
             }
             catch (Standard_Failure& e) {
@@ -159,11 +259,15 @@ App::DocumentObjectExecReturn *Thickness::execute() {
     TopoShape result(0);
     if (shapes.size() > 1) {
         result.makeElementFuse(shapes);
-    } else if (shapes.empty()) {
+    }
+    else if (shapes.empty()) {
         result = TopShape;
-    } else {
+    }
+    else {
         result = shapes.front();
     }
+    // store shape before refinement
+    this->rawShape = result;
     result = refineShapeIfActive(result);
     this->Shape.setValue(getSolid(result));
     return App::DocumentObject::StdReturn;

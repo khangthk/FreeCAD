@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2020 Abdullah Tahiri <abdullah.tahiri.yo@gmail.com>     *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef SKETCHER_GEOMETRYEXTERNALFACADE_H
-#define SKETCHER_GEOMETRYEXTERNALFACADE_H
+#pragma once
 
 #include <boost/uuid/uuid_io.hpp>
 
@@ -194,7 +195,7 @@ public:
             std::is_base_of<Part::Geometry, typename std::decay<GeometryT>::type>::value>::type>
     GeometryT* getGeometry()
     {
-        return dynamic_cast<GeometryT*>(const_cast<GeometryT*>(Geo));
+        return freecad_cast<GeometryT*>(const_cast<GeometryT*>(Geo));
     }
 
     // Geometry Element
@@ -204,7 +205,7 @@ public:
             std::is_base_of<Part::Geometry, typename std::decay<GeometryT>::type>::value>::type>
     GeometryT* getGeometry() const
     {
-        return dynamic_cast<GeometryT*>(Geo);
+        return freecad_cast<GeometryT*>(Geo);
     }
 
     PyObject* getPyObject() override;
@@ -328,6 +329,3 @@ private:
 
 
 }  // namespace Sketcher
-
-
-#endif  // SKETCHER_GEOMETRYEXTERNALFACADE_H

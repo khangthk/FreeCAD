@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 // AreaOrderer.cpp
 
 /*==============================
@@ -32,6 +34,9 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Area.h"
 
 using namespace std;
+
+namespace heeks
+{
 
 CAreaOrderer* CInnerCurves::area_orderer = NULL;
 
@@ -170,3 +175,5 @@ CArea CAreaOrderer::ResultArea() const
 
     return a;
 }
+
+}  // namespace heeks

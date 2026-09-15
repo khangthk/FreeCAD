@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2007 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -20,16 +22,9 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef TECHDRAW_PRECOMPILED_H
-#define TECHDRAW_PRECOMPILED_H
+#pragma once
 
 #include <FCConfig.h>
-
-#ifdef _MSC_VER
-# pragma warning( disable : 4275 )
-#endif
-
-#ifdef _PreComp_
 
 // standard
 #include <algorithm>
@@ -48,10 +43,11 @@
 #include <boost/graph/boyer_myrvold_planar_test.hpp>
 #include <boost/graph/is_kuratowski_subgraph.hpp>
 #include <boost/random.hpp>
-#include <boost_regex.hpp>
-#include <boost/uuid/uuid.hpp>
+#include <boost/thread/lock_guard.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <boost_regex.hpp>
 
 // Qt
 #include <QApplication>
@@ -66,6 +62,3 @@
 
 // OpenCasCade
 #include <Mod/Part/App/OpenCascadeAll.h>
-
-#endif // _PreComp_
-#endif

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 Peter McB                                          *
  *                                                                         *
@@ -21,7 +23,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Gui/Control.h>
 #include <Mod/Fem/App/FemSetElementNodesObject.h>
@@ -36,8 +37,9 @@ PROPERTY_SOURCE(FemGui::ViewProviderSetElementNodes, Gui::ViewProviderGeometryOb
 
 bool ViewProviderSetElementNodes::doubleClicked()
 {
-    Gui::TaskView::TaskDialog* dlg =
-        new TaskDlgCreateElementSet(static_cast<Fem::FemSetElementNodesObject*>(getObject()));
+    Gui::TaskView::TaskDialog* dlg = new TaskDlgCreateElementSet(
+        getObject<Fem::FemSetElementNodesObject>()
+    );
     Gui::Control().showDialog(dlg);
     return true;
 }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Authors: Michael Hindley <hindlemp@eskom.co.za>                       *
@@ -23,12 +25,10 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoSwitch.h>
-#endif
+
 
 #include "Mod/Fem/App/FemConstraintDisplacement.h"
 #include "TaskFemConstraintDisplacement.h"
@@ -38,13 +38,12 @@
 
 using namespace FemGui;
 
-PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintDisplacement,
-                FemGui::ViewProviderFemConstraintOnBoundary)
+PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintDisplacement, FemGui::ViewProviderFemConstraintOnBoundary)
 
 ViewProviderFemConstraintDisplacement::ViewProviderFemConstraintDisplacement()
 {
     sPixmap = "FEM_ConstraintDisplacement";
-    loadSymbol((resourceSymbolDir + "ConstraintDisplacement.iv").c_str());
+    loadSymbol(resourceSymbolDir / "ConstraintDisplacement.iv");
     ShapeAppearance.setDiffuseColor(0.2f, 0.3f, 0.2f);
 
     // do not rotate symbol according to boundary normal
@@ -70,8 +69,7 @@ bool ViewProviderFemConstraintDisplacement::setEdit(int ModNum)
 
 void ViewProviderFemConstraintDisplacement::updateData(const App::Property* prop)
 {
-    Fem::ConstraintDisplacement* pcConstraint =
-        static_cast<Fem::ConstraintDisplacement*>(this->getObject());
+    Fem::ConstraintDisplacement* pcConstraint = this->getObject<Fem::ConstraintDisplacement>();
 
     if (prop == &pcConstraint->xFree) {
         auto sw = static_cast<SoSwitch*>(getSymbolSeparator()->getChild(0));

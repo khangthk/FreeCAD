@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /****************************************************************************
  *   Copyright (c) 2024 Ondsel <development@ondsel.com>                     *
  *                                                                          *
@@ -20,8 +22,7 @@
  *                                                                          *
  ****************************************************************************/
 
-#ifndef APP_VARSET_H
-#define APP_VARSET_H
+#pragma once
 
 #include "DocumentObject.h"
 
@@ -29,18 +30,16 @@ namespace App
 {
 
 /** A DocumentObject class with the purpose to store variables
-*/
-class AppExport VarSet : public App::DocumentObject
+ */
+class AppExport VarSet: public App::DocumentObject
 {
     PROPERTY_HEADER_WITH_OVERRIDE(App::VarSet);
-	
-public:
 
+public:
     VarSet() = default;
     ~VarSet() override = default;
 
     const char* getViewProviderName() const override;
 };
 
-}
-#endif
+}  // namespace App

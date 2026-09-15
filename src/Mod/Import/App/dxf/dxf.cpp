@@ -1,22 +1,24 @@
-﻿// dxf.cpp
+﻿// SPDX-License-Identifier: BSD-3-Clause
+
+// dxf.cpp
 // Copyright (c) 2009, Dan Heeks
 // This program is released under the BSD license. See the file COPYING for details.
 // modified 2018 wandererfan
 
-#include "PreCompiled.h"
 
-// required by windows for M_PI definition
-#define _USE_MATH_DEFINES
 #include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <exception>
+#include <string>
 
 #include "dxf.h"
 #include <App/Application.h>
-#include <App/Color.h>
+#include <Base/Color.h>
 #include <Base/Console.h>
+#include <Base/Exception.h>
 #include <Base/FileInfo.h>
 #include <Base/Interpreter.h>
 #include <Base/Stream.h>
@@ -25,6 +27,61 @@
 
 
 using namespace std;
+
+namespace
+{
+
+std::string DxfUnitToString(DxfUnits::eDxfUnits_t unit)
+{
+    switch (unit) {
+        case DxfUnits::eInches:
+            return "Inches";
+        case DxfUnits::eFeet:
+            return "Feet";
+        case DxfUnits::eMiles:
+            return "Miles";
+        case DxfUnits::eMillimeters:
+            return "Millimeters";
+        case DxfUnits::eCentimeters:
+            return "Centimeters";
+        case DxfUnits::eMeters:
+            return "Meters";
+        case DxfUnits::eKilometers:
+            return "Kilometers";
+        case DxfUnits::eMicroinches:
+            return "Microinches";
+        case DxfUnits::eMils:
+            return "Mils";
+        case DxfUnits::eYards:
+            return "Yards";
+        case DxfUnits::eAngstroms:
+            return "Angstroms";
+        case DxfUnits::eNanometers:
+            return "Nanometers";
+        case DxfUnits::eMicrons:
+            return "Microns";
+        case DxfUnits::eDecimeters:
+            return "Decimeters";
+        case DxfUnits::eDekameters:
+            return "Dekameters";
+        case DxfUnits::eHectometers:
+            return "Hectometers";
+        case DxfUnits::eGigameters:
+            return "Gigameters";
+        case DxfUnits::eAstronomicalUnits:
+            return "Astronomical Units";
+        case DxfUnits::eLightYears:
+            return "Light Years";
+        case DxfUnits::eParsecs:
+            return "Parsecs";
+        case DxfUnits::eUnspecified:
+        default:
+            return "Unspecified";
+    }
+}
+
+}  // namespace
+
 static Base::Vector3d MakeVector3d(const double coordinates[3])
 {
     // NOLINTNEXTLINE(readability/nolint)
@@ -436,11 +493,11 @@ std::string CDxfWrite::getPlateFile(std::string fileSpec)
     std::stringstream outString;
     Base::FileInfo fi(fileSpec);
     if (!fi.isReadable()) {
-        Base::Console().Message("dxf unable to open %s!\n", fileSpec.c_str());
+        Base::Console().message("dxf unable to open %s!\n", fileSpec.c_str());
     }
     else {
         string line;
-        ifstream inFile(fi.filePath());
+        Base::ifstream inFile(fi);
 
         while (!inFile.eof()) {
             getline(inFile, line);
@@ -515,18 +572,16 @@ void CDxfWrite::setLayerName(std::string name)
 
 void CDxfWrite::writeLine(const double* start, const double* end)
 {
-    putLine(toVector3d(start),
-            toVector3d(end),
-            m_ssEntity,
-            getEntityHandle(),
-            m_saveModelSpaceHandle);
+    putLine(toVector3d(start), toVector3d(end), m_ssEntity, getEntityHandle(), m_saveModelSpaceHandle);
 }
 
-void CDxfWrite::putLine(const Base::Vector3d& start,
-                        const Base::Vector3d& end,
-                        std::ostringstream* outStream,
-                        const std::string& handle,
-                        const std::string& ownerHandle)
+void CDxfWrite::putLine(
+    const Base::Vector3d& start,
+    const Base::Vector3d& end,
+    std::ostringstream* outStream,
+    const std::string& handle,
+    const std::string& ownerHandle
+)
 {
     (*outStream) << "  0" << endl;
     (*outStream) << "LINE" << endl;
@@ -779,13 +834,15 @@ void CDxfWrite::writeCircle(const double* center, double radius)
     (*m_ssEntity) << radius << endl;     // Radius
 }
 
-void CDxfWrite::writeEllipse(const double* center,
-                             double major_radius,
-                             double minor_radius,
-                             double rotation,
-                             double start_angle,
-                             double end_angle,
-                             bool endIsCW)
+void CDxfWrite::writeEllipse(
+    const double* center,
+    double major_radius,
+    double minor_radius,
+    double rotation,
+    double start_angle,
+    double end_angle,
+    bool endIsCW
+)
 {
     Base::Vector3d m(major_radius * sin(rotation), major_radius * cos(rotation), 0);
     double ratio = minor_radius / major_radius;
@@ -824,14 +881,13 @@ void CDxfWrite::writeEllipse(const double* center,
     (*m_ssEntity) << " 31" << endl;
     (*m_ssEntity) << m.z << endl;    // Major Z
     (*m_ssEntity) << " 40" << endl;  //
-    (*m_ssEntity) << ratio
-                  << endl;  // Ratio
-                            //    (*m_ssEntity) << "210"       << endl;    //extrusion dir??
-                            //    (*m_ssEntity) << "0"         << endl;
-                            //    (*m_ssEntity) << "220"       << endl;
-                            //    (*m_ssEntity) << "0"         << endl;
-                            //    (*m_ssEntity) << "230"       << endl;
-                            //    (*m_ssEntity) << "1"         << endl;
+    (*m_ssEntity) << ratio << endl;  // Ratio
+                                     //    (*m_ssEntity) << "210"       << endl;    //extrusion dir??
+                                     //    (*m_ssEntity) << "0"         << endl;
+                                     //    (*m_ssEntity) << "220"       << endl;
+                                     //    (*m_ssEntity) << "0"         << endl;
+                                     //    (*m_ssEntity) << "230"       << endl;
+                                     //    (*m_ssEntity) << "1"         << endl;
     (*m_ssEntity) << " 41" << endl;
     (*m_ssEntity) << start_angle << endl;  // Start angle (radians [0..2pi])
     (*m_ssEntity) << " 42" << endl;
@@ -949,33 +1005,39 @@ void CDxfWrite::writeVertex(double x, double y, double z)
     (*m_ssEntity) << 0 << endl;
 }
 
-void CDxfWrite::writeText(const char* text,
-                          const double* location1,
-                          const double* location2,
-                          const double height,
-                          const int horizJust)
+void CDxfWrite::writeText(
+    const char* text,
+    const double* location1,
+    const double* location2,
+    const double height,
+    const int horizJust
+)
 {
-    putText(text,
-            toVector3d(location1),
-            toVector3d(location2),
-            height,
-            horizJust,
-            m_ssEntity,
-            getEntityHandle(),
-            m_saveModelSpaceHandle);
+    putText(
+        text,
+        toVector3d(location1),
+        toVector3d(location2),
+        height,
+        horizJust,
+        m_ssEntity,
+        getEntityHandle(),
+        m_saveModelSpaceHandle
+    );
 }
 
 //***************************
 // putText
 // added by Wandererfan 2018 (wandererfan@gmail.com) for FreeCAD project
-void CDxfWrite::putText(const char* text,
-                        const Base::Vector3d& location1,
-                        const Base::Vector3d& location2,
-                        const double height,
-                        const int horizJust,
-                        std::ostringstream* outStream,
-                        const std::string& handle,
-                        const std::string& ownerHandle)
+void CDxfWrite::putText(
+    const char* text,
+    const Base::Vector3d& location1,
+    const Base::Vector3d& location2,
+    const double height,
+    const int horizJust,
+    std::ostringstream* outStream,
+    const std::string& handle,
+    const std::string& ownerHandle
+)
 {
     (void)location2;
 
@@ -1040,12 +1102,14 @@ void CDxfWrite::putText(const char* text,
     }
 }
 
-void CDxfWrite::putArrow(Base::Vector3d& arrowPos,
-                         Base::Vector3d& barb1Pos,
-                         Base::Vector3d& barb2Pos,
-                         std::ostringstream* outStream,
-                         const std::string& handle,
-                         const std::string& ownerHandle)
+void CDxfWrite::putArrow(
+    Base::Vector3d& arrowPos,
+    Base::Vector3d& barb1Pos,
+    Base::Vector3d& barb2Pos,
+    std::ostringstream* outStream,
+    const std::string& handle,
+    const std::string& ownerHandle
+)
 {
     (*outStream) << "  0" << endl;
     (*outStream) << "SOLID" << endl;
@@ -1097,12 +1161,14 @@ void CDxfWrite::putArrow(Base::Vector3d& arrowPos,
 #define ALIGNED 0
 #define HORIZONTAL 1
 #define VERTICAL 2
-void CDxfWrite::writeLinearDim(const double* textMidPoint,
-                               const double* lineDefPoint,
-                               const double* extLine1,
-                               const double* extLine2,
-                               const char* dimText,
-                               int type)
+void CDxfWrite::writeLinearDim(
+    const double* textMidPoint,
+    const double* lineDefPoint,
+    const double* extLine1,
+    const double* extLine2,
+    const char* dimText,
+    int type
+)
 {
     (*m_ssEntity) << "  0" << endl;
     (*m_ssEntity) << "DIMENSION" << endl;
@@ -1184,13 +1250,15 @@ void CDxfWrite::writeLinearDim(const double* textMidPoint,
 //***************************
 // writeAngularDim
 // added by Wandererfan 2018 (wandererfan@gmail.com) for FreeCAD project
-void CDxfWrite::writeAngularDim(const double* textMidPoint,
-                                const double* lineDefPoint,
-                                const double* startExt1,
-                                const double* endExt1,
-                                const double* startExt2,
-                                const double* endExt2,
-                                const char* dimText)
+void CDxfWrite::writeAngularDim(
+    const double* textMidPoint,
+    const double* lineDefPoint,
+    const double* startExt1,
+    const double* endExt1,
+    const double* startExt2,
+    const double* endExt2,
+    const char* dimText
+)
 {
     (*m_ssEntity) << "  0" << endl;
     (*m_ssEntity) << "DIMENSION" << endl;
@@ -1267,23 +1335,19 @@ void CDxfWrite::writeAngularDim(const double* textMidPoint,
     (*m_ssEntity) << " 36" << endl;
     (*m_ssEntity) << lineDefPoint[2] << endl;
     writeDimBlockPreamble();
-    writeAngularDimBlock(textMidPoint,
-                         lineDefPoint,
-                         startExt1,
-                         endExt1,
-                         startExt2,
-                         endExt2,
-                         dimText);
+    writeAngularDimBlock(textMidPoint, lineDefPoint, startExt1, endExt1, startExt2, endExt2, dimText);
     writeBlockTrailer();
 }
 
 //***************************
 // writeRadialDim
 // added by Wandererfan 2018 (wandererfan@gmail.com) for FreeCAD project
-void CDxfWrite::writeRadialDim(const double* centerPoint,
-                               const double* textMidPoint,
-                               const double* arcPoint,
-                               const char* dimText)
+void CDxfWrite::writeRadialDim(
+    const double* centerPoint,
+    const double* textMidPoint,
+    const double* arcPoint,
+    const char* dimText
+)
 {
     (*m_ssEntity) << "  0" << endl;
     (*m_ssEntity) << "DIMENSION" << endl;
@@ -1345,10 +1409,12 @@ void CDxfWrite::writeRadialDim(const double* centerPoint,
 //***************************
 // writeDiametricDim
 // added by Wandererfan 2018 (wandererfan@gmail.com) for FreeCAD project
-void CDxfWrite::writeDiametricDim(const double* textMidPoint,
-                                  const double* arcPoint1,
-                                  const double* arcPoint2,
-                                  const char* dimText)
+void CDxfWrite::writeDiametricDim(
+    const double* textMidPoint,
+    const double* arcPoint1,
+    const double* arcPoint2,
+    const char* dimText
+)
 {
     (*m_ssEntity) << "  0" << endl;
     (*m_ssEntity) << "DIMENSION" << endl;
@@ -1480,12 +1546,14 @@ void CDxfWrite::writeBlockTrailer()
 //***************************
 // writeLinearDimBlock
 // added by Wandererfan 2018 (wandererfan@gmail.com) for FreeCAD project
-void CDxfWrite::writeLinearDimBlock(const double* textMidPoint,
-                                    const double* lineDefPoint,
-                                    const double* extLine1,
-                                    const double* extLine2,
-                                    const char* dimText,
-                                    int type)
+void CDxfWrite::writeLinearDimBlock(
+    const double* textMidPoint,
+    const double* lineDefPoint,
+    const double* extLine1,
+    const double* extLine2,
+    const char* dimText,
+    int type
+)
 {
     Base::Vector3d e1S(MakeVector3d(extLine1));
     Base::Vector3d e2S(MakeVector3d(extLine2));
@@ -1538,14 +1606,16 @@ void CDxfWrite::writeLinearDimBlock(const double* textMidPoint,
 
     putLine(e1E, e2E, m_ssBlock, getBlockHandle(), m_saveBlkRecordHandle);
 
-    putText(dimText,
-            toVector3d(textMidPoint),
-            toVector3d(lineDefPoint),
-            3.5,
-            1,
-            m_ssBlock,
-            getBlockHandle(),
-            m_saveBlkRecordHandle);
+    putText(
+        dimText,
+        toVector3d(textMidPoint),
+        toVector3d(lineDefPoint),
+        3.5,
+        1,
+        m_ssBlock,
+        getBlockHandle(),
+        m_saveBlkRecordHandle
+    );
 
     perp.Normalize();
     para.Normalize();
@@ -1564,13 +1634,15 @@ void CDxfWrite::writeLinearDimBlock(const double* textMidPoint,
 //***************************
 // writeAngularDimBlock
 // added by Wandererfan 2018 (wandererfan@gmail.com) for FreeCAD project
-void CDxfWrite::writeAngularDimBlock(const double* textMidPoint,
-                                     const double* lineDefPoint,
-                                     const double* startExt1,
-                                     const double* endExt1,
-                                     const double* startExt2,
-                                     const double* endExt2,
-                                     const char* dimText)
+void CDxfWrite::writeAngularDimBlock(
+    const double* textMidPoint,
+    const double* lineDefPoint,
+    const double* startExt1,
+    const double* endExt1,
+    const double* startExt2,
+    const double* endExt2,
+    const char* dimText
+)
 {
     Base::Vector3d e1S(MakeVector3d(startExt1));  // apex
     Base::Vector3d e2S(MakeVector3d(startExt2));
@@ -1584,10 +1656,10 @@ void CDxfWrite::writeAngularDimBlock(const double* textMidPoint,
     double span = fabs(endAngle - startAngle);
     double offset = span * 0.10;
     if (startAngle < 0) {
-        startAngle += 2 * M_PI;
+        startAngle += 2 * std::numbers::pi;
     }
     if (endAngle < 0) {
-        endAngle += 2 * M_PI;
+        endAngle += 2 * std::numbers::pi;
     }
     Base::Vector3d startOff(cos(startAngle + offset), sin(startAngle + offset), 0.0);
     Base::Vector3d endOff(cos(endAngle - offset), sin(endAngle - offset), 0.0);
@@ -1632,14 +1704,16 @@ void CDxfWrite::writeAngularDimBlock(const double* textMidPoint,
     (*m_ssBlock) << " 51" << endl;
     (*m_ssBlock) << endAngle << endl;  // end angle
 
-    putText(dimText,
-            toVector3d(textMidPoint),
-            toVector3d(textMidPoint),
-            3.5,
-            1,
-            m_ssBlock,
-            getBlockHandle(),
-            m_saveBlkRecordHandle);
+    putText(
+        dimText,
+        toVector3d(textMidPoint),
+        toVector3d(textMidPoint),
+        3.5,
+        1,
+        m_ssBlock,
+        getBlockHandle(),
+        m_saveBlkRecordHandle
+    );
 
     e1.Normalize();
     e2.Normalize();
@@ -1670,25 +1744,31 @@ void CDxfWrite::writeAngularDimBlock(const double* textMidPoint,
 //***************************
 // writeRadialDimBlock
 // added by Wandererfan 2018 (wandererfan@gmail.com) for FreeCAD project
-void CDxfWrite::writeRadialDimBlock(const double* centerPoint,
-                                    const double* textMidPoint,
-                                    const double* arcPoint,
-                                    const char* dimText)
+void CDxfWrite::writeRadialDimBlock(
+    const double* centerPoint,
+    const double* textMidPoint,
+    const double* arcPoint,
+    const char* dimText
+)
 {
-    putLine(toVector3d(centerPoint),
-            toVector3d(arcPoint),
-            m_ssBlock,
-            getBlockHandle(),
-            m_saveBlkRecordHandle);
+    putLine(
+        toVector3d(centerPoint),
+        toVector3d(arcPoint),
+        m_ssBlock,
+        getBlockHandle(),
+        m_saveBlkRecordHandle
+    );
 
-    putText(dimText,
-            toVector3d(textMidPoint),
-            toVector3d(textMidPoint),
-            3.5,
-            1,
-            m_ssBlock,
-            getBlockHandle(),
-            m_saveBlkRecordHandle);
+    putText(
+        dimText,
+        toVector3d(textMidPoint),
+        toVector3d(textMidPoint),
+        3.5,
+        1,
+        m_ssBlock,
+        getBlockHandle(),
+        m_saveBlkRecordHandle
+    );
 
     Base::Vector3d center(MakeVector3d(centerPoint));
     Base::Vector3d a(MakeVector3d(arcPoint));
@@ -1707,25 +1787,25 @@ void CDxfWrite::writeRadialDimBlock(const double* centerPoint,
 //***************************
 // writeDiametricDimBlock
 // added by Wandererfan 2018 (wandererfan@gmail.com) for FreeCAD project
-void CDxfWrite::writeDiametricDimBlock(const double* textMidPoint,
-                                       const double* arcPoint1,
-                                       const double* arcPoint2,
-                                       const char* dimText)
+void CDxfWrite::writeDiametricDimBlock(
+    const double* textMidPoint,
+    const double* arcPoint1,
+    const double* arcPoint2,
+    const char* dimText
+)
 {
-    putLine(toVector3d(arcPoint1),
-            toVector3d(arcPoint2),
-            m_ssBlock,
-            getBlockHandle(),
-            m_saveBlkRecordHandle);
+    putLine(toVector3d(arcPoint1), toVector3d(arcPoint2), m_ssBlock, getBlockHandle(), m_saveBlkRecordHandle);
 
-    putText(dimText,
-            toVector3d(textMidPoint),
-            toVector3d(textMidPoint),
-            3.5,
-            1,
-            m_ssBlock,
-            getBlockHandle(),
-            m_saveBlkRecordHandle);
+    putText(
+        dimText,
+        toVector3d(textMidPoint),
+        toVector3d(textMidPoint),
+        3.5,
+        1,
+        m_ssBlock,
+        getBlockHandle(),
+        m_saveBlkRecordHandle
+    );
 
     Base::Vector3d a1(MakeVector3d(arcPoint1));
     Base::Vector3d a2(MakeVector3d(arcPoint2));
@@ -1800,7 +1880,7 @@ void CDxfWrite::writeObjectsSection()
 const DxfUnits DxfUnits::Instance;
 
 CDxfRead::CDxfRead(const std::string& filepath)
-    : m_ifs(new ifstream(filepath))
+    : m_ifs(new Base::ifstream(Base::FileInfo(filepath)))
 {
     if (!(*m_ifs)) {
         m_fail = true;
@@ -1832,10 +1912,12 @@ void CDxfRead::Setup3DVectorAttribute(eDXFGroupCode_t x_record_type, Base::Vecto
     SetupScaledDoubleAttribute((eDXFGroupCode_t)(x_record_type + eYOffset), destination.y);
     SetupScaledDoubleAttribute((eDXFGroupCode_t)(x_record_type + eZOffset), destination.z);
 }
-void CDxfRead::Setup3DCoordinatesIntoLists(eDXFGroupCode_t x_record_type,
-                                           list<double>& x_destination,
-                                           list<double>& y_destination,
-                                           list<double>& z_destination)
+void CDxfRead::Setup3DCoordinatesIntoLists(
+    eDXFGroupCode_t x_record_type,
+    list<double>& x_destination,
+    list<double>& y_destination,
+    list<double>& z_destination
+)
 {
     SetupScaledDoubleIntoList((eDXFGroupCode_t)(x_record_type + eXOffset), x_destination);
     SetupScaledDoubleIntoList((eDXFGroupCode_t)(x_record_type + eYOffset), y_destination);
@@ -1847,8 +1929,10 @@ void CDxfRead::SetupScaledDoubleAttribute(eDXFGroupCode_t x_record_type, double&
 }
 void CDxfRead::SetupScaledDoubleIntoList(eDXFGroupCode_t x_record_type, list<double>& destination)
 {
-    m_coordinate_attributes.emplace(x_record_type,
-                                    std::pair(&ProcessScaledDoubleIntoList, &destination));
+    m_coordinate_attributes.emplace(
+        x_record_type,
+        std::pair(&ProcessScaledDoubleIntoList, &destination)
+    );
 }
 void CDxfRead::Setup3DDirectionAttribute(eDXFGroupCode_t x_record_type, Base::Vector3d& destination)
 {
@@ -1877,8 +1961,10 @@ void CDxfRead::ProcessScaledDouble(CDxfRead* object, void* target)
     double value = 0;
     ss >> value;
     if (ss.fail()) {
-        object->ImportError("Unable to parse value '%s', using zero as its value\n",
-                            object->m_record_data);
+        object->ImportError(
+            "Unable to parse value '%s', using zero as its value\n",
+            object->m_record_data
+        );
     }
     *static_cast<double*>(target) = object->mm(value);
 }
@@ -1891,8 +1977,10 @@ void CDxfRead::ProcessScaledDoubleIntoList(CDxfRead* object, void* target)
     double value = 0;
     ss >> value;
     if (ss.fail()) {
-        object->ImportError("Unable to parse value '%s', using zero as its value\n",
-                            object->m_record_data);
+        object->ImportError(
+            "Unable to parse value '%s', using zero as its value\n",
+            object->m_record_data
+        );
     }
     static_cast<std::list<double>*>(target)->push_back(object->mm(value));
 }
@@ -1905,8 +1993,10 @@ bool CDxfRead::ParseValue(CDxfRead* object, void* target)
     ss.str(object->m_record_data);
     ss >> *static_cast<T*>(target);
     if (ss.fail()) {
-        object->ImportError("Unable to parse value '%s', using zero as its value\n",
-                            object->m_record_data);
+        object->ImportError(
+            "Unable to parse value '%s', using zero as its value\n",
+            object->m_record_data
+        );
         *static_cast<T*>(target) = 0;
         return false;
     }
@@ -1946,6 +2036,9 @@ void CDxfRead::ProcessAllEntityAttributes()
 void CDxfRead::ResolveEntityAttributes()
 {
     m_entityAttributes.ResolveBylayerAttributes(*this);
+    if (m_entityAttributes.m_paperSpace) {
+        m_stats.entityCounts["ENTITIES_IN_PAPERSPACE"]++;
+    }
     // TODO: Look at the space and layer (hidden/frozen?) and options and return false if the entity
     // is not needed.
     // TODO: INSERT must not call this because an INSERT on a hidden layer should always be
@@ -2032,12 +2125,14 @@ bool CDxfRead::ReadArc()
     Setup3DVectorAttribute(eExtrusionDirection, extrusionDirection);
     ProcessAllEntityAttributes();
 
-    OnReadArc(start_angle_degrees,
-              end_angle_degrees,
-              radius,
-              centre,
-              extrusionDirection.z,
-              LineTypeIsHidden());
+    OnReadArc(
+        start_angle_degrees,
+        end_angle_degrees,
+        radius,
+        centre,
+        extrusionDirection.z,
+        LineTypeIsHidden()
+    );
     return true;
 }
 
@@ -2087,6 +2182,7 @@ bool CDxfRead::ReadText()
     // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     double height = 0.03082;
     double rotation = 0;
+    // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     std::string textPrefix;
 
     Setup3DVectorAttribute(ePrimaryPoint, insertionPoint);
@@ -2112,15 +2208,32 @@ bool CDxfRead::ReadText()
         }
     }
     ResolveEntityAttributes();
-
+    // repeat_last_record() must be called before the OnRead callback so that exceptions
+    // thrown by the callback don't prevent the stream from being repositioned.
+    repeat_last_record();
     if ((this->*stringToUTF8)(textPrefix)) {
-        OnReadText(insertionPoint, height * 25.4 / 72.0, textPrefix, rotation);
-        // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+        OnReadText(insertionPoint, height, textPrefix, rotation);
     }
     else {
-        ImportError("Unable to process encoding for TEXT/MTEXT '%s'", textPrefix);
+        ImportError("Unable to process encoding for TEXT/MTEXT '%s'\n", textPrefix);
     }
-    repeat_last_record();
+    return true;
+}
+
+bool CDxfRead::ReadSolid()
+{
+    Base::Vector3d first;
+    Base::Vector3d second;
+    Base::Vector3d third;
+    Base::Vector3d fourth;
+
+    Setup3DVectorAttribute(ePrimaryPoint, first);
+    Setup3DVectorAttribute(ePoint2, second);
+    Setup3DVectorAttribute(ePoint3, third);
+    Setup3DVectorAttribute(ePoint4, fourth);
+    ProcessAllEntityAttributes();
+
+    OnReadSolid(first, second, third, fourth);
     return true;
 }
 
@@ -2130,7 +2243,7 @@ bool CDxfRead::ReadEllipse()
     Base::Vector3d majorAxisEnd;  //  relative to centre
     double eccentricity = 0;
     double startAngleRadians = 0;
-    double endAngleRadians = 2 * M_PI;
+    double endAngleRadians = 2 * std::numbers::pi;
 
     Setup3DVectorAttribute(ePrimaryPoint, centre);
     Setup3DVectorAttribute(ePoint2, majorAxisEnd);
@@ -2189,9 +2302,10 @@ bool CDxfRead::ReadLwPolyLine()
     }
 
     ResolveEntityAttributes();
-
-    OnReadPolyline(vertices, flags);
+    // repeat_last_record() must be called before OnReadPolyline() so that exceptions
+    // thrown by the callback (e.g. OCC) don't prevent the stream from being repositioned.
     repeat_last_record();
+    OnReadPolyline(vertices, flags);
     return true;
 }
 
@@ -2272,7 +2386,7 @@ bool CDxfRead::ReadDimension()
     switch ((eDimensionType_t)dimensionType) {
         case eLinear:
         case eAligned:
-            OnReadDimension(start, end, linePosition, Base::toRadians(rotation));
+            OnReadDimension(start, end, linePosition, dimensionType, Base::toRadians(rotation));
             break;
         default:
             UnsupportedFeature("Dimension type '%d'", dimensionType);
@@ -2283,8 +2397,8 @@ bool CDxfRead::ReadDimension()
 
 bool CDxfRead::ReadUnknownEntity()
 {
-    UnsupportedFeature("Entity type '%s'", m_record_data);
     ProcessAllEntityAttributes();
+    UnsupportedFeature("Entity type '%s'", m_current_entity_name.c_str());
     return true;
 }
 
@@ -2343,11 +2457,10 @@ void CDxfRead::UnsupportedFeature(const char* format, args&&... argValuess)
 {
     // NOLINTNEXTLINE(runtime/printf)
     std::string formattedMessage = fmt::sprintf(format, std::forward<args>(argValuess)...);
-    // We place these formatted messages in a map, count their occurrences and not their first
-    // occurrence.
-    if (m_unsupportedFeaturesNoted[formattedMessage].first++ == 0) {
-        m_unsupportedFeaturesNoted[formattedMessage].second = m_line;
-    }
+    m_stats.unsupportedFeatures[formattedMessage].emplace_back(
+        m_current_entity_line_number,
+        m_current_entity_handle
+    );
 }
 
 bool CDxfRead::get_next_record()
@@ -2357,26 +2470,31 @@ bool CDxfRead::get_next_record()
         return m_not_eof;
     }
 
-    if ((*m_ifs).eof()) {
-        m_not_eof = false;
-        return false;
-    }
+    do {
+        if ((*m_ifs).eof()) {
+            m_not_eof = false;
+            return false;
+        }
 
-    std::getline(*m_ifs, m_record_data);
-    ++m_line;
-    int temp = 0;
-    if (!ParseValue<int>(this, &temp)) {
-        ImportError("CDxfRead::get_next_record() Failed to get integer record type from '%s'\n",
-                    m_record_data);
-        return false;
-    }
-    m_record_type = (eDXFGroupCode_t)temp;
-    if ((*m_ifs).eof()) {
-        return false;
-    }
+        std::getline(*m_ifs, m_record_data);
+        ++m_line;
+        int temp = 0;
+        if (!ParseValue<int>(this, &temp)) {
+            ImportError(
+                "CDxfRead::get_next_record() Failed to get integer record type from '%s'\n",
+                m_record_data
+            );
+            return false;
+        }
+        m_record_type = (eDXFGroupCode_t)temp;
+        if ((*m_ifs).eof()) {
+            return false;
+        }
 
-    std::getline(*m_ifs, m_record_data);
-    ++m_line;
+        std::getline(*m_ifs, m_record_data);
+        ++m_line;
+    } while (m_record_type == eComment);
+
     // Remove any carriage return at the end of m_str which may occur because of inconsistent
     // handling of LF vs. CRLF line termination.
     auto last = m_record_data.rbegin();
@@ -2424,11 +2542,7 @@ bool CDxfRead::ExplodePolyline(std::list<VertexInfo>& vertices, int flags)
                              + ((endVertex->location.x - startVertex->location.x) * cot))
                     / 2;
                 Base::Vector3d pc(cx, cy, (startVertex->location.z + endVertex->location.z) / 2);
-                OnReadArc(startVertex->location,
-                          endVertex->location,
-                          pc,
-                          startVertex->bulge >= 0,
-                          false);
+                OnReadArc(startVertex->location, endVertex->location, pc, startVertex->bulge >= 0, false);
             }
             else {
                 OnReadLine(startVertex->location, endVertex->location, false);
@@ -2440,12 +2554,14 @@ bool CDxfRead::ExplodePolyline(std::list<VertexInfo>& vertices, int flags)
     }
     return true;
 }
-void CDxfRead::OnReadArc(double start_angle,
-                         double end_angle,
-                         double radius,
-                         const Base::Vector3d& center,
-                         double z_extrusion_dir,
-                         bool hidden)
+void CDxfRead::OnReadArc(
+    double start_angle,
+    double end_angle,
+    double radius,
+    const Base::Vector3d& center,
+    double z_extrusion_dir,
+    bool hidden
+)
 {
     Base::Vector3d temp(center);
     // Calculate the start and end points of the arc
@@ -2475,18 +2591,22 @@ void CDxfRead::OnReadCircle(const Base::Vector3d& center, double radius, bool hi
     Base::Vector3d start(center);
     start.x += radius;
 
-    OnReadCircle(start,
-                 center,
-                 false,
-                 hidden);  // false to change direction because otherwise the arc length is zero
+    OnReadCircle(
+        start,
+        center,
+        false,
+        hidden
+    );  // false to change direction because otherwise the arc length is zero
 }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-void CDxfRead::OnReadEllipse(const Base::Vector3d& center,
-                             const Base::Vector3d& majorAxisEnd,
-                             double ratio,
-                             double start_angle,
-                             double end_angle)
+void CDxfRead::OnReadEllipse(
+    const Base::Vector3d& center,
+    const Base::Vector3d& majorAxisEnd,
+    double ratio,
+    double start_angle,
+    double end_angle
+)
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
     double major_radius = majorAxisEnd.Length();
@@ -2514,7 +2634,8 @@ bool CDxfRead::ReadVersion()
         "AC1021",
         "AC1024",
         "AC1027",
-        "AC1032"};
+        "AC1032"
+    };
 
     assert(VersionNames.size() == RNewer - ROlder - 1);
     get_next_record();  // Get the value for the variable
@@ -2533,6 +2654,8 @@ bool CDxfRead::ReadVersion()
     else {
         m_version = RUnknown;
     }
+
+    m_stats.dxfVersion = m_record_data;
 
     return ResolveEncoding();
 }
@@ -2564,6 +2687,12 @@ bool CDxfRead::ResolveEncoding()
         // Also some DXF files have the codepage name in uppercase so we lowercase it.
         m_encoding = m_CodePage;
         std::transform(m_encoding.begin(), m_encoding.end(), m_encoding.begin(), ::tolower);
+
+        // Add mapping for common non-standard encoding names.
+        if (m_encoding == "8859_1") {
+            m_encoding = "iso-8859-1";  // Replace with a name Python understands
+        }
+
         // NOLINTNEXTLINE(readability/nolint)
 #define ANSI_ENCODING_PREFIX "ansi_"  // NOLINT(cppcoreguidelines-macro-usage)
         if (m_encoding.rfind(ANSI_ENCODING_PREFIX, 0) == 0 && m_encoding.rfind("ansi_x3", 0) != 0) {
@@ -2579,7 +2708,11 @@ bool CDxfRead::ResolveEncoding()
         Base::PyGILStateLocker lock;
         PyObject* pyDecoder = PyCodec_Decoder(m_encoding.c_str());
         if (pyDecoder == nullptr) {
-            return false;  // A key error exception will have been placed.
+            // PyCodec_Decoder failed, which means Python could not find the encoding.
+            // This sets a Python LookupError. We clear this low-level error because
+            // our caller will throw a more informative, high-level exception.
+            PyErr_Clear();
+            return false;
         }
         PyObject* pyUTF8Decoder = PyCodec_Decoder("utf_8");
         assert(pyUTF8Decoder != nullptr);
@@ -2592,6 +2725,9 @@ bool CDxfRead::ResolveEncoding()
         Py_DECREF(pyDecoder);
         Py_DECREF(pyUTF8Decoder);
     }
+
+    m_stats.dxfEncoding = m_encoding;
+
     return !m_encoding.empty();
 }
 
@@ -2605,10 +2741,8 @@ bool CDxfRead::UTF8ToUTF8(std::string& /*encoded*/) const
 bool CDxfRead::GeneralToUTF8(std::string& encoded) const
 {
     Base::PyGILStateLocker lock;
-    PyObject* decoded = PyUnicode_Decode(encoded.c_str(),
-                                         (Py_ssize_t)encoded.length(),
-                                         m_encoding.c_str(),
-                                         "strict");
+    PyObject* decoded
+        = PyUnicode_Decode(encoded.c_str(), (Py_ssize_t)encoded.length(), m_encoding.c_str(), "strict");
     if (decoded == nullptr) {
         return false;
     }
@@ -2628,90 +2762,126 @@ void CDxfRead::DoRead(const bool ignore_errors /* = false */)
         return;
     }
 
-    StartImport();
-    // Loop reading the sections.
-    while (get_next_record()) {
-        if (m_record_type != eObjectType) {
-            ImportError("Found type %d record when expecting start of a SECTION or EOF\n",
-                        (int)m_record_type);
-            continue;
+    try {
+        StartImport();
+        // Loop reading the sections.
+        while (get_next_record()) {
+            if (m_record_type != eObjectType) {
+                ImportError(
+                    "Found type %d record when expecting start of a SECTION or EOF\n",
+                    (int)m_record_type
+                );
+                continue;
+            }
+            if (IsObjectName("EOF")) {  // TODO: Check for drivel beyond EOF record
+                break;
+            }
+            if (!IsObjectName("SECTION")) {
+                ImportError(
+                    "Found %s record when expecting start of a SECTION\n",
+                    m_record_data.c_str()
+                );
+                continue;
+            }
+            if (!ReadSection()) {
+                throw Base::Exception("Failed to read DXF section (returned false).");
+            }
         }
-        if (IsObjectName("EOF")) {  // TODO: Check for drivel beyond EOF record
-            break;
-        }
-        if (!IsObjectName("SECTION")) {
-            ImportError("Found %s record when expecting start of a SECTION\n",
-                        m_record_data.c_str());
-            continue;
-        }
-        if (!ReadSection()) {
-            return;
-        }
+        FinishImport();
     }
-    FinishImport();
-
-    // FLush out any unsupported features messages
-    if (!m_unsupportedFeaturesNoted.empty()) {
-        ImportError("Unsupported DXF features:\n");
-        for (auto& featureInfo : m_unsupportedFeaturesNoted) {
-            ImportError("%s: %d time(s) first at line %d\n",
-                        featureInfo.first,
-                        featureInfo.second.first,
-                        featureInfo.second.second);
-        }
+    catch (const Base::Exception& e) {
+        // This catches specific FreeCAD exceptions and re-throws them.
+        throw;
+    }
+    catch (const std::exception& e) {
+        // This catches all standard C++ exceptions and converts them
+        // to a FreeCAD exception, which the binding layer can handle.
+        throw Base::Exception(e.what());
+    }
+    catch (...) {
+        // This is a catch-all for any other non-standard C++ exceptions.
+        throw Base::Exception("An unknown, non-standard C++ exception occurred during DXF import.");
     }
 }
 
 bool CDxfRead::ReadSection()
 {
     if (!get_next_record()) {
-        ImportError("Unclosed SECTION at end of file\n");
-        return false;
+        throw Base::Exception("Unexpected end of file after SECTION tag.");
     }
     if (m_record_type != eName) {
         ImportError("Ignored SECTION with no name record\n");
         return ReadIgnoredSection();
     }
+
     if (IsObjectName("HEADER")) {
-        return ReadHeaderSection();
+        if (!ReadHeaderSection()) {
+            throw Base::Exception("Failed while reading HEADER section.");
+        }
+        return true;
     }
     if (IsObjectName("TABLES")) {
-        return ReadTablesSection();
+        if (!ReadTablesSection()) {
+            throw Base::Exception("Failed while reading TABLES section.");
+        }
+        return true;
     }
     if (IsObjectName("BLOCKS")) {
-        return ReadBlocksSection();
+        if (!ReadBlocksSection()) {
+            throw Base::Exception("Failed while reading BLOCKS section.");
+        }
+        return true;
     }
     if (IsObjectName("ENTITIES")) {
-        return ReadEntitiesSection();
+        if (!ReadEntitiesSection()) {
+            throw Base::Exception("Failed while reading ENTITIES section.");
+        }
+        return true;
     }
-    return ReadIgnoredSection();
+
+    if (!ReadIgnoredSection()) {
+        throw Base::Exception("Failed while reading an unknown/ignored section.");
+    }
+
+    return true;
 }
+
 void CDxfRead::ProcessLayerReference(CDxfRead* object, void* target)
 {
-    if (object->Layers.count(object->m_record_data) == 0) {
+    if (!object->Layers.contains(object->m_record_data)) {
         object->ImportError("First reference to missing Layer '%s'", object->m_record_data);
         // Synthesize the Layer so we don't get the same error again.
         // We need to take copies of the string arguments because MakeLayer uses them as move
         // inputs.
-        object->Layers[object->m_record_data] =
-            object->MakeLayer(object->m_record_data, DefaultColor, std::string(DefaultLineType));
+        object->Layers[object->m_record_data]
+            = object->MakeLayer(object->m_record_data, DefaultColor, std::string(DefaultLineType));
     }
     *static_cast<Layer**>(target) = object->Layers.at(object->m_record_data);
 }
 bool CDxfRead::ReadEntity()
 {
+    m_current_entity_line_number = m_line;
+    m_current_entity_name = m_record_data;
     InitializeAttributes();
     m_entityAttributes.SetDefaults();
+    m_current_entity_handle.clear();
+    SetupStringAttribute(eHandle, m_current_entity_handle);
     EntityNormalVector.Set(0, 0, 1);
     Setup3DVectorAttribute(eExtrusionDirection, EntityNormalVector);
     SetupStringAttribute(eLinetypeName, m_entityAttributes.m_LineType);
-    m_coordinate_attributes.emplace(eLayerName,
-                                    std::pair(&ProcessLayerReference, &m_entityAttributes.m_Layer));
+    m_coordinate_attributes.emplace(
+        eLayerName,
+        std::pair(&ProcessLayerReference, &m_entityAttributes.m_Layer)
+    );
     SetupValueAttribute(
         eCoordinateSpace,
-        m_entityAttributes.m_paperSpace);  // TODO: Ensure the stream is noboolalpha (for that
-                                           // matter ensure the stream has the "C" locale
+        m_entityAttributes.m_paperSpace
+    );  // TODO: Ensure the stream is noboolalpha (for that
+        // matter ensure the stream has the "C" locale
     SetupValueAttribute(eColor, m_entityAttributes.m_Color);
+
+    m_stats.entityCounts[m_record_data]++;
+
     // The entity record is already the current record and is already checked as a type 0 record
     if (IsObjectName("LINE")) {
         return ReadLine();
@@ -2727,6 +2897,9 @@ bool CDxfRead::ReadEntity()
     }
     if (IsObjectName("TEXT")) {
         return ReadText();
+    }
+    if (IsObjectName("SOLID")) {
+        return ReadSolid();
     }
     if (IsObjectName("ELLIPSE")) {
         return ReadEllipse();
@@ -2762,23 +2935,27 @@ bool CDxfRead::ReadHeaderSection()
         if (m_record_type == eObjectType && IsObjectName("ENDSEC")) {
             if (m_unitScalingFactor == 0.0) {
                 // Neither INSUNITS nor MEASUREMENT found, assume 1 DXF unit = 1mm
-                // TODO: Perhaps this default should depend on the current measuring units of the
-                // app.
+                // TODO: Perhaps this default should depend on the current project's unit system
                 m_unitScalingFactor = m_additionalScaling;
-                ImportObservation("No INSUNITS or MEASUREMENT; setting scaling to 1 DXF unit = "
-                                  "%gmm based on DXF scaling option\n",
-                                  m_unitScalingFactor);
+                m_stats.fileUnits = "Unspecified (Defaulting to 1:1)";
             }
+            m_stats.finalScalingFactor = m_unitScalingFactor;
             return true;
         }
         if (m_record_type != eVariableName) {
             continue;  // Quietly ignore unknown record types
         }
+
+        // Store the variable name before we try to read its value.
+        std::string currentVarName = m_record_data;
         if (!ReadVariable()) {
-            return false;
+            // If ReadVariable returns false, throw an exception with the variable name.
+            throw Base::Exception("Failed while reading value for HEADER variable: " + currentVarName);
         }
     }
-    return false;
+
+    // If the loop finishes without finding ENDSEC, it's an error.
+    throw Base::Exception("Unexpected end of file inside HEADER section.");
 }
 
 bool CDxfRead::ReadVariable()
@@ -2789,14 +2966,14 @@ bool CDxfRead::ReadVariable()
         if (!ParseValue<int>(this, &varValue)) {
             ImportError("Failed to get integer from INSUNITS value '%s'\n", m_record_data);
         }
-        else if (auto units = DxfUnits::eDxfUnits_t(varValue); !DxfUnits::IsValid(units)) {
-            ImportError("Unknown value '%d' for INSUNITS\n", varValue);
-        }
         else {
+            auto units = DxfUnits::eDxfUnits_t(varValue);
+            if (!DxfUnits::IsValid(units)) {
+                units = DxfUnits::eUnspecified;
+            }
             m_unitScalingFactor = DxfUnits::Factor(units) * m_additionalScaling;
-            ImportObservation("Setting scaling to 1 DXF unit = %gmm based on INSUNITS and "
-                              "DXF scaling option\n",
-                              m_unitScalingFactor);
+            m_stats.scalingSource = "$INSUNITS";
+            m_stats.fileUnits = DxfUnitToString(units);
         }
         return true;
     }
@@ -2804,12 +2981,10 @@ bool CDxfRead::ReadVariable()
         get_next_record();
         int varValue = 1;
         if (m_unitScalingFactor == 0.0 && ParseValue<int>(this, &varValue)) {
-            m_unitScalingFactor =
-                DxfUnits::Factor(varValue != 0 ? DxfUnits::eMillimeters : DxfUnits::eInches)
-                * m_additionalScaling;
-            ImportObservation("Setting scaling to 1 DXF unit = %gmm based on MEASUREMENT and "
-                              "DXF scaling option\n",
-                              m_unitScalingFactor);
+            auto units = (varValue != 0 ? DxfUnits::eMillimeters : DxfUnits::eInches);
+            m_unitScalingFactor = DxfUnits::Factor(units) * m_additionalScaling;
+            m_stats.scalingSource = "$MEASUREMENT";
+            m_stats.fileUnits = DxfUnitToString(units);
         }
         return true;
     }
@@ -2841,8 +3016,7 @@ bool CDxfRead::ReadTablesSection()
         }
         get_next_record();
         if (m_record_type != eName) {
-            ImportError("Found unexpected type %d record instead of table name\n",
-                        (int)m_record_type);
+            ImportError("Found unexpected type %d record instead of table name\n", (int)m_record_type);
         }
         else if (IsObjectName("LAYER")) {
             if (!ReadLayerTable()) {
@@ -2911,7 +3085,7 @@ bool CDxfRead::ReadEntitiesSection()
                 }
             }
             catch (const Base::Exception& e) {
-                e.ReportException();
+                e.reportException();
             }
             catch (...) {
                 ImportError("CDxfRead::ReadEntity raised unknown exception\n");
@@ -2949,14 +3123,10 @@ bool CDxfRead::ReadLayer()
         // TODO: Should have an import option to omit frozen layers.
         UnsupportedFeature("Frozen layers");
     }
-    if (layerColor < 0) {
-        UnsupportedFeature("Hidden layers");
-    }
     Layers[layername] = MakeLayer(layername, layerColor, std::move(lineTypeName));
     return true;
 }
-CDxfRead::Layer*
-CDxfRead::MakeLayer(const std::string& name, ColorIndex_t color, std::string&& lineType)
+CDxfRead::Layer* CDxfRead::MakeLayer(const std::string& name, ColorIndex_t color, std::string&& lineType)
 {
     return new Layer(name, color, std::move(lineType));
 }
@@ -3024,13 +3194,15 @@ inline static double level(int distance, double blackLevel)
     // 8 and beyond yield the black level
     return blackLevel;
 }
-inline static App::Color wheel(int hue, double blackLevel, double multiplier = 1.0)
+inline static Base::Color wheel(int hue, double blackLevel, double multiplier = 1.0)
 {
-    return App::Color((float)(level(hue - 0, blackLevel) * multiplier),
-                      (float)(level(hue - 8, blackLevel) * multiplier),
-                      (float)(level(hue - 16, blackLevel) * multiplier));
+    return Base::Color(
+        (float)(level(hue - 0, blackLevel) * multiplier),
+        (float)(level(hue - 8, blackLevel) * multiplier),
+        (float)(level(hue - 16, blackLevel) * multiplier)
+    );
 }
-App::Color CDxfRead::ObjectColor(ColorIndex_t index)
+Base::Color CDxfRead::ObjectColor(ColorIndex_t index)
 {
     // TODO: If it is ColorByBlock we need to use the color of the INSERT entity.
     // This is tricky because a block can itself contain INSERT entities and we don't currently
@@ -3047,28 +3219,31 @@ App::Color CDxfRead::ObjectColor(ColorIndex_t index)
     // The AA fades as AA 7E 56 45 35 which is almost the exact same percentages.
     // For hue, (index-10)/10 : 0 is ff0000, and each step linearly adds green until 4 is pure
     // yellow ffff00, then red starts to fade... until but not including 24 which is back to ff0000.
-    App::Color result = App::Color();
+    Base::Color result = Base::Color();
     if (index == 0) {
         // Technically, 0 is BYBLOCK and not a real color, but all that means is that an object in a
         // block cannot specifically ask to be black. These colors are all contrasted to the
         // background so there is no objective black colour, through 255 is an objective white.
-        result = App::Color();
+        result = Base::Color();
     }
     else if (index < 7) {
         result = wheel((index - 1) * 4, 0x00);
     }
     else if (index == 7) {
-        result = App::Color(1, 1, 1);
+        // DXF color 7 is "black/white" and should adapt to the background.
+        // Since we cannot easily query the background theme from here, we will use a
+        // neutral mid-gray, which is visible on both light and dark themes.
+        result = Base::Color(0.5f, 0.5f, 0.5f);
     }
     else if (index == 8) {
-        result = App::Color(0.5, 0.5, 0.5);
+        result = Base::Color(0.5, 0.5, 0.5);
     }
     else if (index == 9) {
-        result = App::Color(0.75, 0.75, 0.75);
+        result = Base::Color(0.75, 0.75, 0.75);
     }
     else if (index >= 250) {
         auto brightness = (float)((index - 250 + (255 - index) * 0.2) / 5);
-        result = App::Color(brightness, brightness, brightness);
+        result = Base::Color(brightness, brightness, brightness);
     }
     else {
         static const std::array<float, 5> fades = {1.00F, 0.74F, 0.50F, 0.40F, 0.30F};
@@ -3080,3 +3255,5 @@ App::Color CDxfRead::ObjectColor(ColorIndex_t index)
     return result;
 }
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+
+template void CDxfRead::UnsupportedFeature<>(const char*);

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2007 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
@@ -20,28 +22,31 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
-# include <BRepAlgoAPI_Fuse.hxx>
-# include <BRepCheck_Analyzer.hxx>
-# include <Standard_Failure.hxx>
-# include <TopoDS_Iterator.hxx>
-# include <TopExp.hxx>
-# include <TopTools_IndexedMapOfShape.hxx>
-#endif
+#include <Mod/Part/App/FCBRepAlgoAPI_Fuse.h>
+#include <BRepCheck_Analyzer.hxx>
+#include <Standard_Failure.hxx>
+#include <TopoDS_Iterator.hxx>
+#include <TopExp.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
 
-#include <App/Application.h>
-#include <Base/Console.h>
-#include <Base/Parameter.h>
 
 #include "FeaturePartFuse.h"
 #include "TopoShape.h"
 #include "modelRefine.h"
 #include "TopoShapeOpCode.h"
 
-FC_LOG_LEVEL_INIT("Part",true,true);
+#include <Base/ProgramVersion.h>
+
+
+FC_LOG_LEVEL_INIT("Part", true, true);
 
 using namespace Part;
+
+namespace Part
+{
+extern void throwIfInvalidIfCheckModel(const TopoDS_Shape& shape);
+extern bool getRefineModelParameter();
+}  // namespace Part
 
 PROPERTY_SOURCE(Part::Fuse, Part::Boolean)
 
@@ -51,10 +56,10 @@ Fuse::Fuse() = default;
 BRepAlgoAPI_BooleanOperation* Fuse::makeOperation(const TopoDS_Shape& base, const TopoDS_Shape& tool) const
 {
     // Let's call algorithm computing a fuse operation:
-    return new BRepAlgoAPI_Fuse(base, tool);
+    return new FCBRepAlgoAPI_Fuse(base, tool);
 }
 
-const char *Fuse::opCode() const
+const char* Fuse::opCode() const
 {
     return Part::OpCodes::Fuse;
 }
@@ -66,55 +71,69 @@ PROPERTY_SOURCE(Part::MultiFuse, Part::Feature)
 
 MultiFuse::MultiFuse()
 {
-    ADD_PROPERTY(Shapes,(nullptr));
+    ADD_PROPERTY(Shapes, (nullptr));
     Shapes.setSize(0);
-    ADD_PROPERTY_TYPE(History,(ShapeHistory()), "Boolean", (App::PropertyType)
-        (App::Prop_Output|App::Prop_Transient|App::Prop_Hidden), "Shape history");
+    ADD_PROPERTY_TYPE(
+        History,
+        (ShapeHistory()),
+        "Boolean",
+        (App::PropertyType)(App::Prop_Output | App::Prop_Transient | App::Prop_Hidden),
+        "Shape history"
+    );
     History.setSize(0);
 
-    ADD_PROPERTY_TYPE(Refine,(0),"Boolean",(App::PropertyType)(App::Prop_None),"Refine shape (clean up redundant edges) after this boolean operation");
+    ADD_PROPERTY_TYPE(
+        Refine,
+        (0),
+        "Boolean",
+        (App::PropertyType)(App::Prop_None),
+        "Refine shape (clean up redundant edges) after this boolean operation"
+    );
 
-    //init Refine property
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
-        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/Part/Boolean");
-    this->Refine.setValue(hGrp->GetBool("RefineModel", false));
-
+    this->Refine.setValue(getRefineModelParameter());
 }
 
 short MultiFuse::mustExecute() const
 {
-    if (Shapes.isTouched())
+    if (Shapes.isTouched()) {
         return 1;
+    }
     return 0;
 }
 
-App::DocumentObjectExecReturn *MultiFuse::execute()
+App::DocumentObjectExecReturn* MultiFuse::execute()
 {
     std::vector<TopoShape> shapes;
     std::vector<App::DocumentObject*> obj = Shapes.getValues();
 
     std::vector<App::DocumentObject*>::iterator it;
     for (it = obj.begin(); it != obj.end(); ++it) {
-        shapes.push_back(Feature::getTopoShape(*it));
+        shapes.push_back(Feature::getTopoShape(*it, ShapeOption::ResolveLink | ShapeOption::Transform));
     }
 
     bool argumentsAreInCompound = false;
     TopoShape compoundOfArguments;
 
     // if only one source shape, and it is a compound - fuse children of the compound
-    if (shapes.size() == 1) {
+    const int maxIterations = 1'000'000;  // will trigger "not enough shape objects linked" error
+                                          // below if ever reached
+    for (int i = 0; shapes.size() == 1 && i < maxIterations; ++i) {
         compoundOfArguments = shapes[0];
-        if (compoundOfArguments.getShape().ShapeType() == TopAbs_COMPOUND) {
+        TopoDS_Shape shape = compoundOfArguments.getShape();
+        if (!shape.IsNull() && shape.ShapeType() == TopAbs_COMPOUND) {
             shapes.clear();
             shapes = compoundOfArguments.getSubTopoShapes();
             argumentsAreInCompound = true;
+        }
+        else {
+            break;
         }
     }
 
     if (shapes.size() >= 2) {
         try {
             std::vector<ShapeHistory> history;
-            BRepAlgoAPI_Fuse mkFuse;
+            FCBRepAlgoAPI_Fuse mkFuse;
             TopTools_ListOfShape shapeArguments, shapeTools;
             const TopoShape& shape = shapes.front();
             if (shape.isNull()) {
@@ -131,6 +150,7 @@ App::DocumentObjectExecReturn *MultiFuse::execute()
 
             mkFuse.SetArguments(shapeArguments);
             mkFuse.SetTools(shapeTools);
+            mkFuse.setAutoFuzzy();
             mkFuse.Build();
 
             if (!mkFuse.IsDone()) {
@@ -140,32 +160,21 @@ App::DocumentObjectExecReturn *MultiFuse::execute()
             TopoShape res(0);
             res = res.makeShapeWithElementMap(mkFuse.Shape(), MapperMaker(mkFuse), shapes, OpCodes::Fuse);
             for (const auto& it2 : shapes) {
-                history.push_back(
-                    buildHistory(mkFuse, TopAbs_FACE, res.getShape(), it2.getShape()));
+                history.push_back(buildHistory(mkFuse, TopAbs_FACE, res.getShape(), it2.getShape()));
             }
             if (res.isNull()) {
                 throw Base::RuntimeError("Resulting shape is null");
             }
 
-            Base::Reference<ParameterGrp> hGrp = App::GetApplication()
-                                                     .GetUserParameter()
-                                                     .GetGroup("BaseApp")
-                                                     ->GetGroup("Preferences")
-                                                     ->GetGroup("Mod/Part/Boolean");
-            if (hGrp->GetBool("CheckModel", true)) {
-                BRepCheck_Analyzer aChecker(res.getShape());
-                if (!aChecker.IsValid()) {
-                    return new App::DocumentObjectExecReturn("Resulting shape is invalid");
-                }
-            }
+            throwIfInvalidIfCheckModel(res.getShape());
+
             if (this->Refine.getValue()) {
                 try {
                     TopoDS_Shape oldShape = res.getShape();
                     BRepBuilderAPI_RefineModel mkRefine(oldShape);
                     // We just built an element map above for the fuse, don't erase it for a refine.
                     res.setShape(mkRefine.Shape(), false);
-                    ShapeHistory hist =
-                            buildHistory(mkRefine, TopAbs_FACE, res.getShape(), oldShape);
+                    ShapeHistory hist = buildHistory(mkRefine, TopAbs_FACE, res.getShape(), oldShape);
                     for (auto& jt : history) {
                         jt = joinHistory(jt, hist);
                     }
@@ -193,14 +202,14 @@ App::DocumentObjectExecReturn *MultiFuse::execute()
                         int iFaceInChild = histitem.first;
                         ShapeHistory::List& iFacesInResult = histitem.second;
                         const TopoDS_Shape& srcFace = facesOfChild(
-                            iFaceInChild
-                            + 1);  //+1 to convert our 0-based to OCC 1-bsed conventions
+                            iFaceInChild + 1
+                        );  //+1 to convert our 0-based to OCC 1-bsed conventions
                         int iFaceInCompound = facesOfCompound.FindIndex(srcFace) - 1;
-                        overallHist.shapeMap[iFaceInCompound] =
-                            iFacesInResult;  // this may overwrite existing info if the same face is
-                                             // used in several children of compound. This shouldn't
-                                             // be a problem, because the histories should match
-                                             // anyway...
+                        overallHist.shapeMap[iFaceInCompound]
+                            = iFacesInResult;  // this may overwrite existing info if the same face
+                                               // is used in several children of compound. This
+                                               // shouldn't be a problem, because the histories
+                                               // should match anyway...
                     }
                 }
                 history.clear();
@@ -208,6 +217,9 @@ App::DocumentObjectExecReturn *MultiFuse::execute()
             }
             this->Shape.setValue(res);
             this->History.setValues(history);
+
+            App::DocumentObject* link = Shapes.getValues()[0];
+            copyMaterial(link);
             return Part::Feature::execute();
         }
         catch (Standard_Failure& e) {
@@ -216,5 +228,16 @@ App::DocumentObjectExecReturn *MultiFuse::execute()
     }
     else {
         throw Base::CADKernelError("Not enough shape objects linked");
+    }
+}
+
+void MultiFuse::Restore(Base::XMLReader& reader)
+{
+    ExtensionContainer::Restore(reader);
+
+    // The Refine property was added in FreeCAD 0.17, so any file before that will not have it set.
+    // For these files, the appropriate default value is false.
+    if (Base::getVersion(reader.ProgramVersion) < Base::Version::v0_17) {
+        Refine.setValue(false);
     }
 }

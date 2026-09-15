@@ -1,29 +1,28 @@
-# -*- coding: utf8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2017 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 """The BIM ImagePlane command"""
-
 
 import FreeCAD
 import FreeCADGui
@@ -36,10 +35,8 @@ class BIM_ImagePlane:
     def GetResources(self):
         return {
             "Pixmap": "BIM_ImagePlane.svg",
-            "MenuText": QT_TRANSLATE_NOOP("BIM_ImagePlane", "Image plane"),
-            "ToolTip": QT_TRANSLATE_NOOP(
-                "BIM_ImagePlane", "Creates a plane from an image"
-            ),
+            "MenuText": QT_TRANSLATE_NOOP("BIM_ImagePlane", "Image Plane"),
+            "ToolTip": QT_TRANSLATE_NOOP("BIM_ImagePlane", "Creates a plane from an image"),
         }
 
     def IsActive(self):
@@ -48,14 +45,13 @@ class BIM_ImagePlane:
 
     def Activated(self):
         from PySide import QtGui
+        import WorkingPlane
         import draftguitools.gui_trackers as DraftTrackers
 
-        self.tracker = DraftTrackers.rectangleTracker()
-        self.basepoint = None
-        self.opposite = None
-        (filename, _filter) = QtGui.QFileDialog.getOpenFileName(
+        self.doc = FreeCAD.ActiveDocument
+        filename, _filter = QtGui.QFileDialog.getOpenFileName(
             QtGui.QApplication.activeWindow(),
-            translate("BIM", "Select image"),
+            translate("BIM", "Select Image"),
             None,
             translate("BIM", "Image file (*.png *.jpg *.bmp)"),
         )
@@ -63,10 +59,33 @@ class BIM_ImagePlane:
             self.filename = filename
             im = QtGui.QImage(self.filename)
             self.proportion = float(im.height()) / float(im.width())
-            if hasattr(FreeCADGui, "Snapper"):
-                FreeCADGui.Snapper.getPoint(
-                    callback=self.PointCallback, movecallback=self.MoveCallback
-                )
+
+            FreeCAD.activeDraftCommand = self  # register as a Draft command for auto grid on/off
+            self.wp = WorkingPlane.get_working_plane()
+            self.wp._save()
+            self.basepoint = None
+            self.opposite = None
+            self.tracker = DraftTrackers.rectangleTracker()
+            FreeCADGui.Snapper.getPoint(
+                callback=self.PointCallback,
+                movecallback=self.MoveCallback,
+                hints=self.get_hints(),
+            )
+
+    def get_hints(self):
+        "returns status bar input hints for the current tool state"
+        from draftguitools import gui_tool_utils
+
+        if not self.basepoint:
+            label = translate("BIM", "%1 pick first point")
+        else:
+            label = translate("BIM", "%1 pick opposite point")
+        return (
+            [FreeCADGui.InputHint(label, FreeCADGui.UserInput.MouseLeft)]
+            + gui_tool_utils._get_hint_xyz_constrain()
+            + gui_tool_utils._get_hint_mod_constrain()
+            + gui_tool_utils._get_hint_mod_snap()
+        )
 
     def MoveCallback(self, point, snapinfo):
         import DraftVecUtils
@@ -89,6 +108,8 @@ class BIM_ImagePlane:
 
         if not point:
             # cancelled
+            FreeCAD.activeDraftCommand = None
+            FreeCADGui.Snapper.off()
             self.tracker.off()
             return
         elif not self.basepoint:
@@ -97,29 +118,31 @@ class BIM_ImagePlane:
             self.tracker.setorigin(point)
             self.tracker.on()
             FreeCADGui.Snapper.getPoint(
-                last=point, callback=self.PointCallback, movecallback=self.MoveCallback
+                last=point,
+                callback=self.PointCallback,
+                movecallback=self.MoveCallback,
+                hints=self.get_hints(),
             )
         else:
             # this is our second point
+            self.wp._restore()
+            FreeCAD.activeDraftCommand = None
+            FreeCADGui.Snapper.off()
             self.tracker.off()
-            midpoint = self.basepoint.add(
-                self.opposite.sub(self.basepoint).multiply(0.5)
-            )
-            rotation = FreeCAD.DraftWorkingPlane.getRotation().Rotation
+            midpoint = self.basepoint.add(self.opposite.sub(self.basepoint).multiply(0.5))
+            rotation = self.wp.get_placement().Rotation
             diagonal = self.opposite.sub(self.basepoint)
-            length = DraftVecUtils.project(diagonal, FreeCAD.DraftWorkingPlane.u).Length
-            height = DraftVecUtils.project(diagonal, FreeCAD.DraftWorkingPlane.v).Length
-            FreeCAD.ActiveDocument.openTransaction("Create image plane")
-            image = FreeCAD.activeDocument().addObject(
-                "Image::ImagePlane", "ImagePlane"
-            )
+            length = DraftVecUtils.project(diagonal, self.wp.u).Length
+            height = DraftVecUtils.project(diagonal, self.wp.v).Length
+            self.doc.openTransaction("Create image plane")
+            image = self.doc.addObject("Image::ImagePlane", "ImagePlane")
             image.Label = os.path.splitext(os.path.basename(self.filename))[0]
             image.ImageFile = self.filename
             image.Placement = FreeCAD.Placement(midpoint, rotation)
             image.XSize = length
             image.YSize = height
-            FreeCAD.ActiveDocument.commitTransaction()
-            FreeCAD.ActiveDocument.recompute()
+            self.doc.commitTransaction()
+            self.doc.recompute()
 
 
 FreeCADGui.addCommand("BIM_ImagePlane", BIM_ImagePlane())

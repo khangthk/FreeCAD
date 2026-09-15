@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2019 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,10 +22,9 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 # include <cstdlib>
+# include <limits>
 # include <sstream>
 
 # include <Bnd_Box.hxx>
@@ -34,7 +35,6 @@
 # include <Geom_Line.hxx>
 # include <gp_Pln.hxx>
 # include <TopoDS_Edge.hxx>
-#endif
 
 #include <App/Document.h>
 #include <App/DocumentObject.h>
@@ -80,7 +80,7 @@ DrawViewDimension* DrawDimHelper::makeExtentDim(DrawViewPart* dvp,
 DrawViewDimension* DrawDimHelper::makeExtentDim(DrawViewPart* dvp, std::vector<std::string> edgeNames,
                                   int direction)
 {
-    //    Base::Console().Message("DDH::makeExtentDim() - dvp: %s edgeNames: %d\n",
+    //    Base::Console().message("DDH::makeExtentDim() - dvp: %s edgeNames: %d\n",
     //                            dvp->Label.getValue(), edgeNames.size());
     if (!dvp) {
         return nullptr;
@@ -111,7 +111,7 @@ DrawViewDimension* DrawDimHelper::makeExtentDim(DrawViewPart* dvp, std::vector<s
     Base::Interpreter().runStringArg(
         "App.activeDocument().%s.DirExtent = %d", dimName.c_str(), dimNum);
 
-    auto* dimExt = dynamic_cast<DrawViewDimExtent*>(doc->getObject(dimName.c_str()));
+    auto* dimExt = freecad_cast<DrawViewDimExtent*>(doc->getObject(dimName.c_str()));
     if (!dimExt) {
         throw Base::TypeError("Dim extent not found");
     }
@@ -146,7 +146,7 @@ void DrawDimHelper::makeExtentDim3d(DrawViewPart* dvp, const std::string& dimTyp
 
 void DrawDimHelper::makeExtentDim3d(DrawViewPart* dvp, ReferenceVector references, int direction)
 {
-    //    Base::Console().Message("DDH::makeExtentDim3d() - dvp: %s references: %d\n",
+    //    Base::Console().message("DDH::makeExtentDim3d() - dvp: %s references: %d\n",
     //                            dvp->Label.getValue(), references.size());
     if (!dvp) {
         return;
@@ -173,7 +173,7 @@ void DrawDimHelper::makeExtentDim3d(DrawViewPart* dvp, ReferenceVector reference
     Base::Interpreter().runStringArg(
         "App.activeDocument().%s.DirExtent = %d", dimName.c_str(), dimNum);
 
-    auto* dimExt = dynamic_cast<DrawViewDimExtent*>(doc->getObject(dimName.c_str()));
+    auto* dimExt = freecad_cast<DrawViewDimExtent*>(doc->getObject(dimName.c_str()));
     if (!dimExt) {
         throw Base::TypeError("Dim extent not found");
     }
@@ -204,7 +204,7 @@ void DrawDimHelper::makeExtentDim3d(DrawViewPart* dvp, ReferenceVector reference
 std::pair<Base::Vector3d, Base::Vector3d>
 DrawDimHelper::minMax(DrawViewPart* dvp, std::vector<std::string> edgeNames, int direction)
 {
-    //    Base::Console().Message("DDH::minMax() - edgeName: %d\n", edgeNames.size());
+    //    Base::Console().message("DDH::minMax() - edgeName: %d\n", edgeNames.size());
     std::pair<Base::Vector3d, Base::Vector3d> result;
     Base::Vector3d refMin;
     Base::Vector3d refMax;
@@ -296,7 +296,7 @@ DrawDimHelper::minMax(DrawViewPart* dvp, std::vector<std::string> edgeNames, int
 //computation intensive for a cosmetic result.
 gp_Pnt DrawDimHelper::findClosestPoint(std::vector<TopoDS_Edge> inEdges, TopoDS_Edge& boundary)
 {
-    //    Base::Console().Message("DDH::findClosestPoint() - edges: %d\n", inEdges.size());
+    //    Base::Console().message("DDH::findClosestPoint() - edges: %d\n", inEdges.size());
     //
     //find an extent point that is actually on one of the curves
     double minDistance(std::numeric_limits<float>::max());
@@ -304,12 +304,12 @@ gp_Pnt DrawDimHelper::findClosestPoint(std::vector<TopoDS_Edge> inEdges, TopoDS_
     for (auto& edge : inEdges) {
         BRepExtrema_DistShapeShape extss(edge, boundary);
         if (!extss.IsDone()) {
-            Base::Console().Warning(
+            Base::Console().warning(
                 "DDH::findClosestPoint - BRepExtrema_DistShapeShape failed - 1\n");
             continue;
         }
         if (extss.NbSolution() == 0) {
-            Base::Console().Warning(
+            Base::Console().warning(
                 "DDH::findClosestPoint - BRepExtrema_DistShapeShape failed - 2\n");
             continue;
         }
@@ -324,7 +324,7 @@ gp_Pnt DrawDimHelper::findClosestPoint(std::vector<TopoDS_Edge> inEdges, TopoDS_
 std::pair<Base::Vector3d, Base::Vector3d>
 DrawDimHelper::minMax3d(DrawViewPart* dvp, ReferenceVector references, int direction)
 {
-    //    Base::Console().Message("DDH::minMax3d() - references: %d\n", references.size());
+    //    Base::Console().message("DDH::minMax3d() - references: %d\n", references.size());
     std::pair<Base::Vector3d, Base::Vector3d> result;
     Base::Vector3d refMin;
     Base::Vector3d refMax;
@@ -419,7 +419,7 @@ DrawDimHelper::makeDistDim(DrawViewPart* dvp, std::string dimType,
                            Base::Vector3d inMax,//expects scaled from makeExtentDim
                            bool extent)
 {
-    //    Base::Console().Message("DDH::makeDistDim() - inMin: %s inMax: %s\n",
+    //    Base::Console().message("DDH::makeDistDim() - inMin: %s inMax: %s\n",
     //                            DrawUtil::formatVector(inMin).c_str(),
     //                            DrawUtil::formatVector(inMax).c_str());
     TechDraw::DrawPage* page = dvp->findParentPage();

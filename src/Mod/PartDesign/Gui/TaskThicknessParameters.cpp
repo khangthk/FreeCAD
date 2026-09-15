@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 Stefan Tröger <stefantroeger@gmx.net>              *
  *                                                                         *
@@ -21,21 +23,22 @@
  ***************************************************************************/
 
 
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
 #include <QAction>
 #include <QListWidget>
 #include <QMessageBox>
-#endif
+#include <QStandardItemModel>
+
+#include <BRepOffset_Mode.hxx>
+
 
 #include <Base/Interpreter.h>
 #include <App/Document.h>
 #include <App/DocumentObject.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 #include <Gui/Command.h>
 #include <Gui/ViewProvider.h>
 #include <Mod/PartDesign/App/FeatureThickness.h>
+#include <Mod/Part/App/GizmoHelper.h>
 
 #include "ui_TaskThicknessParameters.h"
 #include "TaskThicknessParameters.h"
@@ -51,6 +54,8 @@ TaskThicknessParameters::TaskThicknessParameters(ViewProviderDressUp* DressUpVie
 {
     addContainerWidget();
     initControls();
+
+    setupGizmos(DressUpView);
 }
 
 void TaskThicknessParameters::addContainerWidget()
@@ -58,6 +63,11 @@ void TaskThicknessParameters::addContainerWidget()
     // we need a separate container widget to add all controls to
     proxy = new QWidget(this);
     ui->setupUi(proxy);
+    // Keep the mode indices aligned with BRepOffset_Mode while hiding Pipe.
+    auto modeView = qobject_cast<QListView*>(ui->modeComboBox->view());
+    modeView->setRowHidden(BRepOffset_Pipe, true);
+    auto modeModel = qobject_cast<QStandardItemModel*>(ui->modeComboBox->model());
+    modeModel->item(BRepOffset_Pipe)->setEnabled(false);
     this->groupLayout()->addWidget(proxy);
 }
 
@@ -89,6 +99,7 @@ void TaskThicknessParameters::initControls()
 
     int mode = static_cast<int>(thickness->Mode.getValue());
     ui->modeComboBox->setCurrentIndex(mode);
+    updateModeControls(mode);
 
     int join = static_cast<int>(thickness->Join.getValue());
     ui->joinComboBox->setCurrentIndex(join);
@@ -139,12 +150,17 @@ void TaskThicknessParameters::onSelectionChanged(const Gui::SelectionChanges& ms
             referenceSelected(msg, ui->listWidgetReferences);
         }
     }
+    else if (msg.Type == Gui::SelectionChanges::ClrSelection) {
+        // TODO: the gizmo position should be only recalculated when the feature associated
+        // with the gizmo is removed from the list
+        setGizmoPositions();
+    }
 }
 
 void TaskThicknessParameters::setButtons(const selectionModes mode)
 {
     ui->buttonRefSel->setChecked(mode == refSel);
-    ui->buttonRefSel->setText(mode == refSel ? btnPreviewStr() : btnSelectStr());
+    ui->buttonRefSel->setText(mode == refSel ? stopSelectionLabel() : startSelectionLabel());
 }
 
 void TaskThicknessParameters::onRefDeleted()
@@ -188,6 +204,20 @@ void TaskThicknessParameters::onModeChanged(int mode)
         thickness->Mode.setValue(mode);
         onAfterChange(thickness);
     }
+    updateModeControls(mode);
+    setGizmoPositions();
+}
+
+void TaskThicknessParameters::updateModeControls(int mode)
+{
+    const bool isRectoVerso = mode == BRepOffset_RectoVerso;
+    ui->checkReverse->setEnabled(!isRectoVerso);
+    ui->checkReverse->setToolTip(
+        isRectoVerso ? tr("Recto verso applies the thickness equally to both sides") : QString()
+    );
+    ui->Value->setToolTip(
+        isRectoVerso ? tr("Total wall thickness; half is applied to each side") : QString()
+    );
 }
 
 double TaskThicknessParameters::getValue() const
@@ -200,6 +230,8 @@ void TaskThicknessParameters::onReversedChanged(bool on)
     if (PartDesign::Thickness* thickness = onBeforeChange()) {
         thickness->Reversed.setValue(on);
         onAfterChange(thickness);
+
+        setGizmoPositions();
     }
 }
 
@@ -241,13 +273,8 @@ TaskThicknessParameters::~TaskThicknessParameters()
     }
     catch (const Py::Exception&) {
         Base::PyException e;  // extract the Python error text
-        e.ReportException();
+        e.reportException();
     }
-}
-
-bool TaskThicknessParameters::event(QEvent* e)
-{
-    return TaskDressUpParameters::KeyEvent(e);
 }
 
 void TaskThicknessParameters::changeEvent(QEvent* e)
@@ -255,6 +282,7 @@ void TaskThicknessParameters::changeEvent(QEvent* e)
     TaskBox::changeEvent(e);
     if (e->type() == QEvent::LanguageChange) {
         ui->retranslateUi(proxy);
+        updateModeControls(ui->modeComboBox->currentIndex());
     }
 }
 
@@ -262,8 +290,54 @@ void TaskThicknessParameters::apply()
 {
     // Alert user if he created an empty feature
     if (ui->listWidgetReferences->count() == 0) {
-        Base::Console().Warning(tr("Empty thickness created !\n").toStdString().c_str());
+        Base::Console().warning(tr("Empty thickness created!\n").toStdString().c_str());
     }
+}
+
+void TaskThicknessParameters::setupGizmos(ViewProviderDressUp* vp)
+{
+    if (!GizmoContainer::isEnabled()) {
+        return;
+    }
+
+    linearGizmo = new Gui::LinearGizmo(ui->Value);
+
+    gizmoContainer = GizmoContainer::create({linearGizmo}, vp);
+
+    setGizmoPositions();
+    showDraggerHints();
+}
+
+void TaskThicknessParameters::setGizmoPositions()
+{
+    if (!gizmoContainer) {
+        return;
+    }
+
+    auto thickness = getObject<PartDesign::Thickness>();
+    if (!thickness) {
+        gizmoContainer->visible = false;
+        return;
+    }
+    if (thickness->Mode.getValue() == BRepOffset_RectoVerso) {
+        gizmoContainer->visible = false;
+        return;
+    }
+    auto baseShape = thickness->getBaseTopoShape();
+    auto shapes = thickness->getContinuousEdges(baseShape);
+    auto faces = thickness->getFaces(baseShape);
+
+    if (shapes.size() == 0 || faces.size() == 0) {
+        gizmoContainer->visible = false;
+        return;
+    }
+    gizmoContainer->visible = true;
+
+    Part::TopoShape edge = shapes[0];
+    DraggerPlacementProps props = getDraggerPlacementFromEdgeAndFace(edge, faces[0]);
+    props.dir *= thickness->Reversed.getValue() ? 1 : -1;
+
+    linearGizmo->Gizmo::setDraggerPlacement(props.position, props.dir);
 }
 
 //**************************************************************************
@@ -277,6 +351,7 @@ TaskDlgThicknessParameters::TaskDlgThicknessParameters(ViewProviderThickness* Dr
     parameter = new TaskThicknessParameters(DressUpView);
 
     Content.push_back(parameter);
+    Content.push_back(preview);
 }
 
 TaskDlgThicknessParameters::~TaskDlgThicknessParameters() = default;
@@ -285,7 +360,7 @@ bool TaskDlgThicknessParameters::accept()
 {
     auto obj = getObject();
     if (!obj->isError()) {
-        parameter->showObject();
+        getViewObject()->showPreviousFeature(false);
     }
 
     parameter->apply();

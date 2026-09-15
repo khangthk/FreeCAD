@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2024 David Carter <dcarter@david.carter.ca>             *
  *                                                                         *
@@ -19,8 +21,7 @@
  *                                                                         *
  **************************************************************************/
 
-#ifndef MATGUI_DLGINSPECTAPPEARANCE_H
-#define MATGUI_DLGINSPECTAPPEARANCE_H
+#pragma once
 
 #include <memory>
 
@@ -46,7 +47,7 @@ class ColorWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit ColorWidget(const App::Color& color, QWidget* parent = nullptr);
+    explicit ColorWidget(const Base::Color& color, QWidget* parent = nullptr);
     ~ColorWidget() override = default;
 
     QSize sizeHint() const override { return {75,23}; }
@@ -108,5 +109,3 @@ private:
 };
 
 }  // namespace MatGui
-
-#endif  // MATGUI_DLGINSPECTAPPEARANCE_H

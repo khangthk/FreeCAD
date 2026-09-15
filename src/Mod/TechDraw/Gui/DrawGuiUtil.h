@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2016 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef DrawGuiUtil_h_
-#define DrawGuiUtil_h_
+#pragma once
 
 #include <string>
 #include <QCoreApplication>
@@ -29,7 +30,7 @@
 
 #include <App/DocumentObject.h>
 #include <Base/Vector3D.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 #include <Mod/TechDraw/TechDrawGlobal.h>
 
 
@@ -44,14 +45,21 @@ class Feature;
 namespace TechDraw {
 class DrawPage;
 class DrawView;
+class DrawViewPart;
 class LineGenerator;
 }
 namespace Gui {
 class Command;
 }
 
+namespace Base {
+class Vector2d;
+}
+
 namespace TechDrawGui
 {
+class QGIEdge;
+class QGIVertex;
 
 /// Convenient utility functions for TechDraw Gui Module
 class TechDrawGuiExport DrawGuiUtil {
@@ -94,7 +102,13 @@ class TechDrawGuiExport DrawGuiUtil {
                                       const App::DocumentObject& targetObject);
     static std::vector<std::string>  getSubsForSelectedObject(const std::vector<Gui::SelectionObject>& selection,
                                                                 App::DocumentObject* selectedObj);
+
+    static void rotateToAlign(const QGIEdge* edge, const Base::Vector2d& direction);
+    static void rotateToAlign(const QGIVertex* p1, const QGIVertex* p2, const Base::Vector2d& direction);
+    static void rotateToAlign(TechDraw::DrawViewPart* view, const Base::Vector2d& oldDirection, const Base::Vector2d& newDirection);
+
+    static void showNoPageMessage();
+
 };
 
 } //end namespace TechDrawGui
-#endif

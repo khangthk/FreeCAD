@@ -22,8 +22,6 @@
  ***************************************************************************/
 
 
-#include "PreCompiled.h"
-
 // inclusion of the generated files (generated out of AssemblyObject.xml)
 #include "AssemblyObjectPy.h"
 #include "AssemblyObjectPy.cpp"
@@ -46,7 +44,7 @@ int AssemblyObjectPy::setCustomAttributes(const char* /*attr*/, PyObject* /*obj*
     return 0;
 }
 
-PyObject* AssemblyObjectPy::solve(PyObject* args)
+PyObject* AssemblyObjectPy::solve(PyObject* args) const
 {
     PyObject* enableUndoPy;
     bool enableUndo;
@@ -68,7 +66,19 @@ PyObject* AssemblyObjectPy::solve(PyObject* args)
     return Py_BuildValue("i", ret);
 }
 
-PyObject* AssemblyObjectPy::ensureIdentityPlacements(PyObject* args)
+PyObject* AssemblyObjectPy::generateSimulation(PyObject* args) const
+{
+    PyObject* pyobj;
+
+    if (!PyArg_ParseTuple(args, "O", &pyobj)) {
+        return nullptr;
+    }
+    auto* obj = static_cast<App::DocumentObjectPy*>(pyobj)->getDocumentObjectPtr();
+    int ret = this->getAssemblyObjectPtr()->generateSimulation(obj);
+    return Py_BuildValue("i", ret);
+}
+
+PyObject* AssemblyObjectPy::ensureIdentityPlacements(PyObject* args) const
 {
     if (!PyArg_ParseTuple(args, "")) {
         return nullptr;
@@ -77,7 +87,42 @@ PyObject* AssemblyObjectPy::ensureIdentityPlacements(PyObject* args)
     Py_Return;
 }
 
-PyObject* AssemblyObjectPy::undoSolve(PyObject* args)
+PyObject* AssemblyObjectPy::updateForFrame(PyObject* args) const
+{
+    unsigned long index {};
+
+    if (!PyArg_ParseTuple(args, "k", &index)) {
+        throw Py::RuntimeError("updateForFrame requires an integer index");
+    }
+    PY_TRY
+    {
+        this->getAssemblyObjectPtr()->updateForFrame(index);
+    }
+    PY_CATCH;
+
+    Py_Return;
+}
+
+PyObject* AssemblyObjectPy::numberOfFrames(PyObject* args) const
+{
+    if (!PyArg_ParseTuple(args, "")) {
+        return nullptr;
+    }
+    size_t ret = this->getAssemblyObjectPtr()->numberOfFrames();
+    return Py_BuildValue("k", ret);
+}
+
+PyObject* AssemblyObjectPy::updateSolveStatus(PyObject* args) const
+{
+    if (!PyArg_ParseTuple(args, "")) {
+        return nullptr;
+    }
+
+    this->getAssemblyObjectPtr()->updateSolveStatus();
+    Py_Return;
+}
+
+PyObject* AssemblyObjectPy::undoSolve(PyObject* args) const
 {
     if (!PyArg_ParseTuple(args, "")) {
         return nullptr;
@@ -86,7 +131,7 @@ PyObject* AssemblyObjectPy::undoSolve(PyObject* args)
     Py_Return;
 }
 
-PyObject* AssemblyObjectPy::clearUndo(PyObject* args)
+PyObject* AssemblyObjectPy::clearUndo(PyObject* args) const
 {
     if (!PyArg_ParseTuple(args, "")) {
         return nullptr;
@@ -95,11 +140,11 @@ PyObject* AssemblyObjectPy::clearUndo(PyObject* args)
     Py_Return;
 }
 
-PyObject* AssemblyObjectPy::isPartConnected(PyObject* args)
+PyObject* AssemblyObjectPy::isPartConnected(PyObject* args) const
 {
     PyObject* pyobj;
 
-    if (!PyArg_ParseTuple(args, "O", &pyobj)) {
+    if (!PyArg_ParseTuple(args, "O!", &(App::DocumentObjectPy::Type), &pyobj)) {
         return nullptr;
     }
     auto* obj = static_cast<App::DocumentObjectPy*>(pyobj)->getDocumentObjectPtr();
@@ -107,11 +152,11 @@ PyObject* AssemblyObjectPy::isPartConnected(PyObject* args)
     return Py_BuildValue("O", (ok ? Py_True : Py_False));
 }
 
-PyObject* AssemblyObjectPy::isPartGrounded(PyObject* args)
+PyObject* AssemblyObjectPy::isPartGrounded(PyObject* args) const
 {
     PyObject* pyobj;
 
-    if (!PyArg_ParseTuple(args, "O", &pyobj)) {
+    if (!PyArg_ParseTuple(args, "O!", &(App::DocumentObjectPy::Type), &pyobj)) {
         return nullptr;
     }
     auto* obj = static_cast<App::DocumentObjectPy*>(pyobj)->getDocumentObjectPtr();
@@ -119,12 +164,12 @@ PyObject* AssemblyObjectPy::isPartGrounded(PyObject* args)
     return Py_BuildValue("O", (ok ? Py_True : Py_False));
 }
 
-PyObject* AssemblyObjectPy::isJointConnectingPartToGround(PyObject* args)
+PyObject* AssemblyObjectPy::isJointConnectingPartToGround(PyObject* args) const
 {
     PyObject* pyobj;
     char* pname;
 
-    if (!PyArg_ParseTuple(args, "Os", &pyobj, &pname)) {
+    if (!PyArg_ParseTuple(args, "O!s", &(App::DocumentObjectPy::Type), &pyobj, &pname)) {
         return nullptr;
     }
     auto* obj = static_cast<App::DocumentObjectPy*>(pyobj)->getDocumentObjectPtr();
@@ -132,7 +177,7 @@ PyObject* AssemblyObjectPy::isJointConnectingPartToGround(PyObject* args)
     return Py_BuildValue("O", (ok ? Py_True : Py_False));
 }
 
-PyObject* AssemblyObjectPy::exportAsASMT(PyObject* args)
+PyObject* AssemblyObjectPy::exportAsASMT(PyObject* args) const
 {
     char* utf8Name;
     if (!PyArg_ParseTuple(args, "et", "utf-8", &utf8Name)) {
@@ -150,4 +195,51 @@ PyObject* AssemblyObjectPy::exportAsASMT(PyObject* args)
     this->getAssemblyObjectPtr()->exportAsASMT(fileName);
 
     Py_Return;
+}
+
+Py::List AssemblyObjectPy::getJoints() const
+{
+    Py::List ret;
+    std::vector<App::DocumentObject*> list = getAssemblyObjectPtr()->getJoints();
+
+    for (auto It : list) {
+        ret.append(Py::Object(It->getPyObject(), true));
+    }
+
+    return ret;
+}
+
+PyObject* AssemblyObjectPy::getDownstreamParts(PyObject* args) const
+{
+    PyObject* pyPart;
+    PyObject* pyJoint;
+
+    // Parse the two arguments: a part object and a joint object
+    if (!PyArg_ParseTuple(
+            args,
+            "O!O!",
+            &(App::DocumentObjectPy::Type),
+            &pyPart,
+            &(App::DocumentObjectPy::Type),
+            &pyJoint
+        )) {
+        return nullptr;
+    }
+
+    auto* part = static_cast<App::DocumentObjectPy*>(pyPart)->getDocumentObjectPtr();
+    auto* joint = static_cast<App::DocumentObjectPy*>(pyJoint)->getDocumentObjectPtr();
+
+    // Call the C++ method
+    std::vector<Assembly::ObjRef> downstreamParts
+        = this->getAssemblyObjectPtr()->getDownstreamParts(part, joint);
+
+    // Convert the result into a Python list of DocumentObjects
+    Py::List ret;
+    for (const auto& objRef : downstreamParts) {
+        if (objRef.obj) {
+            ret.append(Py::Object(objRef.obj->getPyObject(), true));
+        }
+    }
+
+    return Py::new_reference_to(ret);
 }

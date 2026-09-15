@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2019 Abdullah Tahiri <abdullah.tahiri.yo@gmail.com>     *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Base/Reader.h>
 #include <Base/Writer.h>
@@ -32,10 +33,6 @@
 using namespace Sketcher;
 
 //---------- Geometry Extension
-constexpr std::array<const char*, InternalType::NumInternalGeometryType>
-    SketchGeometryExtension::internaltype2str;
-constexpr std::array<const char*, GeometryMode::NumGeometryMode>
-    SketchGeometryExtension::geometrymode2str;
 
 TYPESYSTEM_SOURCE(Sketcher::SketchGeometryExtension, Part::GeometryMigrationPersistenceExtension)
 
@@ -69,16 +66,15 @@ void SketchGeometryExtension::restoreAttributes(Base::XMLReader& reader)
     Part::GeometryPersistenceExtension::restoreAttributes(reader);
 
     if (reader.hasAttribute("id")) {
-        Id = reader.getAttributeAsInteger("id");
+        Id = reader.getAttribute<long>("id");
     }
 
-    InternalGeometryType = static_cast<InternalType::InternalType>(
-        reader.getAttributeAsInteger("internalGeometryType"));
+    InternalGeometryType = reader.getAttribute<InternalType::InternalType>("internalGeometryType");
 
-    GeometryModeFlags = GeometryModeFlagType(reader.getAttribute("geometryModeFlags"));
+    GeometryModeFlags = GeometryModeFlagType(reader.getAttribute<const char*>("geometryModeFlags"));
 
     if (reader.hasAttribute("geometryLayer")) {
-        GeometryLayer = reader.getAttributeAsInteger("geometryLayer");
+        GeometryLayer = reader.getAttribute<long>("geometryLayer");
     }
 }
 
@@ -107,12 +103,7 @@ std::unique_ptr<Part::GeometryExtension> SketchGeometryExtension::copy() const
     auto cpy = std::make_unique<SketchGeometryExtension>();
 
     copyAttributes(cpy.get());
-
-#if defined(__GNUC__) && (__GNUC__ <= 4)
-    return std::move(cpy);
-#else
     return cpy;
-#endif
 }
 
 PyObject* SketchGeometryExtension::getPyObject()
@@ -120,14 +111,13 @@ PyObject* SketchGeometryExtension::getPyObject()
     return new SketchGeometryExtensionPy(new SketchGeometryExtension(*this));
 }
 
-bool SketchGeometryExtension::getInternalTypeFromName(std::string str,
-                                                      InternalType::InternalType& type)
+bool SketchGeometryExtension::getInternalTypeFromName(std::string str, InternalType::InternalType& type)
 {
-    auto pos = std::find_if(SketchGeometryExtension::internaltype2str.begin(),
-                            SketchGeometryExtension::internaltype2str.end(),
-                            [str](const char* val) {
-                                return strcmp(val, str.c_str()) == 0;
-                            });
+    auto pos = std::find_if(
+        SketchGeometryExtension::internaltype2str.begin(),
+        SketchGeometryExtension::internaltype2str.end(),
+        [str](const char* val) { return strcmp(val, str.c_str()) == 0; }
+    );
 
     if (pos != SketchGeometryExtension::internaltype2str.end()) {
         int index = std::distance(SketchGeometryExtension::internaltype2str.begin(), pos);
@@ -139,14 +129,13 @@ bool SketchGeometryExtension::getInternalTypeFromName(std::string str,
     return false;
 }
 
-bool SketchGeometryExtension::getGeometryModeFromName(std::string str,
-                                                      GeometryMode::GeometryMode& type)
+bool SketchGeometryExtension::getGeometryModeFromName(std::string str, GeometryMode::GeometryMode& type)
 {
-    auto pos = std::find_if(SketchGeometryExtension::geometrymode2str.begin(),
-                            SketchGeometryExtension::geometrymode2str.end(),
-                            [str](const char* val) {
-                                return strcmp(val, str.c_str()) == 0;
-                            });
+    auto pos = std::find_if(
+        SketchGeometryExtension::geometrymode2str.begin(),
+        SketchGeometryExtension::geometrymode2str.end(),
+        [str](const char* val) { return strcmp(val, str.c_str()) == 0; }
+    );
 
     if (pos != SketchGeometryExtension::geometrymode2str.end()) {
         int index = std::distance(SketchGeometryExtension::geometrymode2str.begin(), pos);

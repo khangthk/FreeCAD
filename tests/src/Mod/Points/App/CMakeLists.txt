@@ -1,6 +1,6 @@
-target_sources(
-    Points_tests_run
-        PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/Points.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/PointsFeature.cpp
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+add_executable(Points_tests_run
+        Points.cpp
+        PointsFeature.cpp
 )

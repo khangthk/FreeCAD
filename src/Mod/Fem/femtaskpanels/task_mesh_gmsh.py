@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2016 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -36,23 +38,29 @@ import FreeCADGui
 
 from femmesh import gmshtools
 
-from . import base_femmeshtaskpanel
+from . import base_femlogtaskpanel
 
 
-class _TaskPanel(base_femmeshtaskpanel._BaseMeshTaskPanel):
+class _TaskPanel(base_femlogtaskpanel._BaseWorkerTaskPanel):
     """
     The TaskPanel for editing References property of
     MeshGmsh objects and creation of new FEM mesh
     """
 
     def __init__(self, obj):
-        super().__init__(obj)
-
+        # set Tool and form before init base class
+        gmshtools.GmshTools(obj)
         self.form = FreeCADGui.PySideUic.loadUi(
             FreeCAD.getHomePath() + "Mod/Fem/Resources/ui/MeshGmsh.ui"
         )
+        self.observer = _Observer(self)
 
-        self.tool = gmshtools.GmshTools(obj)
+        super().__init__(obj)
+
+        self.setup_connections()
+
+    def setup_connections(self):
+        super().setup_connections()
 
         QtCore.QObject.connect(
             self.form.qsb_max_size, QtCore.SIGNAL("valueChanged(Base::Quantity)"), self.max_changed
@@ -69,21 +77,20 @@ class _TaskPanel(base_femmeshtaskpanel._BaseMeshTaskPanel):
         self.form.cb_dimension.addItems(self.obj.getEnumerationsOfProperty("ElementDimension"))
 
         self.form.cb_order.addItems(self.obj.getEnumerationsOfProperty("ElementOrder"))
-        QtCore.QObject.connect(self.timer, QtCore.SIGNAL("timeout()"), self.update_timer_text)
         QtCore.QObject.connect(
             self.form.pb_get_gmsh_version, QtCore.SIGNAL("clicked()"), self.get_version
         )
 
-        self.get_mesh_params()
+        self.get_object_params()
         self.set_widgets()
 
-    def get_mesh_params(self):
+    def get_object_params(self):
         self.clmax = self.obj.CharacteristicLengthMax
         self.clmin = self.obj.CharacteristicLengthMin
         self.dimension = self.obj.ElementDimension
         self.order = self.obj.ElementOrder
 
-    def set_mesh_params(self):
+    def set_object_params(self):
         self.obj.CharacteristicLengthMax = self.clmax
         self.obj.CharacteristicLengthMin = self.clmin
         self.obj.ElementDimension = self.dimension
@@ -91,6 +98,8 @@ class _TaskPanel(base_femmeshtaskpanel._BaseMeshTaskPanel):
 
     def set_widgets(self):
         "fills the widgets"
+        super().set_widgets()
+
         self.form.qsb_max_size.setProperty("value", self.clmax)
         FreeCADGui.ExpressionBinding(self.form.qsb_max_size).bind(
             self.obj, "CharacteristicLengthMax"
@@ -106,18 +115,35 @@ class _TaskPanel(base_femmeshtaskpanel._BaseMeshTaskPanel):
 
     def max_changed(self, base_quantity_value):
         self.clmax = base_quantity_value
+        self.obj.CharacteristicLengthMax = self.clmax
 
     def min_changed(self, base_quantity_value):
         self.clmin = base_quantity_value
+        self.obj.CharacteristicLengthMin = self.clmin
 
     def choose_dimension(self, index):
         if index < 0:
             return
         self.form.cb_dimension.setCurrentIndex(index)
         self.dimension = self.form.cb_dimension.itemText(index)
+        self.obj.ElementDimension = self.dimension
 
     def choose_order(self, index):
         if index < 0:
             return
         self.form.cb_order.setCurrentIndex(index)
         self.order = self.form.cb_order.itemText(index)
+        self.obj.ElementOrder = self.order
+
+
+class _Observer(base_femlogtaskpanel._WorkerObserver):
+    def __init__(self, task):
+        super().__init__(task)
+        # define property groups to be observed
+        self.groups = ["Mesh Parameters"]
+
+    def slotChangedObject(self, observed, prop):
+        super().slotChangedObject(observed, prop)
+        # check if shape changes
+        if observed == self.task.obj and prop == "Shape":
+            self.task.prepared = False

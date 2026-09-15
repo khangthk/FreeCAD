@@ -1,27 +1,28 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2023 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU General Public License (GPL)            *
-# *   as published by the Free Software Foundation; either version 3 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU General Public License for more details.                          *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 """This NativeIFC module handles the retrieval and display of geometry compositions of objects"""
-
 
 import FreeCAD
 
@@ -79,8 +80,8 @@ def show_geometry_tree(element):
 
     import Arch_rc
     import FreeCADGui  # lazy import
-    from nativeifc import ifc_tools
-    from PySide import QtGui, QtWidgets
+    from . import ifc_tools
+    from PySide import QtWidgets
 
     if isinstance(element, FreeCAD.DocumentObject):
         element = ifc_tools.get_ifc_element(element)
@@ -146,8 +147,8 @@ def show_properties(current, previous):
     """Displays object properties"""
 
     import FreeCADGui
-    from nativeifc import ifc_tools  # lazy loading
-    from PySide import QtCore, QtGui, QtWidgets
+    from . import ifc_tools  # lazy loading
+    from PySide import QtCore, QtWidgets
 
     ifcid = int(current.text(0).split("=", 1)[0].strip(" ").strip("#"))
     sel = FreeCADGui.Selection.getSelection()
@@ -165,9 +166,7 @@ def show_properties(current, previous):
     # props = [p for p in  props if isfloat(str(getattr(elt,p)))]
     props = [p for p in props if not str(getattr(elt, p)).startswith("#")]
     props = [p for p in props if not str(getattr(elt, p)).startswith("(")]
-    props = [
-        p for p in props if p not in ["Position", "LayerAssignments", "StyledByItem"]
-    ]
+    props = [p for p in props if p not in ["Position", "LayerAssignments", "StyledByItem"]]
     proptree = box.children()[0].itemAt(0).widget()
     proptree.clear()
     proptree.setHorizontalHeaderLabels(["Property", "Value"])
@@ -190,9 +189,7 @@ def show_properties(current, previous):
         position = FreeCAD.Vector(elt.Position.Location.Coordinates)
         axis = FreeCAD.Vector(elt.Position.Axis.DirectionRatios)
         xref = FreeCAD.Vector(elt.Position.RefDirection.DirectionRatios)
-        rotation = FreeCAD.Rotation(axis, xref, FreeCAD.Vector(), "ZXY").toEulerAngles(
-            "XYZ"
-        )
+        rotation = FreeCAD.Rotation(axis, xref, FreeCAD.Vector(), "ZXY").toEulerAngles("XYZ")
         rotation = FreeCAD.Vector(rotation)
         for c in ["x", "y", "z"]:
             r1 = QtWidgets.QTableWidgetItem("Position " + c.upper())

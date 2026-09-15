@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2002 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -21,15 +23,14 @@
  ***************************************************************************/
 
 
-#ifndef MATGUI_DIALOG_DLGDISPLAYPROPERTIES_IMP_H
-#define MATGUI_DIALOG_DLGDISPLAYPROPERTIES_IMP_H
+#pragma once
 
 #include <QDialog>
 #include <memory>
 #include <vector>
 
 #include <App/Material.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 #include <Gui/TaskView/TaskDialog.h>
 #include <Gui/TaskView/TaskView.h>
 
@@ -56,8 +57,7 @@ class DlgDisplayPropertiesImp: public QDialog, public Gui::SelectionSingleton::O
     Q_OBJECT
 
 public:
-    explicit DlgDisplayPropertiesImp(bool floating,
-                                     QWidget* parent = nullptr,
+    explicit DlgDisplayPropertiesImp(QWidget* parent = nullptr,
                                      Qt::WindowFlags fl = Qt::WindowFlags());
     ~DlgDisplayPropertiesImp() override;
     /// Observer message from the Selection
@@ -96,6 +96,7 @@ private:
     void setTransparency(const std::vector<Gui::ViewProvider*>&);
     void setLineTransparency(const std::vector<Gui::ViewProvider*>&);
     std::vector<Gui::ViewProvider*> getSelection() const;
+    void setPropertiesFromSelection();
 
 private:
     class Private;
@@ -132,5 +133,3 @@ private:
 };
 
 }  // namespace MatGui
-
-#endif  // MATGUI_DIALOG_DLGDISPLAYPROPERTIES_IMP_H

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2020 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
@@ -20,13 +22,11 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <QElapsedTimer>
 #include <QMessageBox>
 #include <QPointer>
 #include <QTextCursor>
-#endif
+
 
 #include <App/Application.h>
 #include <App/Document.h>
@@ -54,8 +54,9 @@ public:
 
     void appendText(const QString& text, bool error)
     {
-        syntax->setParagraphType(error ? Gui::DockWnd::ReportHighlighter::Error
-                                       : Gui::DockWnd::ReportHighlighter::Message);
+        syntax->setParagraphType(
+            error ? Gui::DockWnd::ReportHighlighter::Error : Gui::DockWnd::ReportHighlighter::Message
+        );
         QTextCursor cursor(ui.outputWindow->document());
         cursor.beginEditBlock();
         cursor.movePosition(QTextCursor::End);
@@ -98,12 +99,12 @@ GmshWidget::GmshWidget(QWidget* parent, Qt::WindowFlags fl)
 
     d->ui.method->addItem(tr("Automatic"), static_cast<int>(Automatic));
     d->ui.method->addItem(tr("Adaptive"), static_cast<int>(MeshAdapt));
-    d->ui.method->addItem(QString::fromLatin1("Delaunay"), static_cast<int>(Delaunay));
+    d->ui.method->addItem(QStringLiteral("Delaunay"), static_cast<int>(Delaunay));
     d->ui.method->addItem(tr("Frontal"), static_cast<int>(FrontalDelaunay));
-    d->ui.method->addItem(QString::fromLatin1("BAMG"), static_cast<int>(BAMG));
-    d->ui.method->addItem(tr("Frontal Quad"), static_cast<int>(FrontalDelaunayForQuads));
+    d->ui.method->addItem(QStringLiteral("BAMG"), static_cast<int>(BAMG));
+    d->ui.method->addItem(tr("Frontal quad"), static_cast<int>(FrontalDelaunayForQuads));
     d->ui.method->addItem(tr("Parallelograms"), static_cast<int>(PackingOfParallelograms));
-    d->ui.method->addItem(tr("Quasi-structured Quad"), static_cast<int>(QuasiStructuredQuad));
+    d->ui.method->addItem(tr("Quasi-structured quad"), static_cast<int>(QuasiStructuredQuad));
 }
 
 GmshWidget::~GmshWidget()
@@ -174,7 +175,7 @@ double GmshWidget::getMinSize() const
 void GmshWidget::accept()
 {
     if (d->gmsh.state() == QProcess::Running) {
-        Base::Console().Warning("Cannot start gmsh because it's already running\n");
+        Base::Console().warning("Cannot start gmsh because it's already running\n");
         return;
     }
 
@@ -184,6 +185,9 @@ void GmshWidget::accept()
     if (writeProject(inpFile, outFile)) {
         // ./gmsh - -bin -2 /tmp/mesh.geo -o /tmp/best.stl
         QString proc = d->ui.fileChooser->fileName();
+        if (proc.isEmpty()) {
+            proc = QLatin1String("gmsh");
+        }
         QStringList args;
         args << QLatin1String("-")
              << QLatin1String("-bin")
@@ -194,7 +198,7 @@ void GmshWidget::accept()
         d->gmsh.start(proc, args);
 
         d->time.start();
-        d->ui.labelTime->setText(tr("Time:"));
+        d->ui.labelTime->setText(tr("Time"));
     }
     // clang-format on
 }
@@ -240,7 +244,7 @@ void GmshWidget::started()
     if (!d->label) {
         d->label = new Gui::StatusWidget(this);
         d->label->setAttribute(Qt::WA_DeleteOnClose);
-        d->label->setStatusText(tr("Running Gmsh..."));
+        d->label->setStatusText(tr("Running Gmsh…"));
         d->label->show();
     }
 }
@@ -252,8 +256,7 @@ void GmshWidget::finished(int /*exitCode*/, QProcess::ExitStatus exitStatus)
         d->label->close();
     }
 
-    d->ui.labelTime->setText(
-        QString::fromLatin1("%1 %2 ms").arg(tr("Time:")).arg(d->time.elapsed()));
+    d->ui.labelTime->setText(QStringLiteral("%1 %2 ms").arg(tr("Time:")).arg(d->time.elapsed()));
     if (exitStatus == QProcess::NormalExit) {
         loadOutput();
     }
@@ -321,8 +324,9 @@ bool RemeshGmsh::writeProject(QString& inpFile, QString& outFile)
         // Parameters
         int algorithm = meshingAlgorithm();
         double maxSize = getMaxSize();
-        if (maxSize == 0.0)
+        if (maxSize == 0.0) {
             maxSize = 1.0e22;
+        }
         double minSize = getMinSize();
         double angle = getAngle();
         int maxAngle = 120;

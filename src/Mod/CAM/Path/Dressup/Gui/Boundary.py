@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2019 sliptonic <shopinthewoods@gmail.com>               *
 # *                                                                         *
@@ -26,6 +27,7 @@ import FreeCAD
 import FreeCADGui
 import Path
 import Path.Dressup.Boundary as PathDressupPathBoundary
+import Path.Dressup.Utils as PathDressup
 import PathGui
 
 if False:
@@ -182,7 +184,10 @@ class TaskPanel(object):
         self.form.stockInside.setChecked(self.obj.Inside)
 
         self.form.stock.currentIndexChanged.connect(self.updateStockEditor)
-        self.form.stockInside.stateChanged.connect(self.setDirty)
+        if hasattr(self.form.stockInside, "checkStateChanged"):  # Qt version >= 6.7.0
+            self.form.stockInside.checkStateChanged.connect(self.setDirty)
+        else:  # Qt version < 6.7.0
+            self.form.stockInside.stateChanged.connect(self.setDirty)
         self.form.stockExtXneg.textChanged.connect(self.setDirty)
         self.form.stockExtXpos.textChanged.connect(self.setDirty)
         self.form.stockExtYneg.textChanged.connect(self.setDirty)
@@ -237,6 +242,12 @@ class DressupPathBoundaryViewProvider(object):
     def clearTaskPanel(self):
         self.panel = None
 
+    def getIcon(self):
+        if getattr(PathDressup.baseOp(self.obj), "Active", True):
+            return ":/icons/CAM_Dressup.svg"
+        else:
+            return ":/icons/CAM_OpActive.svg"
+
 
 def Create(base, name="DressupPathBoundary"):
     FreeCAD.ActiveDocument.openTransaction("Create a Boundary dressup")
@@ -256,33 +267,33 @@ class CommandPathDressupPathBoundary:
             "MenuText": QT_TRANSLATE_NOOP("CAM_DressupPathBoundary", "Boundary"),
             "ToolTip": QT_TRANSLATE_NOOP(
                 "CAM_DressupPathBoundary",
-                "Creates a Boundary Dress-up from a selected toolpath",
+                "Creates a boundary dress-up from a selected toolpath",
             ),
         }
 
     def IsActive(self):
-        if FreeCAD.ActiveDocument is not None:
-            for o in FreeCAD.ActiveDocument.Objects:
-                if o.Name[:3] == "Job":
-                    return True
-        return False
+        op = PathDressup.selection()
+        if not op:
+            return False
+        baseOp = PathDressup.baseOp(op)
+        if not hasattr(baseOp, "ClearanceHeight"):
+            return False
+        if not hasattr(baseOp, "SafeHeight"):
+            return False
+
+        return True
 
     def Activated(self):
         # check that the selection contains exactly what we want
-        selection = FreeCADGui.Selection.getSelection()
-        if len(selection) != 1:
-            Path.Log.error(
-                translate("CAM_DressupPathBoundary", "Please select one toolpath object") + "\n"
-            )
+        op = PathDressup.selection(verbose=True)
+        if not op:
             return
-        baseObject = selection[0]
 
         # everything ok!
         FreeCAD.ActiveDocument.openTransaction("Create Path Boundary Dress-up")
         FreeCADGui.addModule("Path.Dressup.Gui.Boundary")
-        FreeCADGui.doCommand(
-            "Path.Dressup.Gui.Boundary.Create(App.ActiveDocument.%s)" % baseObject.Name
-        )
+        FreeCADGui.doCommand(f"base = FreeCAD.ActiveDocument.getObject('{op.Name}')")
+        FreeCADGui.doCommand("Path.Dressup.Gui.Boundary.Create(base)")
         # FreeCAD.ActiveDocument.commitTransaction()  # Final `commitTransaction()` called via TaskPanel.accept()
         FreeCAD.ActiveDocument.recompute()
 

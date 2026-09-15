@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2010 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
@@ -21,8 +23,6 @@
  ***************************************************************************/
 
 
-#include "PreCompiled.h"
-
 // inclusion of the generated files (generated out of MaterialPy.xml)
 #include "MaterialPy.h"
 
@@ -32,9 +32,9 @@
 
 using namespace App;
 
-Color MaterialPy::toColor(PyObject* value)
+Base::Color MaterialPy::toColor(PyObject* value)
 {
-    Color cCol;
+    Base::Color cCol;
     if (PyTuple_Check(value) && (PyTuple_Size(value) == 3 || PyTuple_Size(value) == 4)) {
         PyObject* item {};
         item = PyTuple_GetItem(value, 0);
@@ -179,6 +179,41 @@ int MaterialPy::PyInit(PyObject* args, PyObject* kwds)
 std::string MaterialPy::representation() const
 {
     return {"<Material object>"};
+}
+
+namespace
+{
+bool equalMaterialValues(const Material& lhs, const Material& rhs)
+{
+    return lhs.shininess == rhs.shininess
+        && lhs.transparency == rhs.transparency
+        && lhs.ambientColor == rhs.ambientColor
+        && lhs.diffuseColor == rhs.diffuseColor
+        && lhs.specularColor == rhs.specularColor
+        && lhs.emissiveColor == rhs.emissiveColor
+        && lhs.image == rhs.image
+        && lhs.imagePath == rhs.imagePath;
+}
+}  // namespace
+
+PyObject* MaterialPy::richCompare(PyObject* v, PyObject* w, int op)
+{
+    if (PyObject_TypeCheck(v, &(MaterialPy::Type)) && PyObject_TypeCheck(w, &(MaterialPy::Type))) {
+        const Material* m1 = static_cast<MaterialPy*>(v)->getMaterialPtr();
+        const Material* m2 = static_cast<MaterialPy*>(w)->getMaterialPtr();
+
+        const bool equal = equalMaterialValues(*m1, *m2);
+        switch (op) {
+            case Py_NE:
+                return PyBool_FromLong(!equal);
+            case Py_EQ:
+                return PyBool_FromLong(equal);
+            default:
+                break;
+        }
+    }
+
+    Py_RETURN_NOTIMPLEMENTED;
 }
 
 PyObject* MaterialPy::set(PyObject* args)

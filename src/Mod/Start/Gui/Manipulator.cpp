@@ -21,12 +21,10 @@
  *                                                                          *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <QCoreApplication>
 #include <QCoreApplication>
 #include <QLayout>
-#endif
+
 
 #include "Manipulator.h"
 #include "StartView.h"
@@ -45,8 +43,8 @@ CmdStart::CmdStart()
 {
     sAppModule = "Start";
     sGroup = QT_TR_NOOP("Start");
-    sMenuText = QT_TR_NOOP("Start");
-    sToolTipText = QT_TR_NOOP("Displays the Start in an MDI view");
+    sMenuText = QT_TR_NOOP("&Start Page");
+    sToolTipText = QT_TR_NOOP("Displays the start page");
     sWhatsThis = "Start_Start";
     sStatusTip = sToolTipText;
     sPixmap = "StartCommandIcon";
@@ -60,6 +58,12 @@ void CmdStart::activated(int iMsg)
     if (!existingView) {
         existingView = gsl::owner<StartGui::StartView*>(new StartGui::StartView(mw));
         mw->addWindow(existingView);  // Transfers ownership
+        QObject::connect(
+            mw,
+            &Gui::MainWindow::recentFileAdded,
+            existingView,
+            &StartGui::StartView::recentFileAdded
+        );
     }
     Gui::getMainWindow()->setActiveWindow(existingView);
     existingView->show();
@@ -75,6 +79,10 @@ void StartGui::Manipulator::modifyMenuBar(Gui::MenuItem* menuBar)
 
     Gui::MenuItem* helpMenu = menuBar->findItem("&Help");
     Gui::MenuItem* loadStart = new Gui::MenuItem();
+    Gui::MenuItem* loadSeparator = new Gui::MenuItem();
     loadStart->setCommand("Start_Start");
-    helpMenu->appendItem(loadStart);
+    loadSeparator->setCommand("Separator");
+    Gui::MenuItem* firstItem = helpMenu->findItem("Std_FreeCADUserHub");
+    helpMenu->insertItem(firstItem, loadStart);
+    helpMenu->insertItem(firstItem, loadSeparator);
 }

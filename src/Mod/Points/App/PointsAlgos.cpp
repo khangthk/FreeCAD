@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2011 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -20,10 +22,10 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
+#include <FCConfig.h>
+
 #ifdef FC_OS_LINUX
-#include <unistd.h>
+# include <unistd.h>
 #endif
 #include <memory>
 #include <sstream>
@@ -32,7 +34,6 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>  // needed for compilation on some systems
 #include <boost/regex.hpp>
-#endif
 
 #include <Base/Console.h>
 #include <Base/Converter.h>
@@ -52,8 +53,11 @@ void PointsAlgos::Load(PointKernel& points, const char* FileName)
     Base::FileInfo File(FileName);
 
     // checking on the file
+    if (!File.exists()) {
+        throw Base::FileNotFoundException(FileName);
+    }
     if (!File.isReadable()) {
-        throw Base::FileException("File to load not existing or not readable", FileName);
+        throw Base::FileReadPermissionException(FileName);
     }
 
     if (File.hasExtension("asc")) {
@@ -66,9 +70,11 @@ void PointsAlgos::Load(PointKernel& points, const char* FileName)
 
 void PointsAlgos::LoadAscii(PointKernel& points, const char* FileName)
 {
-    boost::regex rx("^\\s*([-+]?[0-9]*)\\.?([0-9]+([eE][-+]?[0-9]+)?)"
-                    "\\s+([-+]?[0-9]*)\\.?([0-9]+([eE][-+]?[0-9]+)?)"
-                    "\\s+([-+]?[0-9]*)\\.?([0-9]+([eE][-+]?[0-9]+)?)\\s*$");
+    boost::regex rx(
+        "^\\s*([-+]?[0-9]*)\\.?([0-9]+([eE][-+]?[0-9]+)?)"
+        "\\s+([-+]?[0-9]*)\\.?([0-9]+([eE][-+]?[0-9]+)?)"
+        "\\s+([-+]?[0-9]*)\\.?([0-9]+([eE][-+]?[0-9]+)?)\\s*$"
+    );
     // boost::regex rx("(\\b[0-9]+\\.([0-9]+\\b)?|\\.[0-9]+\\b)");
     // boost::regex
     // rx("^\\s*(-?[0-9]*)\\.([0-9]+)\\s+(-?[0-9]*)\\.([0-9]+)\\s+(-?[0-9]*)\\.([0-9]+)\\s*$");
@@ -89,7 +95,7 @@ void PointsAlgos::LoadAscii(PointKernel& points, const char* FileName)
     // resize the PointKernel
     points.resize(LineCnt);
 
-    Base::SequencerLauncher seq("Loading points...", LineCnt);
+    Base::SequencerLauncher seq("Loading points…", LineCnt);
 
     // again to the beginning
     Base::ifstream file(fi, std::ios::in);
@@ -155,7 +161,7 @@ bool Reader::hasIntensities() const
     return (!intensity.empty());
 }
 
-const std::vector<App::Color>& Reader::getColors() const
+const std::vector<Base::Color>& Reader::getColors() const
 {
     return colors;
 }
@@ -284,9 +290,11 @@ protected:
     {
         return _end - _cur;
     }
-    pos_type seekoff(std::streambuf::off_type off,
-                     std::ios_base::seekdir way,
-                     std::ios_base::openmode mode = std::ios::in | std::ios::out) override
+    pos_type seekoff(
+        std::streambuf::off_type off,
+        std::ios_base::seekdir way,
+        std::ios_base::openmode mode = std::ios::in | std::ios::out
+    ) override
     {
         (void)mode;
         int p_pos = -1;
@@ -312,8 +320,10 @@ protected:
 
         return ((p_pos + off) - _beg);
     }
-    pos_type seekpos(std::streambuf::pos_type pos,
-                     std::ios_base::openmode which = std::ios::in | std::ios::out) override
+    pos_type seekpos(
+        std::streambuf::pos_type pos,
+        std::ios_base::openmode which = std::ios::in | std::ios::out
+    ) override
     {
         (void)which;
         return seekoff(pos, std::ios_base::beg);
@@ -332,8 +342,12 @@ private:
 
 // NOLINTBEGIN
 // Taken from https://github.com/PointCloudLibrary/pcl/blob/master/io/src/lzf.cpp
-unsigned int
-lzfDecompress(const void* const in_data, unsigned int in_len, void* out_data, unsigned int out_len)
+unsigned int lzfDecompress(
+    const void* const in_data,
+    unsigned int in_len,
+    void* out_data,
+    unsigned int out_len
+)
 {
     unsigned char const* ip = static_cast<const unsigned char*>(in_data);
     unsigned char* op = static_cast<unsigned char*>(out_data);
@@ -578,30 +592,30 @@ void PlyReader::read(const std::string& filename)
 
     // x field
     Eigen::Index x = max_size;
-    it = std::find(fields.begin(), fields.end(), "x");
+    it = std::ranges::find(fields, "x");
     if (it != fields.end()) {
         x = std::distance(fields.begin(), it);
     }
 
     // y field
     Eigen::Index y = max_size;
-    it = std::find(fields.begin(), fields.end(), "y");
+    it = std::ranges::find(fields, "y");
     if (it != fields.end()) {
         y = std::distance(fields.begin(), it);
     }
 
     // z field
     Eigen::Index z = max_size;
-    it = std::find(fields.begin(), fields.end(), "z");
+    it = std::ranges::find(fields, "z");
     if (it != fields.end()) {
         z = std::distance(fields.begin(), it);
     }
 
     // normal x field
     Eigen::Index normal_x = max_size;
-    it = std::find(fields.begin(), fields.end(), "normal_x");
+    it = std::ranges::find(fields, "normal_x");
     if (it == fields.end()) {
-        it = std::find(fields.begin(), fields.end(), "nx");
+        it = std::ranges::find(fields, "nx");
     }
     if (it != fields.end()) {
         normal_x = std::distance(fields.begin(), it);
@@ -609,9 +623,9 @@ void PlyReader::read(const std::string& filename)
 
     // normal y field
     Eigen::Index normal_y = max_size;
-    it = std::find(fields.begin(), fields.end(), "normal_y");
+    it = std::ranges::find(fields, "normal_y");
     if (it == fields.end()) {
-        it = std::find(fields.begin(), fields.end(), "ny");
+        it = std::ranges::find(fields, "ny");
     }
     if (it != fields.end()) {
         normal_y = std::distance(fields.begin(), it);
@@ -619,9 +633,9 @@ void PlyReader::read(const std::string& filename)
 
     // normal z field
     Eigen::Index normal_z = max_size;
-    it = std::find(fields.begin(), fields.end(), "normal_z");
+    it = std::ranges::find(fields, "normal_z");
     if (it == fields.end()) {
-        it = std::find(fields.begin(), fields.end(), "nz");
+        it = std::ranges::find(fields, "nz");
     }
     if (it != fields.end()) {
         normal_z = std::distance(fields.begin(), it);
@@ -629,7 +643,7 @@ void PlyReader::read(const std::string& filename)
 
     // intensity field
     Eigen::Index greyvalue = max_size;
-    it = std::find(fields.begin(), fields.end(), "intensity");
+    it = std::ranges::find(fields, "intensity");
     if (it != fields.end()) {
         greyvalue = std::distance(fields.begin(), it);
     }
@@ -639,22 +653,22 @@ void PlyReader::read(const std::string& filename)
     Eigen::Index green = max_size;
     Eigen::Index blue = max_size;
     Eigen::Index alpha = max_size;
-    it = std::find(fields.begin(), fields.end(), "red");
+    it = std::ranges::find(fields, "red");
     if (it != fields.end()) {
         red = std::distance(fields.begin(), it);
     }
 
-    it = std::find(fields.begin(), fields.end(), "green");
+    it = std::ranges::find(fields, "green");
     if (it != fields.end()) {
         green = std::distance(fields.begin(), it);
     }
 
-    it = std::find(fields.begin(), fields.end(), "blue");
+    it = std::ranges::find(fields, "blue");
     if (it != fields.end()) {
         blue = std::distance(fields.begin(), it);
     }
 
-    it = std::find(fields.begin(), fields.end(), "alpha");
+    it = std::ranges::find(fields, "alpha");
     if (it != fields.end()) {
         alpha = std::distance(fields.begin(), it);
     }
@@ -697,10 +711,12 @@ void PlyReader::read(const std::string& filename)
                 if (alpha != max_size) {
                     a = static_cast<float>(data(i, alpha));
                 }
-                colors.emplace_back(static_cast<float>(r) / 255.0F,
-                                    static_cast<float>(g) / 255.0F,
-                                    static_cast<float>(b) / 255.0F,
-                                    static_cast<float>(a) / 255.0F);
+                colors.emplace_back(
+                    static_cast<float>(r) / 255.0F,
+                    static_cast<float>(g) / 255.0F,
+                    static_cast<float>(b) / 255.0F,
+                    static_cast<float>(a) / 255.0F
+                );
             }
         }
         else if (types[red] == "float") {
@@ -717,12 +733,14 @@ void PlyReader::read(const std::string& filename)
     }
 }
 
-std::size_t PlyReader::readHeader(std::istream& in,
-                                  std::string& format,
-                                  std::size_t& offset,
-                                  std::vector<std::string>& fields,
-                                  std::vector<std::string>& types,
-                                  std::vector<int>& sizes)
+std::size_t PlyReader::readHeader(
+    std::istream& in,
+    std::string& format,
+    std::size_t& offset,
+    std::vector<std::string>& fields,
+    std::vector<std::string>& types,
+    std::vector<int>& sizes
+)
 {
     std::string line;
     std::string element;
@@ -920,12 +938,14 @@ void PlyReader::readAscii(std::istream& inp, std::size_t offset, Eigen::MatrixXd
     }
 }
 
-void PlyReader::readBinary(bool swapByteOrder,
-                           std::istream& inp,
-                           std::size_t offset,
-                           const std::vector<std::string>& types,
-                           const std::vector<int>& sizes,
-                           Eigen::MatrixXd& data)
+void PlyReader::readBinary(
+    bool swapByteOrder,
+    std::istream& inp,
+    std::size_t offset,
+    const std::vector<std::string>& types,
+    const std::vector<int>& sizes,
+    Eigen::MatrixXd& data
+)
 {
     Eigen::Index numPoints = data.rows();
     Eigen::Index numFields = data.cols();
@@ -1068,30 +1088,30 @@ void PcdReader::read(const std::string& filename)
 
     // x field
     Eigen::Index x = max_size;
-    it = std::find(fields.begin(), fields.end(), "x");
+    it = std::ranges::find(fields, "x");
     if (it != fields.end()) {
         x = std::distance(fields.begin(), it);
     }
 
     // y field
     Eigen::Index y = max_size;
-    it = std::find(fields.begin(), fields.end(), "y");
+    it = std::ranges::find(fields, "y");
     if (it != fields.end()) {
         y = std::distance(fields.begin(), it);
     }
 
     // z field
     Eigen::Index z = max_size;
-    it = std::find(fields.begin(), fields.end(), "z");
+    it = std::ranges::find(fields, "z");
     if (it != fields.end()) {
         z = std::distance(fields.begin(), it);
     }
 
     // normal x field
     Eigen::Index normal_x = max_size;
-    it = std::find(fields.begin(), fields.end(), "normal_x");
+    it = std::ranges::find(fields, "normal_x");
     if (it == fields.end()) {
-        it = std::find(fields.begin(), fields.end(), "nx");
+        it = std::ranges::find(fields, "nx");
     }
     if (it != fields.end()) {
         normal_x = std::distance(fields.begin(), it);
@@ -1099,9 +1119,9 @@ void PcdReader::read(const std::string& filename)
 
     // normal y field
     Eigen::Index normal_y = max_size;
-    it = std::find(fields.begin(), fields.end(), "normal_y");
+    it = std::ranges::find(fields, "normal_y");
     if (it == fields.end()) {
-        it = std::find(fields.begin(), fields.end(), "ny");
+        it = std::ranges::find(fields, "ny");
     }
     if (it != fields.end()) {
         normal_y = std::distance(fields.begin(), it);
@@ -1109,9 +1129,9 @@ void PcdReader::read(const std::string& filename)
 
     // normal z field
     Eigen::Index normal_z = max_size;
-    it = std::find(fields.begin(), fields.end(), "normal_z");
+    it = std::ranges::find(fields, "normal_z");
     if (it == fields.end()) {
-        it = std::find(fields.begin(), fields.end(), "nz");
+        it = std::ranges::find(fields, "nz");
     }
     if (it != fields.end()) {
         normal_z = std::distance(fields.begin(), it);
@@ -1119,16 +1139,16 @@ void PcdReader::read(const std::string& filename)
 
     // intensity field
     Eigen::Index greyvalue = max_size;
-    it = std::find(fields.begin(), fields.end(), "intensity");
+    it = std::ranges::find(fields, "intensity");
     if (it != fields.end()) {
         greyvalue = std::distance(fields.begin(), it);
     }
 
     // rgb(a) field
     Eigen::Index rgba = max_size;
-    it = std::find(fields.begin(), fields.end(), "rgb");
+    it = std::ranges::find(fields, "rgb");
     if (it == fields.end()) {
-        it = std::find(fields.begin(), fields.end(), "rgba");
+        it = std::ranges::find(fields, "rgba");
     }
     if (it != fields.end()) {
         rgba = std::distance(fields.begin(), it);
@@ -1166,19 +1186,18 @@ void PcdReader::read(const std::string& filename)
         if (types[rgba] == "U") {
             for (Eigen::Index i = 0; i < numPoints; i++) {
                 uint32_t packed = static_cast<uint32_t>(data(i, rgba));
-                App::Color col;
+                Base::Color col;
                 col.setPackedARGB(packed);
                 colors.emplace_back(col);
             }
         }
         else if (types[rgba] == "F") {
-            static_assert(sizeof(float) == sizeof(uint32_t),
-                          "float and uint32_t have different sizes");
+            static_assert(sizeof(float) == sizeof(uint32_t), "float and uint32_t have different sizes");
             for (Eigen::Index i = 0; i < numPoints; i++) {
                 float f = static_cast<float>(data(i, rgba));
                 uint32_t packed {};
                 std::memcpy(&packed, &f, sizeof(packed));
-                App::Color col;
+                Base::Color col;
                 col.setPackedARGB(packed);
                 colors.emplace_back(col);
             }
@@ -1186,11 +1205,13 @@ void PcdReader::read(const std::string& filename)
     }
 }
 
-std::size_t PcdReader::readHeader(std::istream& in,
-                                  std::string& format,
-                                  std::vector<std::string>& fields,
-                                  std::vector<std::string>& types,
-                                  std::vector<int>& sizes)
+std::size_t PcdReader::readHeader(
+    std::istream& in,
+    std::string& format,
+    std::vector<std::string>& fields,
+    std::vector<std::string>& types,
+    std::vector<int>& sizes
+)
 {
     std::string line;
     std::vector<std::string> counts;
@@ -1285,11 +1306,13 @@ void PcdReader::readAscii(std::istream& inp, Eigen::MatrixXd& data)
     }
 }
 
-void PcdReader::readBinary(bool transpose,
-                           std::istream& inp,
-                           const std::vector<std::string>& types,
-                           const std::vector<int>& sizes,
-                           Eigen::MatrixXd& data)
+void PcdReader::readBinary(
+    bool transpose,
+    std::istream& inp,
+    const std::vector<std::string>& types,
+    const std::vector<int>& sizes,
+    Eigen::MatrixXd& data
+)
 {
     Eigen::Index numPoints = data.rows();
     Eigen::Index numFields = data.cols();
@@ -1413,7 +1436,7 @@ public:
         }
     }
 
-    std::vector<App::Color> getColors() const
+    std::vector<Base::Color> getColors() const
     {
         return colors;
     }
@@ -1482,17 +1505,22 @@ private:
 
         for (int i = 0; i < prototype.childCount(); ++i) {
             e57::Node node(prototype.get(i));
-            if ((node.type() == e57::E57_FLOAT) || (node.type() == e57::E57_SCALED_INTEGER)) {
-                if (readCartesian(node, proto)) {}
-                else if (readNormal(node, proto)) {}
-                else if (readItensity(node, proto)) {}
+            if ((node.type() == e57::TypeFloat) || (node.type() == e57::TypeScaledInteger)) {
+                if (readCartesian(node, proto)) {
+                }
+                else if (readNormal(node, proto)) {
+                }
+                else if (readItensity(node, proto)) {
+                }
                 else {
                     readOther(node, proto);
                 }
             }
-            else if (node.type() == e57::E57_INTEGER) {
-                if (readColor(node, proto)) {}
-                else if (readCartesianInvalidState(node, proto)) {}
+            else if (node.type() == e57::TypeInteger) {
+                if (readColor(node, proto)) {
+                }
+                else if (readCartesianInvalidState(node, proto)) {
+                }
                 else {
                     readOther(node, proto);
                 }
@@ -1506,26 +1534,41 @@ private:
     {
         if (node.elementName() == "cartesianX") {
             proto.cnt_xyz++;
-            proto.sdb
-                .emplace_back(imfi, node.elementName(), proto.xData.data(), buf_size, true, true
+            proto.sdb.emplace_back(
+                imfi,
+                node.elementName(),
+                proto.xData.data(),
+                buf_size,
+                true,
+                true
 
-                );
+            );
             return true;
         }
         else if (node.elementName() == "cartesianY") {
             proto.cnt_xyz++;
-            proto.sdb
-                .emplace_back(imfi, node.elementName(), proto.yData.data(), buf_size, true, true
+            proto.sdb.emplace_back(
+                imfi,
+                node.elementName(),
+                proto.yData.data(),
+                buf_size,
+                true,
+                true
 
-                );
+            );
             return true;
         }
         else if (node.elementName() == "cartesianZ") {
             proto.cnt_xyz++;
-            proto.sdb
-                .emplace_back(imfi, node.elementName(), proto.zData.data(), buf_size, true, true
+            proto.sdb.emplace_back(
+                imfi,
+                node.elementName(),
+                proto.zData.data(),
+                buf_size,
+                true,
+                true
 
-                );
+            );
             return true;
         }
 
@@ -1536,26 +1579,41 @@ private:
     {
         if (node.elementName() == "nor:normalX") {
             proto.cnt_nor++;
-            proto.sdb
-                .emplace_back(imfi, node.elementName(), proto.xNormal.data(), buf_size, true, true
+            proto.sdb.emplace_back(
+                imfi,
+                node.elementName(),
+                proto.xNormal.data(),
+                buf_size,
+                true,
+                true
 
-                );
+            );
             return true;
         }
         else if (node.elementName() == "nor:normalY") {
             proto.cnt_nor++;
-            proto.sdb
-                .emplace_back(imfi, node.elementName(), proto.yNormal.data(), buf_size, true, true
+            proto.sdb.emplace_back(
+                imfi,
+                node.elementName(),
+                proto.yNormal.data(),
+                buf_size,
+                true,
+                true
 
-                );
+            );
             return true;
         }
         else if (node.elementName() == "nor:normalZ") {
             proto.cnt_nor++;
-            proto.sdb
-                .emplace_back(imfi, node.elementName(), proto.zNormal.data(), buf_size, true, true
+            proto.sdb.emplace_back(
+                imfi,
+                node.elementName(),
+                proto.zNormal.data(),
+                buf_size,
+                true,
+                true
 
-                );
+            );
             return true;
         }
 
@@ -1566,10 +1624,15 @@ private:
     {
         if (node.elementName() == "cartesianInvalidState") {
             proto.inv_state = true;
-            proto.sdb
-                .emplace_back(imfi, node.elementName(), proto.state.data(), buf_size, true, true
+            proto.sdb.emplace_back(
+                imfi,
+                node.elementName(),
+                proto.state.data(),
+                buf_size,
+                true,
+                true
 
-                );
+            );
             return true;
         }
 
@@ -1580,26 +1643,41 @@ private:
     {
         if (node.elementName() == "colorRed") {
             proto.cnt_rgb++;
-            proto.sdb
-                .emplace_back(imfi, node.elementName(), proto.redData.data(), buf_size, true, true
+            proto.sdb.emplace_back(
+                imfi,
+                node.elementName(),
+                proto.redData.data(),
+                buf_size,
+                true,
+                true
 
-                );
+            );
             return true;
         }
         if (node.elementName() == "colorGreen") {
             proto.cnt_rgb++;
-            proto.sdb
-                .emplace_back(imfi, node.elementName(), proto.greenData.data(), buf_size, true, true
+            proto.sdb.emplace_back(
+                imfi,
+                node.elementName(),
+                proto.greenData.data(),
+                buf_size,
+                true,
+                true
 
-                );
+            );
             return true;
         }
         if (node.elementName() == "colorBlue") {
             proto.cnt_rgb++;
-            proto.sdb
-                .emplace_back(imfi, node.elementName(), proto.blueData.data(), buf_size, true, true
+            proto.sdb.emplace_back(
+                imfi,
+                node.elementName(),
+                proto.blueData.data(),
+                buf_size,
+                true,
+                true
 
-                );
+            );
             return true;
         }
 
@@ -1610,10 +1688,15 @@ private:
     {
         if (node.elementName() == "intensity") {
             proto.inty = true;
-            proto.sdb
-                .emplace_back(imfi, node.elementName(), proto.intensity.data(), buf_size, true, true
+            proto.sdb.emplace_back(
+                imfi,
+                node.elementName(),
+                proto.intensity.data(),
+                buf_size,
+                true,
+                true
 
-                );
+            );
             return true;
         }
 
@@ -1622,15 +1705,23 @@ private:
 
     void readOther(const e57::Node& node, Proto& proto)
     {
-        proto.sdb.emplace_back(imfi, node.elementName(), proto.nil.data(), buf_size, true, true
+        proto.sdb.emplace_back(
+            imfi,
+            node.elementName(),
+            proto.nil.data(),
+            buf_size,
+            true,
+            true
 
         );
     }
 
-    void processProto(e57::CompressedVectorNode& cvn,
-                      const Proto& proto,
-                      bool hasPlacement,
-                      const Base::Placement& plm)
+    void processProto(
+        e57::CompressedVectorNode& cvn,
+        const Proto& proto,
+        bool hasPlacement,
+        const Base::Placement& plm
+    )
     {
         if (proto.cnt_xyz != 3) {
             throw Base::BadFormatError("Missing channels xyz");
@@ -1679,8 +1770,12 @@ private:
         }
     }
 
-    Base::Vector3d
-    getCoord(const Proto& proto, size_t index, bool hasPlacement, const Base::Placement& plm) const
+    Base::Vector3d getCoord(
+        const Proto& proto,
+        size_t index,
+        bool hasPlacement,
+        const Base::Placement& plm
+    ) const
     {
         Base::Vector3d pt;
         pt.x = proto.xData[index];
@@ -1692,8 +1787,12 @@ private:
         return pt;
     }
 
-    Base::Vector3f
-    getNormal(const Proto& proto, size_t index, bool hasPlacement, const Base::Rotation& rot) const
+    Base::Vector3f getNormal(
+        const Proto& proto,
+        size_t index,
+        bool hasPlacement,
+        const Base::Rotation& rot
+    ) const
     {
         Base::Vector3f pt;
         pt.x = proto.xNormal[index];
@@ -1705,9 +1804,9 @@ private:
         return pt;
     }
 
-    App::Color getColor(const Proto& proto, size_t index) const
+    Base::Color getColor(const Proto& proto, size_t index) const
     {
-        App::Color c;
+        Base::Color c;
         c.r = static_cast<float>(proto.redData[index]) / 255.0F;
         c.g = static_cast<float>(proto.greenData[index]) / 255.0F;
         c.b = static_cast<float>(proto.blueData[index]) / 255.0F;
@@ -1769,7 +1868,7 @@ private:
     bool checkState;
     double minDistance;
     const size_t buf_size = 1024;
-    std::vector<App::Color> colors;
+    std::vector<Base::Color> colors;
     std::vector<float> intensity;
     PointKernel points;
     std::vector<Base::Vector3f> normals;
@@ -1817,7 +1916,7 @@ void Writer::setIntensities(const std::vector<float>& i)
     intensity = i;
 }
 
-void Writer::setColors(const std::vector<App::Color>& c)
+void Writer::setColors(const std::vector<Base::Color>& c)
 {
     colors = c;
 }
@@ -1972,7 +2071,7 @@ void PlyWriter::write(const std::string& filename)
         Eigen::Index col2 = col + 2;
         Eigen::Index col3 = col + 3;
         for (Eigen::Index i = 0; i < numPoints; i++) {
-            App::Color c = colors[i];
+            Base::Color c = colors[i];
             data(i, col0) = (c.r * 255.0F + 0.5F);
             data(i, col1) = (c.g * 255.0F + 0.5F);
             data(i, col2) = (c.b * 255.0F + 0.5F);

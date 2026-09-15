@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /***************************************************************************
  *   Copyright (c) 2020 sliptonic <shopinthewoods@gmail.com>               *
  *                                                                         *
@@ -20,7 +21,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include "Base/GeometryPyCXX.h"
 #include "Base/Vector3D.h"
@@ -120,7 +120,7 @@ PyObject* VoronoiPy::construct(PyObject* args)
     return Py_None;
 }
 
-PyObject* VoronoiPy::numCells(PyObject* args)
+PyObject* VoronoiPy::numCells(PyObject* args) const
 {
     if (!PyArg_ParseTuple(args, "")) {
         throw Py::RuntimeError("no arguments accepted");
@@ -128,7 +128,7 @@ PyObject* VoronoiPy::numCells(PyObject* args)
     return PyLong_FromLong(getVoronoiPtr()->numCells());
 }
 
-PyObject* VoronoiPy::numEdges(PyObject* args)
+PyObject* VoronoiPy::numEdges(PyObject* args) const
 {
     if (!PyArg_ParseTuple(args, "")) {
         throw Py::RuntimeError("no arguments accepted");
@@ -136,7 +136,7 @@ PyObject* VoronoiPy::numEdges(PyObject* args)
     return PyLong_FromLong(getVoronoiPtr()->numEdges());
 }
 
-PyObject* VoronoiPy::numVertices(PyObject* args)
+PyObject* VoronoiPy::numVertices(PyObject* args) const
 {
     if (!PyArg_ParseTuple(args, "")) {
         throw Py::RuntimeError("no arguments accepted");
@@ -176,11 +176,13 @@ using coordinate_map_t = std::map<int32_t, std::set<int32_t>>;
 
 #define VORONOI_USE_EXTERIOR_CACHE 1
 
-static bool callbackWithVertex(Voronoi::diagram_type* dia,
-                               PyObject* callback,
-                               const Voronoi::diagram_type::vertex_type* v,
-                               bool& bail,
-                               exterior_map_t& cache)
+static bool callbackWithVertex(
+    Voronoi::diagram_type* dia,
+    PyObject* callback,
+    const Voronoi::diagram_type::vertex_type* v,
+    bool& bail,
+    exterior_map_t& cache
+)
 {
     bool rc = false;
     if (!bail && v->color() == 0) {
@@ -190,11 +192,8 @@ static bool callbackWithVertex(Voronoi::diagram_type* dia,
 #endif
             PyObject* vx = new VoronoiVertexPy(new VoronoiVertex(dia, v));
             PyObject* arglist = Py_BuildValue("(O)", vx);
-#if PY_VERSION_HEX < 0x03090000
-            PyObject* result = PyEval_CallObject(callback, arglist);
-#else
-        PyObject* result = PyObject_CallObject(callback, arglist);
-#endif
+            PyObject* result = PyObject_CallObject(callback, arglist);
+
             Py_DECREF(arglist);
             Py_DECREF(vx);
             if (!result) {
@@ -278,8 +277,10 @@ PyObject* VoronoiPy::colorColinear(PyObject* args)
     Voronoi::color_type color = 0;
     double degree = 10.;
     if (!PyArg_ParseTuple(args, "k|d", &color, &degree)) {
-        throw Py::RuntimeError("colorColinear requires an integer (color) and optionally a "
-                               "derivation in degrees argument (default 10)");
+        throw Py::RuntimeError(
+            "colorColinear requires an integer (color) and optionally a "
+            "derivation in degrees argument (default 10)"
+        );
     }
     getVoronoiPtr()->colorColinear(color, degree);
 
@@ -300,7 +301,7 @@ PyObject* VoronoiPy::resetColor(PyObject* args)
     return Py_None;
 }
 
-PyObject* VoronoiPy::getPoints(PyObject* args)
+PyObject* VoronoiPy::getPoints(PyObject* args) const
 {
     double z = 0;
     if (!PyArg_ParseTuple(args, "|d", &z)) {
@@ -309,13 +310,12 @@ PyObject* VoronoiPy::getPoints(PyObject* args)
     Voronoi* vo = getVoronoiPtr();
     Py::List list;
     for (auto it = vo->vd->points.begin(); it != vo->vd->points.end(); ++it) {
-        list.append(
-            Py::asObject(new Base::VectorPy(new Base::Vector3d(vo->vd->scaledVector(*it, z)))));
+        list.append(Py::asObject(new Base::VectorPy(new Base::Vector3d(vo->vd->scaledVector(*it, z)))));
     }
     return Py::new_reference_to(list);
 }
 
-PyObject* VoronoiPy::getSegments(PyObject* args)
+PyObject* VoronoiPy::getSegments(PyObject* args) const
 {
     double z = 0;
     if (!PyArg_ParseTuple(args, "|d", &z)) {
@@ -334,7 +334,7 @@ PyObject* VoronoiPy::getSegments(PyObject* args)
     return Py::new_reference_to(list);
 }
 
-PyObject* VoronoiPy::numPoints(PyObject* args)
+PyObject* VoronoiPy::numPoints(PyObject* args) const
 {
     if (!PyArg_ParseTuple(args, "")) {
         throw Py::RuntimeError("no arguments accepted");
@@ -342,7 +342,7 @@ PyObject* VoronoiPy::numPoints(PyObject* args)
     return PyLong_FromLong(getVoronoiPtr()->vd->points.size());
 }
 
-PyObject* VoronoiPy::numSegments(PyObject* args)
+PyObject* VoronoiPy::numSegments(PyObject* args) const
 {
     if (!PyArg_ParseTuple(args, "")) {
         throw Py::RuntimeError("no arguments accepted");
@@ -350,9 +350,7 @@ PyObject* VoronoiPy::numSegments(PyObject* args)
     return PyLong_FromLong(getVoronoiPtr()->vd->segments.size());
 }
 
-
 // custom attributes get/set
-
 PyObject* VoronoiPy::getCustomAttributes(const char* /*attr*/) const
 {
     return nullptr;

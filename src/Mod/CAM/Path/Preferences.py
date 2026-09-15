@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2014 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
@@ -22,8 +23,14 @@
 
 import FreeCAD
 import Path
+import ast
 import glob
+import importlib.util
+import json
 import os
+import pathlib
+from collections import defaultdict
+from typing import Optional
 
 if False:
     Path.Log.setLevel(Path.Log.Level.DEBUG, Path.Log.thisModule())
@@ -31,7 +38,10 @@ if False:
 else:
     Path.Log.setLevel(Path.Log.Level.INFO, Path.Log.thisModule())
 
+
 translate = FreeCAD.Qt.translate
+
+PreferencesGroup = "User parameter:BaseApp/Preferences/Mod/CAM"
 
 DefaultFilePath = "DefaultFilePath"
 DefaultJobTemplate = "DefaultJobTemplate"
@@ -43,18 +53,18 @@ PostProcessorDefaultArgs = "PostProcessorDefaultArgs"
 PostProcessorBlacklist = "PostProcessorBlacklist"
 PostProcessorOutputFile = "PostProcessorOutputFile"
 PostProcessorOutputPolicy = "PostProcessorOutputPolicy"
+PostProcessorShowEditor = "PostProcessorShowEditor"
 
-LastPathToolBit = "LastPathToolBit"
-LastPathToolLibrary = "LastPathToolLibrary"
-LastPathToolShape = "LastPathToolShape"
-LastPathToolTable = "LastPathToolTable"
+ToolBitDimensionColorLight = "ToolBitDimensionColorLight"
+ToolBitDimensionColorDark = "ToolBitDimensionColorDark"
+ToolBitDimensionHighlightColor = "ToolBitDimensionHighlightColor"
+ToolBitArtworkBrightness = "ToolBitArtworkBrightness"
 
-LastFileToolBit = "LastFileToolBit"
-LastFileToolLibrary = "LastFileToolLibrary"
-LastFileToolShape = "LastFileToolShape"
-
-UseAbsoluteToolPaths = "UseAbsoluteToolPaths"
-# OpenLastLibrary                 = "OpenLastLibrary"
+ToolGroup = PreferencesGroup + "/Tools"
+ToolPath = "ToolPath"
+LastToolLibrary = "LastToolLibrary"
+LastToolLibrarySortKey = "LastToolLibrarySortKey"
+ToolUpdateOnLoad = "ToolUpdateOnLoad"
 
 # Linear tolerance to use when generating Paths, eg when tessellating geometry
 GeometryTolerance = "GeometryTolerance"
@@ -64,23 +74,175 @@ WarningSuppressRapidSpeeds = "WarningSuppressRapidSpeeds"
 WarningSuppressAllSpeeds = "WarningSuppressAllSpeeds"
 WarningSuppressSelectionMode = "WarningSuppressSelectionMode"
 WarningSuppressOpenCamLib = "WarningSuppressOpenCamLib"
-WarningSuppressVelocity = "WarningSuppressVelocity"
 EnableExperimentalFeatures = "EnableExperimentalFeatures"
 EnableAdvancedOCLFeatures = "EnableAdvancedOCLFeatures"
 
 
+_observers = defaultdict(list)  # maps group name to callback functions
+
+
+def _add_group_observer(group, callback):
+    """Add an observer for any changes on the given parameter group"""
+    _observers[group].append(callback)
+
+
+def _emit_change(group, *args):
+    for cb in _observers[group]:
+        cb(group, *args)
+
+
 def preferences():
-    return FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/CAM")
+    return FreeCAD.ParamGet(PreferencesGroup)
+
+
+def _color_as_hex(name, default):
+    """Read a color preference, returning it as an "#rrggbb" string.
+
+    Color preferences are stored packed as ((R * 256 + G) * 256 + B) * 256 + A.
+    """
+    red, green, blue = (int(default[i : i + 2], 16) for i in (1, 3, 5))
+    packed = preferences().GetUnsigned(name, ((red * 256 + green) * 256 + blue) * 256 + 255)
+    return "#%02x%02x%02x" % ((packed >> 24) & 0xFF, (packed >> 16) & 0xFF, (packed >> 8) & 0xFF)
+
+
+def toolBitDimensionColor(dark: bool) -> str:
+    """Color of the dimensioning in the tool bit shape drawings."""
+    if dark:
+        return _color_as_hex(ToolBitDimensionColorDark, "#23818d")
+    return _color_as_hex(ToolBitDimensionColorLight, "#111111")
+
+
+def toolBitDimensionHighlightColor() -> str:
+    """Color of the one dimension the user is pointing at."""
+    return _color_as_hex(ToolBitDimensionHighlightColor, "#ff8c00")
+
+
+def toolBitArtworkBrightness() -> float:
+    """
+    How brightly to draw the tool artwork on a dark theme, as a factor of its
+    drawn-for-white-paper colors. Stored as a percentage.
+    """
+    return min(max(preferences().GetInt(ToolBitArtworkBrightness, 85), 10), 100) / 100.0
+
+
+def tool_preferences():
+    return FreeCAD.ParamGet(ToolGroup)
+
+
+def addToolPreferenceObserver(callback):
+    _add_group_observer(ToolGroup, callback)
+
+
+def tool_update_on_load_enabled() -> bool:
+    """Whether opening a document should check for and offer to apply
+    tool preset updates from the library. Defaults to True (current
+    behavior); the CAM preferences Assets tab exposes this as a checkbox."""
+    return tool_preferences().GetBool(ToolUpdateOnLoad, True)
+
+
+def set_tool_update_on_load_enabled(enabled: bool) -> None:
+    tool_preferences().SetBool(ToolUpdateOnLoad, enabled)
 
 
 def pathPostSourcePath():
     return os.path.join(FreeCAD.getHomePath(), "Mod/CAM/Path/Post/")
 
 
-def pathDefaultToolsPath(sub=None):
-    if sub:
-        return os.path.join(FreeCAD.getHomePath(), "Mod/CAM/Tools/", sub)
-    return os.path.join(FreeCAD.getHomePath(), "Mod/CAM/Tools/")
+def getBuiltinAssetPath() -> pathlib.Path:
+    home = pathlib.Path(FreeCAD.getHomePath())
+    return home / "Mod" / "CAM" / "Tools"
+
+
+def getBuiltinLibraryPath() -> pathlib.Path:
+    return getBuiltinAssetPath() / "Library"
+
+
+def getBuiltinShapePath() -> pathlib.Path:
+    return getBuiltinAssetPath() / "Shape"
+
+
+def getBuiltinToolBitPath() -> pathlib.Path:
+    return getBuiltinAssetPath() / "Bit"
+
+
+def getDefaultAssetPath() -> Path:
+    data_dir = pathlib.Path(FreeCAD.getUserAppDataDir())
+    asset_path = data_dir / "CamAssets"
+    asset_path.mkdir(parents=True, exist_ok=True)
+    return asset_path
+
+
+def getAssetPath() -> pathlib.Path:
+    pref = tool_preferences()
+
+    # Check if we have a CamAssets path already set
+    cam_assets_path = pref.GetString(ToolPath, "")
+    if cam_assets_path:
+        # Use mostRecentConfigFromBase to get the most recent versioned path
+        most_recent_path = FreeCAD.ApplicationDirectories.mostRecentConfigFromBase(cam_assets_path)
+        return pathlib.Path(most_recent_path)
+
+    # Migration: Check for legacy DefaultFilePath and use it for CamAssets
+    legacy_path = defaultFilePath()
+    if legacy_path:
+        legacy_path_obj = pathlib.Path(legacy_path)
+        if legacy_path_obj.exists() and legacy_path_obj.is_dir():
+            # Migrate: Set the legacy path as the new CamAssets path
+            setAssetPath(legacy_path_obj)
+            # Return the most recent version of the legacy path
+            most_recent_legacy = FreeCAD.ApplicationDirectories.mostRecentConfigFromBase(
+                str(legacy_path_obj)
+            )
+            return pathlib.Path(most_recent_legacy)
+
+    # Fallback to default if no legacy path found
+    default = getDefaultAssetPath()
+    # Return the most recent version of the default path
+    most_recent_default = FreeCAD.ApplicationDirectories.mostRecentConfigFromBase(str(default))
+    return pathlib.Path(most_recent_default)
+
+
+def setAssetPath(path: pathlib.Path):
+    Path.Log.debug(f"Setting asset path to {path}")
+    assert path.is_dir(), f"Cannot put a non-initialized asset directory into preferences: {path}"
+    pref = tool_preferences()
+    current_path = pref.GetString(ToolPath, "")
+    if str(path) == current_path:
+        return
+    pref.SetString(ToolPath, str(path))
+    _emit_change(ToolGroup, ToolPath, path)
+
+
+def getToolBitPath() -> pathlib.Path:
+    return getAssetPath() / "Tools" / "Bit"
+
+
+def getTemplateDirectory() -> pathlib.Path:
+    """Returns the directory where job templates should be saved."""
+    template_path = getAssetPath() / "Templates"
+    template_path.mkdir(parents=True, exist_ok=True)
+    return template_path
+
+
+def getLastToolLibrary() -> Optional[str]:
+    pref = tool_preferences()
+    return pref.GetString(LastToolLibrary) or None
+
+
+def setLastToolLibrary(name: str):
+    assert isinstance(name, str), f"Library name '{name}' is not a string"
+    pref = tool_preferences()
+    pref.SetString(LastToolLibrary, name)
+
+
+def getLastToolLibrarySortKey() -> Optional[str]:
+    pref = tool_preferences()
+    return pref.GetString(LastToolLibrarySortKey) or None
+
+
+def setLastToolLibrarySortKey(name: str):
+    pref = tool_preferences()
+    pref.SetString(LastToolLibrarySortKey, name)
 
 
 def allAvailablePostProcessors():
@@ -107,6 +269,83 @@ def allEnabledPostProcessors(include=None):
     return enabled
 
 
+_post_type_cache = {}
+_post_type_cache_keys = None
+_extra_post_paths: list = []
+_addon_post_dirs_scanned = False
+
+
+def classifyPostProcessor(name):
+    """Classify a postprocessor as 'machine', 'legacy', or 'unknown'.
+
+    Checks for a POST_TYPE module-level constant in the post's .py file.
+    Returns 'machine' for new-style posts, 'legacy' for old-style,
+    'unknown' if the file cannot be found or loaded.
+    """
+    global _post_type_cache, _post_type_cache_keys
+
+    # Invalidate cache if the available post list has changed
+    current_keys = tuple(allAvailablePostProcessors())
+    if current_keys != _post_type_cache_keys:
+        _post_type_cache = {}
+        _post_type_cache_keys = current_keys
+
+    if name in _post_type_cache:
+        return _post_type_cache[name]
+
+    module_name = f"{name}_post"
+    for search_path in searchPathsPost():
+        module_path = os.path.join(search_path, f"{module_name}.py")
+        if not os.path.isfile(module_path):
+            continue
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, module_path)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                post_type = getattr(module, "POST_TYPE", "legacy")
+                _post_type_cache[name] = post_type
+                return post_type
+        except Exception:
+            continue
+    _post_type_cache[name] = "unknown"
+    return "unknown"
+
+
+def allAvailableLegacyPostProcessors():
+    """Return only legacy postprocessors."""
+    return [p for p in allAvailablePostProcessors() if classifyPostProcessor(p) == "legacy"]
+
+
+def allAvailableMachinePostProcessors():
+    """Return only new-style machine postprocessors."""
+    return [p for p in allAvailablePostProcessors() if classifyPostProcessor(p) == "machine"]
+
+
+def allEnabledLegacyPostProcessors(include=None):
+    """Return enabled legacy postprocessors (for Job context)."""
+    blacklist = postProcessorBlacklist()
+    enabled = [p for p in allAvailableLegacyPostProcessors() if p not in blacklist]
+    if include:
+        legacy_include = [p for p in include if p == "" or classifyPostProcessor(p) == "legacy"]
+        postlist = list(set(legacy_include + enabled))
+        postlist.sort()
+        return postlist
+    return enabled
+
+
+def allEnabledMachinePostProcessors(include=None):
+    """Return enabled machine postprocessors (for Machine editor context)."""
+    blacklist = postProcessorBlacklist()
+    enabled = [p for p in allAvailableMachinePostProcessors() if p not in blacklist]
+    if include:
+        machine_include = [p for p in include if p == "" or classifyPostProcessor(p) == "machine"]
+        postlist = list(set(machine_include + enabled))
+        postlist.sort()
+        return postlist
+    return enabled
+
+
 def defaultPostProcessor():
     pref = preferences()
     return pref.GetString(PostProcessorDefault, "")
@@ -118,11 +357,11 @@ def defaultPostProcessorArgs():
 
 
 def defaultGeometryTolerance():
-    return preferences().GetFloat(GeometryTolerance, 0.01)
+    return preferences().GetFloat(GeometryTolerance, 0.01) or 0.01
 
 
 def defaultLibAreaCurveAccuracy():
-    return preferences().GetFloat(LibAreaCurveAccuracy, 0.01)
+    return preferences().GetFloat(LibAreaCurveAccuracy, 0.01) or 0.01
 
 
 def defaultFilePath():
@@ -132,7 +371,7 @@ def defaultFilePath():
 def filePath():
     path = defaultFilePath()
     if not path:
-        path = macroFilePath()
+        path = str(getAssetPath())
     return path
 
 
@@ -143,6 +382,9 @@ def macroFilePath():
 
 def searchPaths():
     paths = []
+    # Add new CamAssets/Templates directory first (highest priority)
+    paths.append(str(getTemplateDirectory()))
+    # Add legacy locations for backward compatibility
     p = defaultFilePath()
     if p:
         paths.append(p)
@@ -150,51 +392,125 @@ def searchPaths():
     return paths
 
 
+def _scan_addon_post_dirs() -> None:
+    """Scan FreeCAD Mod directories for post-processor addons via package.xml content.
+
+    Finds every installed addon whose package.xml declares a ``<Postprocessor>``
+    content element inside ``<content>`` and registers the corresponding
+    subdirectory.
+
+    Called once on first access; duplicate registrations are ignored.
+
+    Sentinel files:
+      - ``Mod/ALL_ADDONS_DISABLED`` — skip the entire Mod tree.
+      - ``<addon>/ADDON_DISABLED``  — skip a single addon.
+    """
+    global _addon_post_dirs_scanned
+    if _addon_post_dirs_scanned:
+        return
+    _addon_post_dirs_scanned = True
+
+    for get_dir in (FreeCAD.getUserAppDataDir, FreeCAD.getHomePath):
+        try:
+            mod_root = pathlib.Path(get_dir()) / "Mod"
+            if not mod_root.is_dir():
+                continue
+            if (mod_root / "ALL_ADDONS_DISABLED").exists():
+                continue
+            for entry in sorted(mod_root.iterdir(), key=lambda e: e.name.lower()):
+                if not entry.is_dir():
+                    continue
+                if (entry / "ADDON_DISABLED").exists():
+                    continue
+                pkg_xml = entry / "package.xml"
+                if not pkg_xml.exists():
+                    continue
+                try:
+                    meta = FreeCAD.Metadata(str(pkg_xml))
+                except Exception:
+                    # Skip addons with malformed or unreadable package.xml
+                    continue
+
+                content = meta.Content
+                if "Postprocessor" in content:
+                    for item in content["Postprocessor"]:
+                        subdir = item.Subdirectory or item.Name
+                        posts_dir = entry / subdir
+                        if posts_dir.is_dir():
+                            addAddonPostPath(str(posts_dir))
+        except Exception:
+            # Skip entire Mod root if directory listing fails
+            pass
+
+
 def searchPathsPost():
+    _scan_addon_post_dirs()
     paths = []
     p = defaultFilePath()
     if p:
         paths.append(p)
     paths.append(macroFilePath())
+    paths.extend(_extra_post_paths)  # addon post directories
     paths.append(os.path.join(pathPostSourcePath(), "scripts/"))
     paths.append(pathPostSourcePath())
     return paths
 
 
-def searchPathsTool(sub):
-    paths = []
-    paths.append(os.path.join(FreeCAD.getHomePath(), "Mod", "CAM", "Tools", sub))
-    return paths
+def addAddonPostPath(path: str) -> None:
+    """Register an additional directory to search for post-processors.
+
+    Called by addon Init.py at FreeCAD startup. Each call adds one
+    directory. Duplicate registrations are silently ignored. Invalidates
+    the post-type cache so newly registered posts are classified correctly.
+    """
+    global _extra_post_paths, _post_type_cache, _post_type_cache_keys
+    if path not in _extra_post_paths:
+        _extra_post_paths.append(path)
+        _post_type_cache = {}
+        _post_type_cache_keys = None
 
 
-def toolsStoreAbsolutePaths():
-    return preferences().GetBool(UseAbsoluteToolPaths, False)
+def addAddonAssetPath(addon_dir: str) -> None:
+    """Register all assets provided by an addon directory.
 
+    Convenience function for addon Init.py files. Discovers the standard
+    subdirectory layout of a Machines-style addon and registers each type:
+      - ``<addon_dir>/posts/``     → post-processor search path
+      - ``<addon_dir>/machines/``  → machine definition templates
 
-# def toolsOpenLastLibrary():
-#     return preferences().GetBool(OpenLastLibrary, False)
+    Duplicate registrations are silently ignored.
 
+    Args:
+        addon_dir: Root directory of the installed addon.
+    """
+    posts_dir = os.path.join(addon_dir, "posts")
+    if os.path.isdir(posts_dir):
+        addAddonPostPath(posts_dir)
 
-def setToolsSettings(relative):
-    pref = preferences()
-    pref.SetBool(UseAbsoluteToolPaths, relative)
-    # pref.SetBool(OpenLastLibrary, lastlibrary)
+    machines_dir = os.path.join(addon_dir, "machines")
+    if os.path.isdir(machines_dir):
+        try:
+            from Machine.models.machine import MachineFactory
+
+            MachineFactory.register_addon_machine_dir(machines_dir)
+        except ImportError:
+            # fail silently if the machine module is not available
+            pass
 
 
 def defaultJobTemplate():
     template = preferences().GetString(DefaultJobTemplate)
-    if "xml" not in template:
-        return template
-    return ""
+
+    # before b4d0428 .xml files were used as templates, ignore very old settings
+    if os.path.splitext(template)[1] == ".xml":
+        return ""
+
+    return template
 
 
-def setJobDefaults(fileName, jobTemplate, geometryTolerance, curveAccuracy):
-    Path.Log.track(
-        "(%s='%s', %s, %s, %s)"
-        % (DefaultFilePath, fileName, jobTemplate, geometryTolerance, curveAccuracy)
-    )
+def setJobDefaults(jobTemplate, geometryTolerance, curveAccuracy):
+    Path.Log.track("(%s, %s, %s)" % (jobTemplate, geometryTolerance, curveAccuracy))
     pref = preferences()
-    pref.SetString(DefaultFilePath, fileName)
     pref.SetString(DefaultJobTemplate, jobTemplate)
     pref.SetFloat(GeometryTolerance, geometryTolerance)
     pref.SetFloat(LibAreaCurveAccuracy, curveAccuracy)
@@ -205,14 +521,27 @@ def postProcessorBlacklist():
     blacklist = pref.GetString(PostProcessorBlacklist, "")
     if not blacklist:
         return []
-    return eval(blacklist)
+    try:
+        parsed = json.loads(blacklist)
+    except ValueError:
+        # Migrate the legacy format, which stored the list as a Python repr
+        # (for example "['GRBL', 'linuxcnc']") that json cannot parse. Use
+        # ast.literal_eval, which only evaluates literals and cannot execute
+        # arbitrary code, unlike the eval() that was previously used here.
+        try:
+            parsed = ast.literal_eval(blacklist)
+        except (ValueError, SyntaxError):
+            return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(item) for item in parsed]
 
 
 def setPostProcessorDefaults(processor, args, blacklist):
     pref = preferences()
     pref.SetString(PostProcessorDefault, processor)
     pref.SetString(PostProcessorDefaultArgs, args)
-    pref.SetString(PostProcessorBlacklist, "%s" % (blacklist))
+    pref.SetString(PostProcessorBlacklist, json.dumps(blacklist))
 
 
 def setOutputFileDefaults(fileName, policy):
@@ -229,6 +558,26 @@ def defaultOutputFile():
 def defaultOutputPolicy():
     pref = preferences()
     return pref.GetString(PostProcessorOutputPolicy, "")
+
+
+def showEditorOnPostProcess():
+    """Get user preference for showing editor before writing G-code.
+
+    Returns:
+        bool: True to show editor, False to skip it (default: True)
+    """
+    pref = preferences()
+    return pref.GetBool(PostProcessorShowEditor, True)
+
+
+def setShowEditorOnPostProcess(show: bool):
+    """Set user preference for showing editor before writing G-code.
+
+    Args:
+        show: True to show editor, False to skip it
+    """
+    pref = preferences()
+    pref.SetBool(PostProcessorShowEditor, show)
 
 
 def defaultStockTemplate():
@@ -273,76 +622,9 @@ def suppressOpenCamLibWarning():
     return preferences().GetBool(WarningSuppressOpenCamLib, True)
 
 
-def suppressVelocity():
-    return preferences().GetBool(WarningSuppressVelocity, False)
-
-
-def setPreferencesAdvanced(ocl, warnSpeeds, warnRapids, warnModes, warnOCL, warnVelocity):
+def setPreferencesAdvanced(ocl, warnSpeeds, warnRapids, warnModes, warnOCL):
     preferences().SetBool(EnableAdvancedOCLFeatures, ocl)
     preferences().SetBool(WarningSuppressAllSpeeds, warnSpeeds)
     preferences().SetBool(WarningSuppressRapidSpeeds, warnRapids)
     preferences().SetBool(WarningSuppressSelectionMode, warnModes)
     preferences().SetBool(WarningSuppressOpenCamLib, warnOCL)
-    preferences().SetBool(WarningSuppressVelocity, warnVelocity)
-
-
-def lastFileToolLibrary():
-    filename = preferences().GetString(LastFileToolLibrary)
-    if filename.endswith(".fctl") and os.path.isfile(filename):
-        return filename
-
-    libpath = preferences().GetString(LastPathToolLibrary, pathDefaultToolsPath("Library"))
-    libFiles = [f for f in glob.glob(libpath + "/*.fctl")]
-    libFiles.sort()
-    if len(libFiles) >= 1:
-        filename = libFiles[0]
-        setLastFileToolLibrary(filename)
-        Path.Log.track(filename)
-        return filename
-    else:
-        return None
-
-
-def setLastFileToolLibrary(path):
-    Path.Log.track(path)
-    if os.path.isfile(path):  # keep the path and file in sync
-        preferences().SetString(LastPathToolLibrary, os.path.split(path)[0])
-    return preferences().SetString(LastFileToolLibrary, path)
-
-
-def lastPathToolBit():
-    return preferences().GetString(LastPathToolBit, pathDefaultToolsPath("Bit"))
-
-
-def setLastPathToolBit(path):
-    return preferences().SetString(LastPathToolBit, path)
-
-
-def lastPathToolLibrary():
-    Path.Log.track()
-    return preferences().GetString(LastPathToolLibrary, pathDefaultToolsPath("Library"))
-
-
-def setLastPathToolLibrary(path):
-    Path.Log.track(path)
-    curLib = lastFileToolLibrary()
-    Path.Log.debug("curLib: {}".format(curLib))
-    if curLib and os.path.split(curLib)[0] != path:
-        setLastFileToolLibrary("")  # a path is known but not specific file
-    return preferences().SetString(LastPathToolLibrary, path)
-
-
-def lastPathToolShape():
-    return preferences().GetString(LastPathToolShape, pathDefaultToolsPath("Shape"))
-
-
-def setLastPathToolShape(path):
-    return preferences().SetString(LastPathToolShape, path)
-
-
-def lastPathToolTable():
-    return preferences().GetString(LastPathToolTable, "")
-
-
-def setLastPathToolTable(table):
-    return preferences().SetString(LastPathToolTable, table)

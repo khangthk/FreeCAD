@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # **************************************************************************
 #   Copyright (c) 2018 WandererFan <wandererfan@gmail.com>                *
 #                                                                         *
@@ -43,7 +43,7 @@ def moveViews():
     s = FreeCADGui.Selection.getSelection()
 
     if len(s) != 2:
-        print("Please select 1 Drawing Page and 1 TechDraw Page")
+        print("Select 1 drawing page and 1 TechDraw page")
         return
 
     print("First object in selection is a: ", s[0].TypeId)
@@ -59,10 +59,10 @@ def moveViews():
         tPage = s[0]
         dPage = s[1]
     else:
-        print("Please select 1 Drawing Page and 1 TechDraw Page")
+        print("Select 1 drawing page and 1 TechDraw page")
         return
 
-    for o in dPage.OutList:
+    for i, o in enumerate(dPage.OutList):
         newName = "DraftView" + str(i).zfill(3)
         print("moving " + o.Name + " to " + newName)
         svg = svgHead + o.ViewResult + svgTail

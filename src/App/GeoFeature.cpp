@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2002 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -19,9 +21,6 @@
  *   Suite 330, Boston, MA  02111-1307, USA                                *
  *                                                                         *
  ***************************************************************************/
-
-
-#include "PreCompiled.h"
 
 #include <App/GeoFeaturePy.h>
 
@@ -47,12 +46,17 @@ PROPERTY_SOURCE(App::GeoFeature, App::DocumentObject)
 
 GeoFeature::GeoFeature()
 {
-    ADD_PROPERTY_TYPE(Placement,(Base::Placement()),nullptr,Prop_NoRecompute,nullptr);
+    ADD_PROPERTY_TYPE(Placement, (Base::Placement()), nullptr, Prop_NoRecompute, nullptr);
+    ADD_PROPERTY_TYPE(_ElementMapVersion,
+                    (""),
+                    "Base",
+                    (App::PropertyType)(Prop_Output | Prop_Hidden | Prop_Transient),
+                    "");
 }
 
 GeoFeature::~GeoFeature() = default;
 
-void GeoFeature::transformPlacement(const Base::Placement &transform)
+void GeoFeature::transformPlacement(const Base::Placement& transform)
 {
     Base::Placement plm = this->Placement.getValue();
     plm = transform * plm;
@@ -61,12 +65,7 @@ void GeoFeature::transformPlacement(const Base::Placement &transform)
 
 Base::Placement GeoFeature::globalPlacement() const
 {
-    auto* group = GeoFeatureGroupExtension::getGroupOfObject(this);
-    if (group) {
-        auto ext = group->getExtensionByType<GeoFeatureGroupExtension>();
-        return ext->globalGroupPlacement() * Placement.getValue();
-    }
-    return Placement.getValue();    
+    return GeoFeature::getGlobalPlacement(this);
 }
 
 const PropertyComplexGeoData* GeoFeature::getPropertyOfGeometry() const
@@ -74,26 +73,32 @@ const PropertyComplexGeoData* GeoFeature::getPropertyOfGeometry() const
     return nullptr;
 }
 
+const PropertyComplexGeoData* GeoFeature::getPropertyOfGeometry(const DocumentObject* object)
+{
+    auto* geoFeature = freecad_cast<const GeoFeature*>(object);
+    return geoFeature ? geoFeature->getPropertyOfGeometry() : nullptr;
+}
+
 PyObject* GeoFeature::getPyObject()
 {
     if (PythonObject.is(Py::_None())) {
         // ref counter is set to 1
-        PythonObject = Py::Object(new GeoFeaturePy(this),true);
+        PythonObject = Py::Object(new GeoFeaturePy(this), true);
     }
     return Py::new_reference_to(PythonObject);
 }
 
-ElementNamePair
-GeoFeature::getElementName(const char *name, ElementNameType type) const
+ElementNamePair GeoFeature::getElementName(const char* name, ElementNameType type) const
 {
     (void)type;
 
-    if(!name)
+    if (!name) {
         return {};
+    }
 
     auto prop = getPropertyOfGeometry();
     if (!prop) {
-        return ElementNamePair("",name);
+        return ElementNamePair("", name);
     }
 
     auto geo = prop->getComplexData();
@@ -104,8 +109,8 @@ GeoFeature::getElementName(const char *name, ElementNameType type) const
     return _getElementName(name, geo->getElementName(name));
 }
 
-ElementNamePair
-GeoFeature::_getElementName(const char* name, const Data::MappedElement& mapped) const
+ElementNamePair GeoFeature::_getElementName(const char* name,
+                                            const Data::MappedElement& mapped) const
 {
     ElementNamePair ret;
     if (mapped.index && mapped.name) {
@@ -123,9 +128,9 @@ GeoFeature::_getElementName(const char* name, const Data::MappedElement& mapped)
             // missing reference
             std::ostringstream ss;
             ss << Data::MISSING_PREFIX << dot + 1;
-            return ElementNamePair(name, ss.str().c_str() );
+            return ElementNamePair(name, ss.str().c_str());
         }
-        return ElementNamePair(name,"");
+        return ElementNamePair(name, "");
     }
     else {
         std::string oldName;
@@ -134,53 +139,70 @@ GeoFeature::_getElementName(const char* name, const Data::MappedElement& mapped)
     }
 }
 
-DocumentObject *GeoFeature::resolveElement(DocumentObject *obj, const char *subname, 
-        ElementNamePair &elementName, bool append,
-        ElementNameType type, const DocumentObject *filter, 
-        const char **_element, GeoFeature **geoFeature)
+DocumentObject* GeoFeature::resolveElement(const DocumentObject* obj,
+                                           const char* subname,
+                                           ElementNamePair& elementName,
+                                           bool append,
+                                           ElementNameType type,
+                                           const DocumentObject* filter,
+                                           const char** element,
+                                           GeoFeature** geoFeature)
 {
     elementName.newName.clear();
     elementName.oldName.clear();
-    if(!obj || !obj->isAttachedToDocument())
+    if (!obj || !obj->isAttachedToDocument()) {
         return nullptr;
-    if(!subname)
-        subname = "";
-    const char *element = Data::findElementName(subname);
-    if(_element) *_element = element;
-    auto sobj = obj->getSubObject(std::string(subname, element).c_str());
-    if(!sobj)
-        return nullptr;
-    auto linked = sobj->getLinkedObject(true);
-    auto geo = Base::freecad_dynamic_cast<GeoFeature>(linked);
-    if(!geo && linked) {
-        auto ext = linked->getExtensionByType<LinkBaseExtension>(true);
-        if(ext)
-            geo = Base::freecad_dynamic_cast<GeoFeature>(ext->getTrueLinkedObject(true));
     }
-    if(geoFeature)
-        *geoFeature = geo;
-    if(filter && geo!=filter)
+    if (!subname) {
+        subname = "";
+    }
+    const char* foundElement = Data::findElementName(subname);
+    if (element) {
+        *element = foundElement;
+    }
+    auto sobj = obj->getSubObject(std::string(subname, foundElement).c_str());
+    if (!sobj) {
         return nullptr;
-    if(!element || !element[0]) {
-        if(append) 
+    }
+    auto linked = sobj->getLinkedObject(true);
+    auto geo = freecad_cast<GeoFeature*>(linked);
+    if (!geo && linked) {
+        auto ext = linked->getExtensionByType<LinkBaseExtension>(true);
+        if (ext) {
+            geo = freecad_cast<GeoFeature*>(ext->getTrueLinkedObject(true));
+        }
+    }
+    if (geoFeature) {
+        *geoFeature = geo;
+    }
+    if (filter && geo != filter) {
+        return nullptr;
+    }
+    if (!foundElement || !foundElement[0]) {
+        if (append) {
             elementName.oldName = Data::oldElementName(subname);
+        }
         return sobj;
     }
 
-    if(!geo || hasHiddenMarker(element)) {
-        if(!append) 
-            elementName.oldName = element;
-        else
+    if (!geo || hasHiddenMarker(foundElement)) {
+        if (!append) {
+            elementName.oldName = foundElement;
+        }
+        else {
             elementName.oldName = Data::oldElementName(subname);
+        }
         return sobj;
     }
-    if(!append) 
-        elementName = geo->getElementName(element,type);
-    else{
-        const auto &names = geo->getElementName(element,type);
-        std::string prefix(subname,element-subname);
-        if(!names.newName.empty())
+    if (!append) {
+        elementName = geo->getElementName(foundElement, type);
+    }
+    else {
+        const auto& names = geo->getElementName(foundElement, type);
+        std::string prefix(subname, foundElement - subname);
+        if (!names.newName.empty()) {
             elementName.newName = prefix + names.newName;
+        }
         elementName.oldName = prefix + names.oldName;
     }
     return sobj;
@@ -196,24 +218,37 @@ void GeoFeature::setMaterialAppearance(const App::Material& material)
     Q_UNUSED(material)
 }
 
-bool GeoFeature::getCameraAlignmentDirection(Base::Vector3d& direction, const char* subname) const
+bool GeoFeature::getCameraAlignmentDirection(Base::Vector3d& directionZ, Base::Vector3d& directionX, const char* subname) const
 {
     Q_UNUSED(subname)
-    Q_UNUSED(direction)
+    Q_UNUSED(directionZ)
+    Q_UNUSED(directionX)
     return false;
+}
+
+bool GeoFeature::getCameraAlignmentDirection(Base::Vector3d& directionZ,
+                                             const std::vector<std::string>& subnames) const
+{
+    Base::Vector3d sum(0, 0, 0);
+    int count = 0;
+    for (const auto& sub : subnames) {
+        Base::Vector3d z(0, 0, 0);
+        Base::Vector3d x(0, 0, 0);
+        if (getCameraAlignmentDirection(z, x, sub.c_str())) {
+            sum += z;
+            ++count;
+        }
+    }
+    if (count == 0) {
+        return false;
+    }
+    directionZ = sum.Normalize();
+    return true;
 }
 
 bool GeoFeature::hasMissingElement(const char* subname)
 {
     return Data::hasMissingElement(subname);
-    if (!subname) {
-        return false;
-    }
-    auto dot = strrchr(subname, '.');
-    if (!dot) {
-        return subname[0] == '?';
-    }
-    return dot[1] == '?';
 }
 
 void GeoFeature::updateElementReference()
@@ -227,6 +262,16 @@ void GeoFeature::updateElementReference()
         return;
     }
     bool reset = false;
+
+    auto version = getElementMapVersion(prop);
+    if (_ElementMapVersion.getStrValue().empty()) {
+        _ElementMapVersion.setValue(version);
+    }
+    else if (_ElementMapVersion.getStrValue() != version) {
+        reset = true;
+        _ElementMapVersion.setValue(version);
+    }
+
     PropertyLinkBase::updateElementReferences(this, reset);
 }
 
@@ -239,6 +284,14 @@ void GeoFeature::onChanged(const Property* prop)
         }
     }
     DocumentObject::onChanged(prop);
+}
+
+void GeoFeature::onDocumentRestored()
+{
+    if (!getDocument()->testStatus(Document::Status::Importing)) {
+        _ElementMapVersion.setValue(getElementMapVersion(getPropertyOfGeometry(), true));
+    }
+    DocumentObject::onDocumentRestored();
 }
 
 const std::vector<std::string>& GeoFeature::searchElementCache(const std::string& element,
@@ -264,18 +317,22 @@ std::vector<const char*> GeoFeature::getElementTypes(bool /*all*/) const
     return prop->getComplexData()->getElementTypes();
 }
 
-std::vector<Data::IndexedName>
-GeoFeature::getHigherElements(const char *element, bool silent) const
+std::vector<Data::IndexedName> GeoFeature::getHigherElements(const char* element, bool silent) const
 {
     auto prop = getPropertyOfGeometry();
-    if (!prop)
+    if (!prop) {
         return {};
+    }
     return prop->getComplexData()->getHigherElements(element, silent);
 }
 
 Base::Placement GeoFeature::getPlacementFromProp(App::DocumentObject* obj, const char* propName)
 {
     Base::Placement plc = Base::Placement();
+    if (!obj) {
+        return plc;
+    }
+
     auto* propPlacement = dynamic_cast<App::PropertyPlacement*>(obj->getPropertyByName(propName));
     if (propPlacement) {
         plc = propPlacement->getValue();
@@ -284,44 +341,20 @@ Base::Placement GeoFeature::getPlacementFromProp(App::DocumentObject* obj, const
 }
 
 Base::Placement GeoFeature::getGlobalPlacement(App::DocumentObject* targetObj,
-                                                   App::DocumentObject* rootObj,
-                                                   const std::string& sub)
+                                               App::DocumentObject* rootObj,
+                                               const std::string& sub)
 {
-    if (!targetObj || !rootObj || sub.empty()) {
+    if (!rootObj) {
         return Base::Placement();
     }
-    std::vector<std::string> names = Base::Tools::splitSubName(sub);
 
-    App::Document* doc = rootObj->getDocument();
-    Base::Placement plc = getPlacementFromProp(rootObj, "Placement");
-
-    if (targetObj == rootObj) return plc;
-
-    for (auto& name : names) {
-        App::DocumentObject* obj = doc->getObject(name.c_str());
-        if (!obj) {
-            return Base::Placement();
-        }
-
-        plc = plc * getPlacementFromProp(obj, "Placement");
-
-        if (obj == targetObj) {
-            return plc;
-        }
-        if (obj->isLink()) {
-            // Update doc in case its an external link.
-            doc = obj->getLinkedObject()->getDocument();
-        }
-    }
-
-    // If targetObj has not been found there's a problem
-    return Base::Placement();
+    return rootObj->getPlacementOf(sub, targetObj);
 }
 
 Base::Placement GeoFeature::getGlobalPlacement(App::DocumentObject* targetObj,
-                                                   App::PropertyXLinkSub* prop)
+                                               App::PropertyXLinkSub* prop)
 {
-    if (!targetObj || !prop) {
+    if (!prop) {
         return Base::Placement();
     }
 
@@ -332,3 +365,22 @@ Base::Placement GeoFeature::getGlobalPlacement(App::DocumentObject* targetObj,
 
     return getGlobalPlacement(targetObj, prop->getValue(), subs[0]);
 }
+
+Base::Placement GeoFeature::getGlobalPlacement(const DocumentObject* obj)
+{
+    auto placementProperty = obj->getPropertyByName<App::PropertyPlacement>("Placement");
+
+    if (!placementProperty) {
+        return {};
+    }
+
+    auto* group = GeoFeatureGroupExtension::getGroupOfObject(obj);
+    if (group) {
+        auto ext = group->getExtensionByType<GeoFeatureGroupExtension>();
+        return ext->globalGroupPlacement() * placementProperty->getValue();
+    }
+
+    return placementProperty->getValue();
+}
+
+

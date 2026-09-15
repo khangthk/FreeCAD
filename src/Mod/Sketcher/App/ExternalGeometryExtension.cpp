@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2019 Abdullah Tahiri <abdullah.tahiri.yo@gmail.com>     *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Base/Reader.h>
 #include <Base/Writer.h>
@@ -32,9 +33,6 @@
 using namespace Sketcher;
 
 //---------- Geometry Extension
-
-constexpr std::array<const char*, ExternalGeometryExtension::NumFlags>
-    ExternalGeometryExtension::flag2str;
 
 TYPESYSTEM_SOURCE(Sketcher::ExternalGeometryExtension, Part::GeometryMigrationPersistenceExtension)
 
@@ -51,9 +49,9 @@ void ExternalGeometryExtension::restoreAttributes(Base::XMLReader& reader)
 {
     Part::GeometryPersistenceExtension::restoreAttributes(reader);
 
-    Ref = reader.getAttribute("Ref", "");
-    RefIndex = reader.getAttributeAsInteger("RefIndex", "-1");
-    Flags = FlagType(reader.getAttributeAsUnsigned("Flags", "0"));
+    Ref = reader.getAttribute<const char*>("Ref", "");
+    RefIndex = reader.getAttribute<long>("RefIndex", -1);
+    Flags = FlagType(reader.getAttribute<unsigned long>("Flags", 0));
 }
 
 void ExternalGeometryExtension::saveAttributes(Base::Writer& writer) const
@@ -85,11 +83,7 @@ std::unique_ptr<Part::GeometryExtension> ExternalGeometryExtension::copy() const
 
     copyAttributes(cpy.get());
 
-#if defined(__GNUC__) && (__GNUC__ <= 4)
-    return std::move(cpy);
-#else
     return cpy;
-#endif
 }
 
 PyObject* ExternalGeometryExtension::getPyObject()
@@ -97,14 +91,13 @@ PyObject* ExternalGeometryExtension::getPyObject()
     return new ExternalGeometryExtensionPy(new ExternalGeometryExtension(*this));
 }
 
-bool ExternalGeometryExtension::getFlagsFromName(std::string str,
-                                                 ExternalGeometryExtension::Flag& flag)
+bool ExternalGeometryExtension::getFlagsFromName(std::string str, ExternalGeometryExtension::Flag& flag)
 {
-    auto pos = std::find_if(ExternalGeometryExtension::flag2str.begin(),
-                            ExternalGeometryExtension::flag2str.end(),
-                            [str](const char* val) {
-                                return strcmp(val, str.c_str()) == 0;
-                            });
+    auto pos = std::find_if(
+        ExternalGeometryExtension::flag2str.begin(),
+        ExternalGeometryExtension::flag2str.end(),
+        [str](const char* val) { return strcmp(val, str.c_str()) == 0; }
+    );
 
     if (pos != ExternalGeometryExtension::flag2str.end()) {
         int index = std::distance(ExternalGeometryExtension::flag2str.begin(), pos);

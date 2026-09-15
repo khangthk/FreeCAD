@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <cmath>
+#include <numbers>
 
 #include <gtest/gtest.h>
 
@@ -54,8 +55,8 @@ TEST_F(ConstraintsTest, tangentBSplineAndArc)  // NOLINT
     arcEnd.y = &arcEndY;
     arcCenter.x = &arcCenterX;
     arcCenter.y = &arcCenterY;
-    double arcRadius = 5.0, arcStartAngle = 0.0, arcEndAngle = M_PI / 2;
-    double desiredAngle = M_PI;
+    double arcRadius = 5.0, arcStartAngle = 0.0, arcEndAngle = std::numbers::pi / 2;
+    double desiredAngle = std::numbers::pi;
     double bSplineStartX = 0.0, bSplineEndX = 16.0;
     double bSplineStartY = 10.0, bSplineEndY = -10.0;
     GCS::Point bSplineStart, bSplineEnd;
@@ -91,7 +92,7 @@ TEST_F(ConstraintsTest, tangentBSplineAndArc)  // NOLINT
         weightsAsPtr.push_back(&weights[i]);
     }
     for (size_t i = 0; i < knots.size(); ++i) {
-        knots[i] = i;
+        knots[i] = static_cast<double>(i);
         knotsAsPtr.push_back(&knots[i]);
     }
     GCS::Arc arc;
@@ -112,31 +113,33 @@ TEST_F(ConstraintsTest, tangentBSplineAndArc)  // NOLINT
     bspline.periodic = false;
     double bsplineParam = 0.35;
 
-    std::vector<double*> params = {point.x,
-                                   point.y,
-                                   arcStart.x,
-                                   arcStart.y,
-                                   arcEnd.x,
-                                   arcEnd.y,
-                                   arcCenter.x,
-                                   arcCenter.y,
-                                   &arcRadius,
-                                   bSplineStart.x,
-                                   bSplineStart.y,
-                                   bSplineEnd.x,
-                                   bSplineEnd.y,
-                                   &bSplineControlPointsX[0],
-                                   &bSplineControlPointsY[0],
-                                   &bSplineControlPointsX[1],
-                                   &bSplineControlPointsY[1],
-                                   &bSplineControlPointsX[2],
-                                   &bSplineControlPointsY[2],
-                                   &bSplineControlPointsX[3],
-                                   &bSplineControlPointsY[3],
-                                   &bSplineControlPointsX[4],
-                                   &bSplineControlPointsY[4],
-                                   &desiredAngle,
-                                   &bsplineParam};
+    std::vector<double*> params = {
+        point.x,
+        point.y,
+        arcStart.x,
+        arcStart.y,
+        arcEnd.x,
+        arcEnd.y,
+        arcCenter.x,
+        arcCenter.y,
+        &arcRadius,
+        bSplineStart.x,
+        bSplineStart.y,
+        bSplineEnd.x,
+        bSplineEnd.y,
+        &bSplineControlPointsX[0],
+        &bSplineControlPointsY[0],
+        &bSplineControlPointsX[1],
+        &bSplineControlPointsY[1],
+        &bSplineControlPointsX[2],
+        &bSplineControlPointsY[2],
+        &bSplineControlPointsX[3],
+        &bSplineControlPointsY[3],
+        &bSplineControlPointsX[4],
+        &bSplineControlPointsY[4],
+        &desiredAngle,
+        &bsplineParam
+    };
     params.insert(params.end(), weightsAsPtr.begin(), weightsAsPtr.end());
     params.insert(params.end(), knotsAsPtr.begin(), knotsAsPtr.end());
 
@@ -145,24 +148,19 @@ TEST_F(ConstraintsTest, tangentBSplineAndArc)  // NOLINT
     System()->addConstraintArcRules(arc);
     System()->addConstraintPointOnArc(point, arc, 0, true);
     System()->addConstraintPointOnBSpline(point, bspline, &bsplineParam, 0, true);
-    System()->addConstraintAngleViaPointAndParam(bspline,
-                                                 arc,
-                                                 point,
-                                                 &bsplineParam,
-                                                 &desiredAngle,
-                                                 0,
-                                                 true);
-    int solveResult = System()->solve(params);
-    if (solveResult == GCS::Success) {
+    System()->addConstraintAngleViaPointAndParam(bspline, arc, point, &bsplineParam, &desiredAngle, 0, true);
+    const auto solveResult = System()->solve(params);
+    if (solveResult == GCS::SolveStatus::Success) {
         System()->applySolution();
     }
 
     // Assert
-    EXPECT_EQ(solveResult, GCS::Success);
+    EXPECT_EQ(solveResult, GCS::SolveStatus::Success);
     // is point on arc?
-    EXPECT_DOUBLE_EQ((arcRadius) * (arcRadius),
-                     (pointX - arcCenterX) * (pointX - arcCenterX)
-                         + (pointY - arcCenterY) * (pointY - arcCenterY));
+    EXPECT_DOUBLE_EQ(
+        (arcRadius) * (arcRadius),
+        (pointX - arcCenterX) * (pointX - arcCenterX) + (pointY - arcCenterY) * (pointY - arcCenterY)
+    );
     // is point on B-spline?
     GCS::DeriVector2 pointAtBSplineParam = bspline.Value(bsplineParam, 1.0);
     EXPECT_DOUBLE_EQ(pointAtBSplineParam.x, pointX);
@@ -173,8 +171,10 @@ TEST_F(ConstraintsTest, tangentBSplineAndArc)  // NOLINT
     double dprd;
     // FIXME: This error is probably too high. Fixing this may require improving the solver,
     // however.
-    EXPECT_NEAR(std::fabs(centerToPoint.crossProdNorm(tangentBSplineAtPoint, dprd))
-                    / (centerToPoint.length() * tangentBSplineAtPoint.length()),
-                1.0,
-                0.005);
+    EXPECT_NEAR(
+        std::fabs(centerToPoint.crossProdZ(tangentBSplineAtPoint, dprd))
+            / (centerToPoint.length() * tangentBSplineAtPoint.length()),
+        1.0,
+        0.005
+    );
 }

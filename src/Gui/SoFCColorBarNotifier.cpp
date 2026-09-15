@@ -21,7 +21,6 @@
  *                                                                         *
  **************************************************************************/
 
-#include "PreCompiled.h"
 
 #include "SoFCColorBarNotifier.h"
 #include "SoFCColorBar.h"
@@ -41,7 +40,7 @@ SoFCColorBarNotifier::SoFCColorBarNotifier()
     group->Attach(this);
 }
 
-void SoFCColorBarNotifier::attach(SoFCColorBarBase* bar)
+void SoFCColorBarNotifier::attach(SoFCColorBar* bar)
 {
     if (bars.insert(bar).second) {
         bar->ref();
@@ -49,7 +48,7 @@ void SoFCColorBarNotifier::attach(SoFCColorBarBase* bar)
     }
 }
 
-void SoFCColorBarNotifier::detach(SoFCColorBarBase* bar)
+void SoFCColorBarNotifier::detach(SoFCColorBar* bar)
 {
     auto pos = bars.find(bar);
     if (pos != bars.end()) {
@@ -58,8 +57,7 @@ void SoFCColorBarNotifier::detach(SoFCColorBarBase* bar)
     }
 }
 
-void SoFCColorBarNotifier::OnChange(ParameterGrp::SubjectType& caller,
-                                    ParameterGrp::MessageType reason)
+void SoFCColorBarNotifier::OnChange(ParameterGrp::SubjectType& caller, ParameterGrp::MessageType reason)
 {
     const ParameterGrp& grp = dynamic_cast<ParameterGrp&>(caller);
     if (strcmp(reason, "CbLabelTextSize") == 0 || strcmp(reason, "CbLabelColor") == 0) {

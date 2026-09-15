@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2007 Jürgen Riegel <juergen.riegel@web.de>              *
  *   Copyright (c) 2013 Luke Parry <l.parry@warwick.ac.uk>                 *
@@ -21,12 +23,11 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <QAction>
 #include <QApplication>
 #include <QContextMenuEvent>
+#include <QMdiSubWindow>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPageLayout>
@@ -37,32 +38,41 @@
 #include <QPrintDialog>
 #include <QPrintPreviewDialog>
 #include <QPrinter>
-#include <boost_signals2.hpp>
+#include <QMetaObject>
+#include <fastsignals/signal.h>
 #include <cmath>
-#endif
+
 
 #include <App/Application.h>
 #include <App/Document.h>
 #include <App/DocumentObject.h>
 #include <Base/Console.h>
 #include <Base/Stream.h>
-#include <Base/Tools.h>
 #include <Gui/Application.h>
+#include <Gui/BitmapFactory.h>
 #include <Gui/Command.h>
 #include <Gui/Document.h>
 #include <Gui/FileDialog.h>
 #include <Gui/MainWindow.h>
-#include <Gui/Selection.h>
-#include <Gui/SelectionObject.h>
+#include <Gui/Selection/Selection.h>
+#include <Gui/Selection/SelectionObject.h>
 #include <Gui/ViewProvider.h>
 #include <Gui/WaitCursor.h>
 #include <Gui/Window.h>
 #include <Mod/TechDraw/App/DrawPage.h>
 #include <Mod/TechDraw/App/DrawPagePy.h>
 #include <Mod/TechDraw/App/DrawTemplate.h>
+#include <Mod/TechDraw/App/DrawUtil.h>
+#include <Mod/TechDraw/App/DrawViewDimension.h>
+#include <Mod/TechDraw/App/DrawViewBalloon.h>
+#include <Mod/TechDraw/App/DrawLeaderLine.h>
+#include <Mod/TechDraw/App/DrawViewPart.h>
+#include <Mod/TechDraw/App/DrawViewSection.h>
+#include <Mod/TechDraw/App/Geometry.h>
 #include <Mod/TechDraw/App/Preferences.h>
 
 #include "MDIViewPage.h"
+#include "QGIDatumLabel.h"
 #include "QGIEdge.h"
 #include "QGIFace.h"
 #include "QGIVertex.h"
@@ -73,6 +83,7 @@
 #include "QGVPage.h"
 #include "ViewProviderPage.h"
 #include "PagePrinter.h"
+#include "PreferencesGui.h"
 
 using namespace TechDrawGui;
 using namespace TechDraw;
@@ -87,29 +98,45 @@ MDIViewPage::MDIViewPage(ViewProviderPage* pageVp, Gui::Document* doc, QWidget* 
 {
     setMouseTracking(true);
 
-    m_toggleKeepUpdatedAction = new QAction(tr("Toggle &Keep Updated"), this);
+    m_toggleKeepUpdatedAction = new QAction(tr("&Keep Updated"), this);
     connect(m_toggleKeepUpdatedAction, &QAction::triggered, this, &MDIViewPage::toggleKeepUpdated);
 
-    m_toggleFrameAction = new QAction(tr("Toggle &Frames"), this);
+    m_toggleFrameAction = new QAction(tr("Show &Frames"), this);
     connect(m_toggleFrameAction, &QAction::triggered, this, &MDIViewPage::toggleFrame);
 
+    m_toggleGridAction = new QAction(tr("Show &Grid"), this);
+    connect(m_toggleGridAction, &QAction::triggered, this, &MDIViewPage::toggleGrid);
+
     m_exportSVGAction = new QAction(tr("&Export SVG"), this);
+
     connect(m_exportSVGAction, &QAction::triggered, this, qOverload<>(&MDIViewPage::saveSVG));
 
     m_exportDXFAction = new QAction(tr("Export DXF"), this);
+
     connect(m_exportDXFAction, &QAction::triggered, this, qOverload<>(&MDIViewPage::saveDXF));
 
     m_exportPDFAction = new QAction(tr("Export PDF"), this);
-    connect(m_exportPDFAction, &QAction::triggered, this, qOverload<>(&MDIViewPage::savePDF));
+
+    connect(m_exportPDFAction, &QAction::triggered, this, qOverload<>(&MDIViewPage::slotContextExportPdf));
 
     m_printAllAction = new QAction(tr("Print All Pages"), this);
+
     connect(m_printAllAction, &QAction::triggered, this, qOverload<>(&MDIViewPage::printAllPages));
+
+    m_exportSVGAction->setIcon(
+        Gui::BitmapFactory().iconFromTheme("actions/TechDraw_ExportPageSVG"));
+    m_exportDXFAction->setIcon(
+        Gui::BitmapFactory().iconFromTheme("actions/TechDraw_ExportPageDXF"));
+    m_exportPDFAction->setIcon(
+        Gui::BitmapFactory().iconFromTheme("Std_PrintPdf"));
+    m_printAllAction->setIcon(
+        Gui::BitmapFactory().iconFromTheme("actions/TechDraw_PrintAll"));
 
     isSelectionBlocked = false;
     isContextualMenuEnabled = true;
 
     QString tabText = QString::fromUtf8(pageVp->getDrawPage()->getNameInDocument());
-    tabText += QString::fromUtf8("[*]");
+    tabText += QStringLiteral("[*]");
     setWindowTitle(tabText);
 
     //NOLINTBEGIN
@@ -119,14 +146,11 @@ MDIViewPage::MDIViewPage(ViewProviderPage* pageVp, Gui::Document* doc, QWidget* 
     connectDeletedObject = appDoc->signalDeletedObject.connect(bnd);
     //NOLINTEND
 
-    m_pagePrinter = new PagePrinter(m_vpPage);
-    m_pagePrinter->setOwner(this);
 }
 
 MDIViewPage::~MDIViewPage()
 {
     connectDeletedObject.disconnect();
-    delete m_pagePrinter;
 }
 
 void MDIViewPage::setScene(QGSPage* scene, QGVPage* viewWidget)
@@ -134,22 +158,19 @@ void MDIViewPage::setScene(QGSPage* scene, QGVPage* viewWidget)
     m_scene = scene;
     setCentralWidget(viewWidget);//this makes viewWidget a Qt child of MDIViewPage
     QObject::connect(scene, &QGSPage::selectionChanged, this, &MDIViewPage::sceneSelectionChanged);
-    if (m_pagePrinter) {
-        m_pagePrinter->setScene(m_scene);
-    }
 }
 
 void MDIViewPage::setDocumentObject(const std::string& name)
 {
     m_objectName = name;
-    setObjectName(Base::Tools::fromStdString(name));
+    setObjectName(QString::fromStdString(name));
 }
 
 void MDIViewPage::setDocumentName(const std::string& name) { m_documentName = name; }
 
 void MDIViewPage::closeEvent(QCloseEvent* event)
 {
-    //    Base::Console().Message("MDIVP::closeEvent()\n");
+    //    Base::Console().message("MDIVP::closeEvent()\n");
     MDIView::closeEvent(event);
     if (!event->isAccepted()) {
         return;
@@ -162,26 +183,51 @@ void MDIViewPage::closeEvent(QCloseEvent* event)
         App::Document* doc = _pcDocument->getDocument();
         if (doc) {
             App::DocumentObject* obj = doc->getObject(m_objectName.c_str());
-            Gui::ViewProvider* vp = _pcDocument->getViewProvider(obj);
-            if (vp) {
-                vp->hide();
+            if (auto* vpPage = freecad_cast<ViewProviderPage*>(
+                    _pcDocument->getViewProvider(obj))) {
+                // Don't call vpPage->hide() here: that path calls removeMDIView()
+                // -> removeWindow() -> setParent(nullptr) re-entrantly from
+                // inside QMdiSubWindow::closeEvent, making it briefly top-level.
+                vpPage->onMDIViewClosed();
             }
         }
     }
     blockSceneSelection(false);
 }
 
+void MDIViewPage::closeWithoutSavePrompt()
+{
+    // Close through the normal Qt sequence
+    bool savedPassive = bIsPassive;
+    bIsPassive = true;
+    QWidget* parent = parentWidget();
+    if (qobject_cast<QMdiSubWindow*>(parent)) {
+        parent->close();
+    }
+    else {
+        close();
+    }
+    bIsPassive = savedPassive;
+}
+
 void MDIViewPage::onDeleteObject(const App::DocumentObject& obj)
 {
+    // Close this MDI tab when its backing DrawPage is deleted (e.g. undo page creation).
+    const char* objName = obj.getNameInDocument();
+    if (obj.isDerivedFrom<TechDraw::DrawPage>() && objName && m_objectName == objName) {
+        QMetaObject::invokeMethod(this, &Gui::MDIView::deleteSelf, Qt::QueuedConnection);
+        return;
+    }
+
     //if this page has a QView for this obj, delete it.
     blockSceneSelection(true);
-    if (obj.isDerivedFrom(TechDraw::DrawView::getClassTypeId())) {
+    if (obj.isDerivedFrom<TechDraw::DrawView>()) {
         (void)m_scene->removeQViewByName(obj.getNameInDocument());
     }
     blockSceneSelection(false);
 }
 
-bool MDIViewPage::onMsg(const char* pMsg, const char**)
+bool MDIViewPage::onMsg(const char* pMsg)
 {
     Gui::Document* doc(getGuiDocument());
 
@@ -290,8 +336,17 @@ void MDIViewPage::zoomOut()
 void MDIViewPage::setTabText(std::string tabText)
 {
     if (!isPassive() && !tabText.empty()) {
-        QString cap = QString::fromLatin1("%1 [*]").arg(QString::fromUtf8(tabText.c_str()));
+        QString cap = QStringLiteral("%1 [*]").arg(QString::fromUtf8(tabText.c_str()));
         setWindowTitle(cap);
+    }
+}
+
+// The tab title for a TechDraw Page always shows the DrawPage's Label, not the document Label.
+void MDIViewPage::onRelabel(Gui::Document* /*pDoc*/)
+{
+    TechDraw::DrawPage* page = m_vpPage->getDrawPage();
+    if (page) {
+        setTabText(page->Label.getValue());
     }
 }
 
@@ -309,46 +364,30 @@ void MDIViewPage::fixSceneDependencies()
 /// as file name selection and error messages
 /// PagePrinter handles the actual printing mechanics.
 
+
 /// overrides of MDIView print methods so that they print the QGraphicsScene instead
 /// of the COIN3d scenegraph.
+
+/// This is invoked by File > Export Pdf.
 void MDIViewPage::printPdf()
 {
-//    Base::Console().Message("MDIVP::printPdf()\n");
-    QStringList filter;
-    filter << QObject::tr("PDF (*.pdf)");
-    filter << QObject::tr("All Files (*.*)");
-    QString fn =
-        Gui::FileDialog::getSaveFileName(Gui::getMainWindow(), QObject::tr("Export Page As PDF"),
-                                         QString(), filter.join(QLatin1String(";;")));
-    if (fn.isEmpty()) {
-        return;
-    }
-
-    Gui::WaitCursor wc;
-    std::string utf8Content = fn.toUtf8().constData();
-    if (m_pagePrinter) {
-        m_pagePrinter->printPdf(utf8Content);
-    }
+    exportAsPdf();
 }
 
 void MDIViewPage::print()
 {
-//    Base::Console().Message("MDIVP::print()\n");
-
-    if (!m_pagePrinter) {
-        return;
-    }
-    m_pagePrinter->getPaperAttributes();
+    auto pageAttr = PagePrinter::getPaperAttributes(getViewProviderPage());
 
     QPrinter printer(QPrinter::HighResolution);
     printer.setFullPage(true);
-    if (m_pagePrinter->getPaperSize() == QPageSize::Custom) {
-        printer.setPageSize(QPageSize(QSizeF(m_pagePrinter->getPageWidth(), m_pagePrinter->getPageHeight()), QPageSize::Millimeter));
+    if (pageAttr.pageSizeId() == QPageSize::Custom) {
+        printer.setPageSize(
+            QPageSize(QSizeF(pageAttr.pageWidth(), pageAttr.pageHeight()), QPageSize::Millimeter));
     }
     else {
-        printer.setPageSize(QPageSize(m_pagePrinter->getPaperSize()));
+        printer.setPageSize(QPageSize(pageAttr.pageSizeId()));
     }
-    printer.setPageOrientation(m_pagePrinter->getOrientation());
+    printer.setPageOrientation(pageAttr.orientation());
 
     QPrintDialog dlg(&printer, this);
     if (dlg.exec() == QDialog::Accepted) {
@@ -358,22 +397,18 @@ void MDIViewPage::print()
 
 void MDIViewPage::printPreview()
 {
-//    Base::Console().Message("MDIVP::printPreview()\n");
-
-    if (!m_pagePrinter) {
-        return;
-    }
-    m_pagePrinter->getPaperAttributes();
+    auto pageAttr = PagePrinter::getPaperAttributes(getViewProviderPage());
 
     QPrinter printer(QPrinter::HighResolution);
     printer.setFullPage(true);
-    if (m_pagePrinter->getPaperSize() == QPageSize::Custom) {
-        printer.setPageSize(QPageSize(QSizeF(m_pagePrinter->getPageWidth(), m_pagePrinter->getPageHeight()), QPageSize::Millimeter));
+    if (pageAttr.pageSizeId() == QPageSize::Custom) {
+        printer.setPageSize(
+            QPageSize(QSizeF(pageAttr.pageWidth(), pageAttr.pageHeight()), QPageSize::Millimeter));
     }
     else {
-        printer.setPageSize(QPageSize(m_pagePrinter->getPaperSize()));
+        printer.setPageSize(QPageSize(pageAttr.pageSizeId()));
     }
-    printer.setPageOrientation(m_pagePrinter->getOrientation());
+    printer.setPageOrientation(pageAttr.orientation());
 
     QPrintPreviewDialog dlg(&printer, this);
     connect(&dlg, &QPrintPreviewDialog::paintRequested, this, qOverload<QPrinter*>(&MDIViewPage::print));
@@ -383,11 +418,6 @@ void MDIViewPage::printPreview()
 
 void MDIViewPage::print(QPrinter* printer)
 {
-//    Base::Console().Message("MDIVP::print(printer)\n");
-    if (!m_pagePrinter) {
-        return;
-    }
-    m_pagePrinter->getPaperAttributes();
     // As size of the render area paperRect() should be used. When performing a real
     // print pageRect() may also work but the output is cropped at the bottom part.
     // So, independent whether pageRect() or paperRect() is used there is no scaling effect.
@@ -399,7 +429,9 @@ void MDIViewPage::print(QPrinter* printer)
     //
     // When showing the preview of a print paperRect() must be used because with pageRect()
     // a certain scaling effect can be observed and the content becomes smaller.
+
     QPaintEngine::Type paintType = printer->paintEngine()->type();
+    auto pageAttr = PagePrinter::getPaperAttributes(getViewProviderPage());
     if (printer->outputFormat() == QPrinter::NativeFormat) {
         QPageSize::PageSizeId psPrtSetting = printer->pageLayout().pageSize().id();
 
@@ -407,17 +439,17 @@ void MDIViewPage::print(QPrinter* printer)
         // care if it uses wrong printer settings
         bool doPrint = paintType != QPaintEngine::Picture;
 
-        if (doPrint && printer->pageLayout().orientation() != m_pagePrinter->getOrientation()) {
+        if (doPrint && printer->pageLayout().orientation() != pageAttr.orientation()) {
             int ret = QMessageBox::warning(
                 this, tr("Different orientation"),
-                tr("The printer uses a different orientation  than the drawing.\n"
+                tr("The printer uses a different orientation than the drawing.\n"
                    "Do you want to continue?"),
                 QMessageBox::Yes | QMessageBox::No);
             if (ret != QMessageBox::Yes) {
                 return;
             }
         }
-        if (doPrint && psPrtSetting != m_pagePrinter->getPaperSize()) {
+        if (doPrint && psPrtSetting != pageAttr.pageSizeId()) {
             int ret = QMessageBox::warning(
                 this, tr("Different paper size"),
                 tr("The printer uses a different paper size than the drawing.\n"
@@ -429,16 +461,12 @@ void MDIViewPage::print(QPrinter* printer)
         }
     }
 
-    if (m_pagePrinter) {
-        m_pagePrinter->print(printer);
-    }
-
+    PagePrinter::print(getViewProviderPage(), printer);
 }
 
-//static routine to print all pages in a document
+// static routine to print all pages in a document.  Used by PrintAll command in Command.cpp
 void MDIViewPage::printAll(QPrinter* printer, App::Document* doc)
 {
-//    Base::Console().Message("MDIVP::printAll()\n");
     PagePrinter::printAll(printer, doc);
 }
 
@@ -454,20 +482,235 @@ PyObject* MDIViewPage::getPyObject()
 
 void MDIViewPage::contextMenuEvent(QContextMenuEvent* event)
 {
-    //    Base::Console().Message("MDIVP::contextMenuEvent() - reason: %d\n", event->reason());
-    if (isContextualMenuEnabled) {
-        QMenu menu;
-        menu.addAction(m_toggleFrameAction);
-        menu.addAction(m_toggleKeepUpdatedAction);
-        menu.addAction(m_exportSVGAction);
-        menu.addAction(m_exportDXFAction);
-        menu.addAction(m_exportPDFAction);
-        menu.addAction(m_printAllAction);
-        menu.exec(event->globalPos());
+    if (!isContextualMenuEnabled) {
+        return;
     }
+
+    QMenu menu;
+
+    if (!addSelectionGroups(menu)) {
+        addPageGroup(menu);
+    }
+    menu.exec(event->globalPos());
+}
+
+template<typename T>
+static bool hasWholeSelectionOf()
+{
+    for (auto& sel : Gui::Selection().getSelectionEx()) {
+        auto* obj = sel.getObject();
+        if (obj
+            && obj->isDerivedFrom<T>()
+            && sel.getSubNames().empty()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+template<typename T>
+static bool hasSelectionOfType()
+{
+    return !Gui::Selection().getObjectsOfType(T::getClassTypeId()).empty();
+}
+
+bool MDIViewPage::addSelectionGroups(QMenu& menu)
+{
+    bool added = false;
+    auto ctx = getSelectionContext();
+
+    if (hasSelectionOfType<TechDraw::DrawViewDimension>()) {
+        addCommandsByName(menu, {
+            "TechDraw_ExtensionIncreaseDecimal",
+            "TechDraw_ExtensionDecreaseDecimal",
+        });
+        menu.addSeparator();
+        addCommandsByName(menu, {
+            "TechDraw_ExtensionCustomizeFormat",
+            "TechDraw_ExtensionInsertDiameter",
+            "TechDraw_ExtensionInsertSquare",
+            "TechDraw_ExtensionInsertRepetition",
+            "TechDraw_ExtensionRemovePrefixChar",
+        });
+        menu.addSeparator();
+        addCommandsByName(menu, {
+            "TechDraw_DimensionRepair",
+        });
+        menu.addSeparator();
+        added = true;
+    }
+
+    if (hasSelectionOfType<TechDraw::DrawViewBalloon>()) {
+        if (addCommandsByName(menu, {
+                "TechDraw_ExtensionCustomizeFormat",
+            }) > 0) {
+            menu.addSeparator();
+            added = true;
+        }
+    }
+
+    if (hasSelectionOfType<TechDraw::DrawLeaderLine>()) {
+        if (addCommandsByName(menu, {
+                "TechDraw_WeldSymbol",
+            }) > 0) {
+            menu.addSeparator();
+            added = true;
+        }
+    }
+
+    if (ctx.hasFace) {
+        if (addCommandsByName(menu, {
+                "TechDraw_AreaDimension",
+                "TechDraw_Hatch",
+                "TechDraw_GeometricHatch",
+            }) > 0) {
+            menu.addSeparator();
+            added = true;
+        }
+    }
+
+    if (ctx.hasCircleEdge) {
+        if (addCommandsByName(menu, {
+                "TechDraw_ExtensionCircleCenterLines",
+            }) > 0) {
+            menu.addSeparator();
+            added = true;
+        }
+    }
+
+    if (ctx.hasGeomEdge || ctx.hasCosmeticEdge) {
+        addCommandsByName(menu, { "TechDraw_DecorateLine" });
+        menu.addSeparator();
+        added = true;
+    }
+
+    if (ctx.hasCosmeticEdge) {
+        addCommandsByName(menu, {
+            "TechDraw_ExtensionExtendLine",
+            "TechDraw_ExtensionShortenLine",
+        });
+        menu.addSeparator();
+        added = true;
+    }
+
+    if (hasWholeSelectionOf<TechDraw::DrawViewPart>()) {
+        if (hasSelectionOfType<TechDraw::DrawViewSection>()) {
+            if (addCommandsByName(menu, {
+                    "TechDraw_ExtensionPositionSectionView",
+                }) > 0) {
+                menu.addSeparator();
+                added = true;
+            }
+        }
+        if (addCommandsByName(menu, {
+                "TechDraw_ShowAll",
+                "TechDraw_ExtensionLockUnlockView",
+            }) > 0) {
+            menu.addSeparator();
+            added = true;
+        }
+    }
+
+    if (hasWholeSelectionOf<TechDraw::DrawView>()) {
+        if (addCommandsByName(menu, {
+                "TechDraw_StackTop",
+                "TechDraw_StackBottom",
+                "TechDraw_StackUp",
+                "TechDraw_StackDown",
+            }) > 0) {
+            menu.addSeparator();
+            added = true;
+        }
+    }
+
+    return added;
+}
+
+void MDIViewPage::addPageGroup(QMenu& menu)
+{
+    menu.addAction(m_toggleGridAction);
+    menu.addAction(m_toggleFrameAction);
+    menu.addAction(m_toggleKeepUpdatedAction);
+    menu.addSeparator();
+    menu.addAction(m_exportSVGAction);
+    menu.addAction(m_exportDXFAction);
+    menu.addAction(m_exportPDFAction);
+    menu.addSeparator();
+    menu.addAction(m_printAllAction);
+
+    m_toggleGridAction->setCheckable(true);
+    m_toggleGridAction->setChecked(m_vpPage->ShowGrid.getValue());
+
+    m_toggleFrameAction->setCheckable(true);
+    m_toggleFrameAction->setChecked(m_vpPage->getFrameState());
+    m_toggleFrameAction->setEnabled(
+        PreferencesGui::getViewFrameMode() == ViewFrameMode::Manual);
+
+    m_toggleKeepUpdatedAction->setCheckable(true);
+    m_toggleKeepUpdatedAction->setChecked(
+        m_vpPage->getDrawPage()->KeepUpdated.getValue());
+}
+
+int MDIViewPage::addCommandsByName(QMenu& menu,
+                                   std::initializer_list<const char*> names)
+{
+    int count = 0;
+    auto& mgr = Gui::Application::Instance->commandManager();
+    for (const char* name : names) {
+        if (Gui::Command* c = mgr.getCommandByName(name)) {
+            c->addTo(&menu);
+            ++count;
+        }
+    }
+    return count;
+}
+
+MDIViewPage::SelectionContext MDIViewPage::getSelectionContext()
+{
+    SelectionContext ctx;
+
+    auto fillContextForEdge = [&ctx](TechDraw::DrawViewPart* dvp, const std::string& sub) {
+        if (dvp && dvp->isCosmeticEdge(sub)) {
+            ctx.hasCosmeticEdge = true;
+            return;
+        }
+
+        ctx.hasGeomEdge = true;
+        if (!dvp) {
+            return;
+        }
+
+        int idx = TechDraw::DrawUtil::getIndexFromName(sub);
+        TechDraw::BaseGeomPtr geom = dvp->getGeomByIndex(idx);
+        if (geom
+            && (geom->getGeomType() == TechDraw::GeomType::CIRCLE
+                || geom->getGeomType() == TechDraw::GeomType::ARCOFCIRCLE)) {
+            ctx.hasCircleEdge = true;
+        }
+    };
+
+    for (auto& sel : Gui::Selection().getSelectionEx()) {
+        auto* dvp = dynamic_cast<TechDraw::DrawViewPart*>(sel.getObject());
+        for (auto& sub : sel.getSubNames()) {
+            std::string geomType = TechDraw::DrawUtil::getGeomTypeFromName(sub);
+            if (geomType == "Face") {
+                ctx.hasFace = true;
+            }
+            else if (geomType == "Edge") {
+                fillContextForEdge(dvp, sub);
+            }
+        }
+    }
+
+    return ctx;
 }
 
 void MDIViewPage::toggleFrame() { m_vpPage->toggleFrameState(); }
+
+void MDIViewPage::toggleGrid()
+{
+    m_vpPage->ShowGrid.setValue(!m_vpPage->ShowGrid.getValue());
+}
 
 void MDIViewPage::toggleKeepUpdated()
 {
@@ -480,71 +723,130 @@ void MDIViewPage::viewAll()
     m_vpPage->getQGVPage()->fitInView(m_scene->itemsBoundingRect(), Qt::KeepAspectRatio);
 }
 
+QString MDIViewPage::defaultFileName()
+{
+    const std::string separator{"_"};
+
+    auto doc = getPage()->getDocument();
+    std::string docLabel{doc->Label.getValue()};
+    std::string pageLabel{getPage()->Label.getValue()};
+    auto pageTemplate = dynamic_cast<TechDraw::DrawTemplate*>(getPage()->Template.getValue());
+    auto textMap = pageTemplate->EditableTexts.getValues();
+    auto drawingNumber = textMap["drawing_number"];
+    auto revision = textMap["revision_index"];
+    auto defaultName = docLabel + separator + pageLabel + separator + drawingNumber + separator + revision;
+
+    return QString::fromStdString(defaultName);
+}
+
 void MDIViewPage::saveSVG(std::string filename)
 {
-    if (m_pagePrinter) {
-        m_pagePrinter->saveSVG(filename);
+    auto vpp = getViewProviderPage();
+    if (!vpp) {
+        return;
     }
+    PagePrinter::saveSVG(vpp, filename);
 }
+
+
 void MDIViewPage::saveSVG()
 {
-    QStringList filter;
-    filter << QObject::tr("SVG (*.svg)");
-    filter << QObject::tr("All Files (*.*)");
+    const Gui::FileDialog::FilterList filter {
+        {QStringLiteral("SVG"), {"*.svg"}},
+        Gui::FileDialog::Filter::AllFiles(),
+    };
     QString fn =
         Gui::FileDialog::getSaveFileName(Gui::getMainWindow(), QObject::tr("Export page as SVG"),
-                                         QString(), filter.join(QLatin1String(";;")));
+
+                                         defaultFileName(), filter);
     if (fn.isEmpty()) {
         return;
     }
     static_cast<void>(blockSelection(true));// avoid to be notified by itself
-    saveSVG(Base::Tools::toStdString(fn));
+    saveSVG(fn.toStdString());
     static_cast<void>(blockSelection(false));
 }
 
 void MDIViewPage::saveDXF(std::string filename)
 {
-    if (m_pagePrinter) {
-        m_pagePrinter->saveDXF(filename);
-    }
+    PagePrinter::saveDXF(getViewProviderPage(), filename);
 }
 
 void MDIViewPage::saveDXF()
 {
-    QString defaultDir;
-    QString fileName = Gui::FileDialog::getSaveFileName(
-        Gui::getMainWindow(), QString::fromUtf8(QT_TR_NOOP("Save DXF file")), defaultDir,
-        QString::fromUtf8(QT_TR_NOOP("DXF (*.dxf)")));
-    if (fileName.isEmpty()) {
+    const Gui::FileDialog::FilterList filter {
+        {QStringLiteral("DXF"), {"*.dxf"}},
+        Gui::FileDialog::Filter::AllFiles(),
+    };
+    QString fn =
+        Gui::FileDialog::getSaveFileName(Gui::getMainWindow(), QObject::tr("Export page as DXF"),
+
+                                         defaultFileName(), filter);
+    if (fn.isEmpty()) {
         return;
     }
-
-    std::string sFileName = fileName.toUtf8().constData();
+    std::string sFileName = fn.toUtf8().constData();
     saveDXF(sFileName);
 }
 
-void MDIViewPage::savePDF(std::string filename)
+void MDIViewPage::savePDF(const std::string& filename) const
 {
-    if (m_pagePrinter) {
-        m_pagePrinter->savePDF(filename);
+    auto vpp = getViewProviderPage();
+    if (!vpp) {
+        return;
     }
+    PagePrinter::savePDF(vpp, filename);
 }
 
-void MDIViewPage::savePDF()
+
+// this is invoked by context menu "export pdf"
+void MDIViewPage::slotContextExportPdf()
 {
-    QString defaultDir;
-    QString fileName = Gui::FileDialog::getSaveFileName(
-        Gui::getMainWindow(), QString::fromUtf8(QT_TR_NOOP("Save PDF file")), defaultDir,
-        QString::fromUtf8(QT_TR_NOOP("PDF (*.pdf)")));
-    if (fileName.isEmpty()) {
+    exportAsPdf();
+}
+
+/// common pdf export from all commands
+void MDIViewPage::exportAsPdf() const
+{
+    QString filename = getPdfFileName();
+    if (filename.isEmpty()) {
+        return;
+    }
+    Base::FileInfo fi{filename.toStdString()};
+
+    if (fi.exists() && !fi.isWritable()) {
+        // Note: this does not protect against the case where the proposed file does not exist yet
+        //       and creation of the file will not be permitted (ex attempt to write to restricted
+        //       directory).
+        QMessageBox::critical(
+            Gui::getMainWindow(),
+            QObject::tr("Unable to Write File"),
+            QObject::tr("FreeCAD is unable to open file %1 for writing.  The file may be open in another program.").arg(filename));
         return;
     }
 
-    std::string sFileName = fileName.toUtf8().constData();
-    savePDF(sFileName);
+    savePDF(filename.toUtf8().constData());
 }
 
-/// a slot for printing all the pages
+
+QString MDIViewPage::getPdfFileName() const
+{
+    const Gui::FileDialog::FilterList filter {
+        {"PDF", {"*.pdf"}},
+        Gui::FileDialog::Filter::AllFiles(),
+    };
+    QString fn =
+        Gui::FileDialog::getSaveFileName(Gui::getMainWindow(),
+                                         QObject::tr("Export Page as PDF"),
+                                         QString(), filter);
+    if (fn.isEmpty()) {
+        return {};
+    }
+    return fn;
+}
+
+
+/// a slot for printing all the pages. just redirects to printAllPages
 void MDIViewPage::printAll()
 {
     MDIViewPage::printAllPages();
@@ -676,7 +978,7 @@ void MDIViewPage::onSelectionChanged(const Gui::SelectionChanges& msg)
             std::vector<Gui::SelectionObject> selObjs = Gui::Selection().getSelectionEx(msg.pDocName);
             for (auto &so : selObjs) {
                 App::DocumentObject *docObj = so.getObject();
-                if (docObj->isDerivedFrom(TechDraw::DrawView::getClassTypeId())) {
+                if (docObj->isDerivedFrom<TechDraw::DrawView>()) {
                     selectQGIView(docObj, true, so.getSubNames());
                 }
             }
@@ -684,7 +986,7 @@ void MDIViewPage::onSelectionChanged(const Gui::SelectionChanges& msg)
     }
     else if (msg.Type == Gui::SelectionChanges::AddSelection || msg.Type == Gui::SelectionChanges::RmvSelection) {
         App::DocumentObject *docObj = msg.Object.getSubObject();
-        if (docObj->isDerivedFrom(TechDraw::DrawView::getClassTypeId())) {
+        if (docObj->isDerivedFrom<TechDraw::DrawView>()) {
             bool isSelected = msg.Type != Gui::SelectionChanges::RmvSelection;
             selectQGIView(docObj, isSelected, std::vector(1, std::string(msg.pSubName ? msg.pSubName : "")));
         }
@@ -738,6 +1040,27 @@ void MDIViewPage::sceneSelectionManager()
         }
     }
     m_orderedSceneSelection = m_new;
+}
+
+// for context menus. Right click can add to selection, but not remove from selection.
+// this is the same as Sketcher WB
+void MDIViewPage::selectOnRightPress(QGraphicsItem* item)
+{
+    while (item
+           && !dynamic_cast<QGIView*>(item)
+           && !dynamic_cast<QGIEdge*>(item)
+           && !dynamic_cast<QGIVertex*>(item)
+           && !dynamic_cast<QGIFace*>(item)
+           && !dynamic_cast<QGIDatumLabel*>(item)
+           && !dynamic_cast<QGMText*>(item)) {
+        item = item->parentItem();
+    }
+    if (!item) {
+        return;
+    }
+    blockSceneSelection(true);
+    addSceneItemToTreeSel(item, Gui::Selection().getSelectionEx());
+    blockSceneSelection(false);
 }
 
 //! update Tree Selection from QGraphicsScene selection. on exit, the tree
@@ -991,8 +1314,6 @@ void MDIViewPage::removeUnselectedTreeSelection(QList<QGraphicsItem*> sceneSelec
 bool MDIViewPage::compareSelections(std::vector<Gui::SelectionObject> treeSel,
                                     QList<QGraphicsItem*> sceneSel)
 {
-    bool result = true;
-
     if (treeSel.empty() && sceneSel.empty()) {
         return true;
     }
@@ -1012,7 +1333,7 @@ bool MDIViewPage::compareSelections(std::vector<Gui::SelectionObject> treeSel,
     std::vector<std::string> sceneNames;
 
     for (auto tn : treeSel) {
-        if (tn.getObject()->isDerivedFrom(TechDraw::DrawView::getClassTypeId())) {
+        if (tn.getObject()->isDerivedFrom<TechDraw::DrawView>()) {
             std::string s = tn.getObject()->getNameInDocument();
             treeNames.push_back(s);
             subCount += tn.getSubNames().size();
@@ -1071,14 +1392,14 @@ bool MDIViewPage::compareSelections(std::vector<Gui::SelectionObject> treeSel,
         return false;
     }
 
-    return result;
+    return true;
 }
 
 ///////////////////end Selection Routines //////////////////////
 
 void MDIViewPage::showStatusMsg(const char* string1, const char* string2, const char* string3) const
 {
-    QString msg = QString::fromLatin1("%1 %2.%3.%4 ")
+    QString msg = QStringLiteral("%1 %2.%3.%4 ")
                       .arg(tr("Selected:"), QString::fromUtf8(string1), QString::fromUtf8(string2),
                            QString::fromUtf8(string3));
     if (Gui::getMainWindow()) {
@@ -1121,12 +1442,11 @@ MDIViewPagePy::~MDIViewPagePy() {}
 
 Py::Object MDIViewPagePy::repr()
 {
-    std::ostringstream s_out;
     if (!getMDIViewPagePtr()) {
         throw Py::RuntimeError("Cannot print representation of deleted object");
     }
-    s_out << "MDI view page";
-    return Py::String(s_out.str());
+
+    return Py::String("MDI view page");
 }
 
 // Since with PyCXX it is not possible to make a sub-class of MDIViewPy

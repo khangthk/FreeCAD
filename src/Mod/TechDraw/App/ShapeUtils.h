@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef TECHDRAW_SHAPEUTILS_H
-#define TECHDRAW_SHAPEUTILS_H
+#pragma once
 
 #include <Mod/TechDraw/TechDrawGlobal.h>
 
@@ -31,6 +32,8 @@
 
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Edge.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Wire.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Pnt.hxx>
 
@@ -113,7 +116,8 @@ public:
 
     static TopoDS_Shape fromQt(const TopoDS_Shape& inShape);
     static TopoDS_Shape toQt(const TopoDS_Shape& inShape);
+    static TopoDS_Wire fromQtAsWire(const TopoDS_Shape& inShape);
+    static TopoDS_Face fromQtAsFace(const TopoDS_Shape& inShape);
 };
 
 }
-#endif

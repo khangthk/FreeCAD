@@ -30,40 +30,30 @@
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="0" column="0">
-       <widget class="QLabel" name="label_2">
+       <widget class="QLabel" name="label_strategy">
         <property name="text">
-         <string>Tool Controller</string>
+         <string>Strategy</string>
         </property>
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QComboBox" name="toolController">
-        <property name="toolTip">
-         <string>The tool and its settings to be used for this operation.</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_3">
-        <property name="text">
-         <string>Coolant Mode</string>
-        </property>
+       <widget class="QComboBox" name="Strategy">
+        <item>
+         <property name="text">
+          <string>Drilling</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Tapping</string>
+         </property>
+        </item>
        </widget>
       </item>
       <item row="1" column="1">
-       <widget class="QComboBox" name="coolantController">
-        <property name="toolTip">
-         <string>The tool and its settings to be used for this operation.</string>
-        </property>
-       </widget>
-     </item>
-     <item row="8" column="1">
        <widget class="QCheckBox" name="KeepToolDownEnabled">
-        <property name="toolTip">
-         <string>Don't retract after every hole</string>
-        </property>
         <property name="text">
-         <string>Keep Tool Down</string>
+         <string>Keep tool down</string>
         </property>
        </widget>
       </item>
@@ -92,7 +82,7 @@
      <item row="8" column="4">
       <widget class="QLabel" name="Offsetlabel">
        <property name="text">
-        <string>Extend Depth</string>
+        <string>Extend depth</string>
        </property>
       </widget>
      </item>
@@ -112,12 +102,12 @@
        </item>
        <item>
         <property name="text">
-         <string>Drill Tip</string>
+         <string>Tool tip</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>2x Drill Tip</string>
+         <string>2x tool tip</string>
         </property>
        </item>
       </widget>
@@ -142,41 +132,38 @@
         <bool>false</bool>
        </property>
        <property name="text">
-        <string>Depth</string>
+        <string>Peck depth</string>
        </property>
       </widget>
      </item>
-     <item row="4" column="4">
-      <widget class="QLabel" name="retractLabel">
+     <item row="2" column="4">
+      <widget class="QLabel" name="peckRetractLabel">
        <property name="enabled">
         <bool>false</bool>
        </property>
        <property name="text">
-        <string>Retract</string>
+        <string>Peck retract</string>
        </property>
       </widget>
      </item>
-     <item row="4" column="6">
-      <widget class="Gui::QuantitySpinBox" name="peckRetractHeight">
+     <item row="2" column="6">
+      <widget class="Gui::QuantitySpinBox" name="peckRetract">
        <property name="enabled">
         <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QCheckBox" name="chipBreakEnabled">
-       <property name="text">
-        <string>Chip Break</string>
        </property>
       </widget>
      </item>
      <item row="3" column="1">
+      <widget class="QCheckBox" name="chipBreakEnabled">
+       <property name="text">
+        <string>Chip break</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1">
         <widget class="QCheckBox" name="feedRetractEnabled">
           <property name="text">
             <string>Feed retract</string>
-          </property>
-          <property name="toolTip">
-            <string>G85: Retract from the hole at the given feedrate instead of rapid move</string>
           </property>
         </widget>
       </item>
@@ -205,8 +192,8 @@
   </customwidget>
  </customwidgets>
  <tabstops>
-  <tabstop>toolController</tabstop>
   <tabstop>peckEnabled</tabstop>
+  <tabstop>peckRetract</tabstop>
   <tabstop>feedRetractEnabled</tabstop>
   <tabstop>dwellEnabled</tabstop>
  </tabstops>

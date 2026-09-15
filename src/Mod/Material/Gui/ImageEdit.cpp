@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Carter <dcarter@david.carter.ca>             *
  *                                                                         *
@@ -19,8 +21,6 @@
  *                                                                         *
  **************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <QBuffer>
 #include <QFile>
 #include <QMenu>
@@ -30,7 +30,7 @@
 #include <QString>
 #include <QSvgRenderer>
 #include <QTextStream>
-#endif
+
 
 #include <Gui/FileDialog.h>
 #include <Gui/MainWindow.h>
@@ -111,7 +111,7 @@ ImageEdit::ImageEdit(const QString& propertyName,
     : QDialog(parent)
     , ui(new Ui_ImageEdit)
     , _material(material)
-    , _pixmap(QString::fromStdString(":/images/default_image.png"))
+    , _pixmap(QStringLiteral(":/images/default_image.png"))
 {
     ui->setupUi(this);
 
@@ -122,7 +122,7 @@ ImageEdit::ImageEdit(const QString& propertyName,
         _property = material->getAppearanceProperty(propertyName);
     }
     else {
-        Base::Console().Log("Property '%s' not found\n", propertyName.toStdString().c_str());
+        Base::Console().log("Property '%s' not found\n", propertyName.toStdString().c_str());
         _property = nullptr;
     }
     if (_property) {
@@ -134,14 +134,14 @@ ImageEdit::ImageEdit(const QString& propertyName,
             QString value = _property->getString();
             if (!value.isEmpty()) {
                 QByteArray by = QByteArray::fromBase64(value.toUtf8());
-                QImage img = QImage::fromData(by, "PNG");
+                QImage img = QImage::fromData(by);
                 _pixmap = QPixmap::fromImage(img);
             }
             showPixmap();
         }
     }
     else {
-        Base::Console().Log("No value loaded\n");
+        Base::Console().log("No value loaded\n");
         showPixmap();
     }
 
@@ -183,7 +183,7 @@ void ImageEdit::onFileSelect(bool checked)
     }
 }
 
-QString ImageEdit::selectFile(const QString& filePatterns)
+QString ImageEdit::selectFile(const Gui::FileDialog::FilterList& filters)
 {
     QFileDialog::Options dlgOpt;
     if (Gui::DialogOptions::dontUseNativeFileDialog()) {
@@ -194,7 +194,7 @@ QString ImageEdit::selectFile(const QString& filePatterns)
     QString fn = Gui::FileDialog::getOpenFileName(this,
                                                   tr("Select an image"),
                                                   directory,
-                                                  filePatterns,
+                                                  filters,
                                                   nullptr,
                                                   dlgOpt);
 
@@ -203,7 +203,11 @@ QString ImageEdit::selectFile(const QString& filePatterns)
 
 void ImageEdit::onFileSelectImage()
 {
-    QString fn = selectFile(tr("Image files (*.jpg *.jpeg *.png *.bmp);;All files (*)"));
+    const Gui::FileDialog::FilterList filterList {
+        {tr("Image files"), {"*.jpg", "*.jpeg", "*.png", "*.bmp"}},
+        {tr("All files"), {"(*)"}}
+    };
+    QString fn = selectFile(filterList);
     if (!fn.isEmpty()) {
         fn = QDir::fromNativeSeparators(fn);
 
@@ -215,7 +219,11 @@ void ImageEdit::onFileSelectImage()
 
 void ImageEdit::onFileSelectSVG()
 {
-    QString fn = selectFile(tr("Image files (*.svg);;All files (*)"));
+    const Gui::FileDialog::FilterList filterList {
+        {tr("Image files"), {"*.svg"}},
+        {tr("All files"), {"(*)"}}
+    };
+    QString fn = selectFile(filterList);
     if (!fn.isEmpty()) {
         fn = QDir::fromNativeSeparators(fn);
 

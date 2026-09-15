@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2007 Werner Mayer <wmayer@users.sourceforge.net>        *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef __OpenCascadeAll__
-#define __OpenCascadeAll__
+#pragma once
 
 // OpenCASCADE
 
@@ -29,14 +30,16 @@
 #include <Standard_Version.hxx>
 #include <Standard_AbortiveTransaction.hxx>
 #if OCC_VERSION_HEX < 0x070800
-#include <Standard_Address.hxx>
+# include <Standard_Address.hxx>
 #endif
 #include <Standard_Boolean.hxx>
 #include <Standard_Byte.hxx>
 #include <Standard_Character.hxx>
 #include <Standard_ConstructionError.hxx>
 #include <Standard_CString.hxx>
-#include <Standard_ConstructionError.hxx>
+#if OCC_VERSION_HEX < 0x080000
+# include <Standard_ConstructionError.hxx>
+#endif
 #include <Standard_DefineHandle.hxx>
 #include <Standard_DimensionError.hxx>
 #include <Standard_DimensionMismatch.hxx>
@@ -45,7 +48,7 @@
 #include <Standard_ErrorHandler.hxx>
 #include <Standard_ExtCharacter.hxx>
 #if OCC_VERSION_HEX < 0x070800
-#include <Standard_ExtString.hxx>
+# include <Standard_ExtString.hxx>
 #endif
 #include <Standard_Failure.hxx>
 #include <Standard_GUID.hxx>
@@ -68,13 +71,17 @@
 #include <Standard_OutOfRange.hxx>
 #include <Standard_Overflow.hxx>
 #include <Standard_Persistent.hxx>
-#include <Standard_PrimitiveTypes.hxx>
+#if OCC_VERSION_HEX < 0x080000
+# include <Standard_PrimitiveTypes.hxx>
+#endif
 #include <Standard_ProgramError.hxx>
 #include <Standard_RangeError.hxx>
 #include <Standard_Real.hxx>
 #include <Standard_ShortReal.hxx>
 #include <Standard_SStream.hxx>
-#include <Standard_Stream.hxx>
+#if OCC_VERSION_HEX < 0x080000
+# include <Standard_Stream.hxx>
+#endif
 #include <Standard_Transient.hxx>
 #include <Standard_Type.hxx>
 #include <Standard_TypeDef.hxx>
@@ -115,12 +122,17 @@
 
 #include <BRepAlgo.hxx>
 #include <BRepAlgo_NormalProjection.hxx>
-#include <BRepAlgoAPI_BooleanOperation.hxx>
-#include <BRepAlgoAPI_Common.hxx>
-#include <BRepAlgoAPI_Cut.hxx>
-# include <BRepAlgoAPI_Defeaturing.hxx>
-#include <BRepAlgoAPI_Fuse.hxx>
-#include <BRepAlgoAPI_Section.hxx>
+// #include <BRepAlgoAPI_BooleanOperation.hxx>
+#include <Mod/Part/App/FCBRepAlgoAPI_BooleanOperation.h>
+// #include <BRepAlgoAPI_Common.hxx>
+#include <Mod/Part/App/FCBRepAlgoAPI_Common.h>
+// #include <BRepAlgoAPI_Cut.hxx>
+#include <Mod/Part/App/FCBRepAlgoAPI_Cut.h>
+#include <BRepAlgoAPI_Defeaturing.hxx>
+// #include <BRepAlgoAPI_Fuse.hxx>
+#include <Mod/Part/App/FCBRepAlgoAPI_Fuse.h>
+// #include <BRepAlgoAPI_Section.hxx>
+#include <Mod/Part/App/FCBRepAlgoAPI_Section.h>
 
 #include <BRepBndLib.hxx>
 
@@ -141,8 +153,13 @@
 #include <BRepBuilderAPI_Transform.hxx>
 
 #include <BRepCheck_Analyzer.hxx>
-#include <BRepCheck_ListIteratorOfListOfStatus.hxx>
+#if OCC_VERSION_HEX >= 0x080000
+# include <BRepCheck_ListOfStatus.hxx>
+#else
+# include <BRepCheck_ListIteratorOfListOfStatus.hxx>
+#endif
 #include <BRepCheck_Result.hxx>
+#include <BRepCheck_Solid.hxx>
 #include <BRepClass_FaceClassifier.hxx>
 #include <BRepClass3d.hxx>
 #include <BRepClass3d_SolidClassifier.hxx>
@@ -161,7 +178,11 @@
 #include <BRepGProp_Face.hxx>
 #include <BRepIntCurveSurface_Inter.hxx>
 #include <BRepLProp_CLProps.hxx>
-#include <BRepLProp_CurveTool.hxx>
+#if OCC_VERSION_HEX >= 0x080000
+# include <LProp_CurveUtils.hxx>
+#else
+# include <BRepLProp_CurveTool.hxx>
+#endif
 #include <BRepLProp_SLProps.hxx>
 #include <BRepLib.hxx>
 #include <BRepLib_FindSurface.hxx>
@@ -169,9 +190,6 @@
 #include <BRepLib_MakeWire.hxx>
 #include <BRepLProp_SurfaceTool.hxx>
 
-#if OCC_VERSION_HEX < 0x070400
-# include <BRepMesh.hxx>
-#endif
 #include <BRepMesh_Edge.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepMesh_Triangle.hxx>
@@ -288,7 +306,11 @@
 #include <Geom2dConvert_ApproxCurve.hxx>
 #include <Geom2dConvert_BSplineCurveToBezierCurve.hxx>
 #include <Geom2dConvert_CompCurveToBSplineCurve.hxx>
-#include <Geom2dLProp_CLProps2d.hxx>
+#if OCC_VERSION_HEX >= 0x080000
+# include <GeomLProp_CLProps.hxx>
+#else
+# include <Geom2dLProp_CLProps2d.hxx>
+#endif
 #include <GeomAdaptor_Curve.hxx>
 #include <GeomAbs_CurveType.hxx>
 #include <GeomAdaptor.hxx>
@@ -407,7 +429,7 @@
 #include <Quantity_NameOfColor.hxx>
 
 #if OCC_VERSION_HEX < 0x070700
-#include <Quantity_PhysicalQuantity.hxx>
+# include <Quantity_PhysicalQuantity.hxx>
 #endif
 
 #include <Quantity_TypeOfColor.hxx>
@@ -473,7 +495,9 @@
 #include <TColStd_Array2OfReal.hxx>
 #include <TColStd_HArray1OfBoolean.hxx>
 #include <TColStd_HSequenceOfTransient.hxx>
-#include <TColStd_MapIteratorOfMapOfTransient.hxx>
+#if OCC_VERSION_HEX < 0x080000
+# include <TColStd_MapIteratorOfMapOfTransient.hxx>
+#endif
 #include <TColStd_MapOfTransient.hxx>
 #include <TColStd_SequenceOfExtendedString.hxx>
 
@@ -493,15 +517,18 @@
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopLoc_Location.hxx>
-#include <TopTools_DataMapIteratorOfDataMapOfShapeShape.hxx>
-#include <TopTools_DataMapIteratorOfDataMapOfIntegerListOfShape.hxx>
+#if OCC_VERSION_HEX < 0x080000
+# include <TopTools_DataMapIteratorOfDataMapOfShapeShape.hxx>
+# include <TopTools_DataMapIteratorOfDataMapOfIntegerListOfShape.hxx>
+#endif
 #include <TopTools_DataMapOfIntegerListOfShape.hxx>
 #include <TopTools_DataMapOfIntegerShape.hxx>
 #include <TopTools_HSequenceOfShape.hxx>
 #include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
 #include <TopTools_IndexedMapOfShape.hxx>
-#include <TopTools_ListIteratorOfListOfShape.hxx>
-#include <TopTools_ListIteratorOfListOfShape.hxx>
+#if OCC_VERSION_HEX < 0x080000
+# include <TopTools_ListIteratorOfListOfShape.hxx>
+#endif
 #include <TopTools_ListOfShape.hxx>
 #include <TopTools_MapOfShape.hxx>
 
@@ -511,5 +538,3 @@
 #include <XSControl_TransferReader.hxx>
 #include <XSControl_TransferWriter.hxx>
 #include <XSControl_WorkSession.hxx>
-
-#endif // __OpenCascadeAll__

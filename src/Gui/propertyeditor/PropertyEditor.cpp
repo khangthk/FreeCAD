@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /***************************************************************************
  *   Copyright (c) 2004 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
@@ -20,26 +21,32 @@
  *                                                                         *
  ***************************************************************************/
 
-
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
+#include <algorithm>
 #include <boost/algorithm/string/predicate.hpp>
 #include <QApplication>
+#include <QClipboard>
+#include <QCompleter>
 #include <QInputDialog>
 #include <QHeaderView>
 #include <QMenu>
 #include <QPainter>
-#endif
+#include <QActionGroup>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QTextBrowser>
 
 #include <App/Application.h>
-#include <App/AutoTransaction.h>
 #include <App/Document.h>
 #include <Base/Console.h>
 #include <Base/Tools.h>
+#include <Gui/Command.h>
+#include <Gui/Document.h>
 
+#include "Document.h"
+#include "Tree.h"
 #include "PropertyEditor.h"
-#include "DlgAddProperty.h"
+#include "Dialogs/DlgAddProperty.h"
+#include "Dialogs/DlgDocumentObject.h"
 #include "MainWindow.h"
 #include "PropertyItemDelegate.h"
 #include "PropertyModel.h"
@@ -53,7 +60,7 @@ using namespace Gui::PropertyEditor;
 
 PropertyEditor::PropertyEditor(QWidget* parent)
     : QTreeView(parent)
-    , autoexpand(false)
+    , expansionMode(ExpansionMode::DefaultExpand)
     , autoupdate(false)
     , committing(false)
     , delaybuild(false)
@@ -71,10 +78,12 @@ PropertyEditor::PropertyEditor(QWidget* parent)
     delegate = new PropertyItemDelegate(this);
     delegate->setItemEditorFactory(new PropertyItemEditorFactory);
     setItemDelegate(delegate);
+    // prevent a non-persistent editor when pressing an edit key
+    setEditTriggers(QAbstractItemView::NoEditTriggers);
 
     setAlternatingRowColors(true);
     setRootIsDecorated(false);
-    setExpandsOnDoubleClick(true);
+    setExpandsOnDoubleClick(false);
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QStyleOptionViewItem opt = PropertyEditor::viewOptions();
@@ -103,7 +112,8 @@ PropertyEditor::PropertyEditor(QWidget* parent)
     viewport()->setMouseTracking(true);
 
     auto hGrp = App::GetApplication().GetParameterGroupByPath(
-        "User parameter:BaseApp/Preferences/DockWindows/PropertyView");
+        "User parameter:BaseApp/Preferences/DockWindows/PropertyView"
+    );
     int firstColumnSize = hGrp->GetInt("FirstColumnSize", 0);
     if (firstColumnSize != 0) {
         header()->resizeSection(0, firstColumnSize);
@@ -115,16 +125,6 @@ PropertyEditor::~PropertyEditor()
     QItemEditorFactory* f = delegate->itemEditorFactory();
     delegate->setItemEditorFactory(nullptr);
     delete f;
-}
-
-void PropertyEditor::setAutomaticExpand(bool v)
-{
-    autoexpand = v;
-}
-
-bool PropertyEditor::isAutomaticExpand(bool) const
-{
-    return autoexpand;
 }
 
 void PropertyEditor::onItemExpanded(const QModelIndex& index)
@@ -221,6 +221,65 @@ bool PropertyEditor::event(QEvent* event)
     return QTreeView::event(event);
 }
 
+bool PropertyEditor::removeSelectedDynamicProperties()
+{
+    std::unordered_set<App::Property*> props = acquireSelectedProperties();
+    if (props.empty()) {
+        return false;
+    }
+
+    bool canRemove = std::ranges::all_of(props, [](auto prop) {
+        return prop->testStatus(App::Property::PropDynamic)
+            && !prop->testStatus(App::Property::LockDynamic);
+    });
+    if (!canRemove) {
+        return false;
+    }
+
+    removeProperties(props);
+    return true;
+}
+
+void PropertyEditor::keyPressEvent(QKeyEvent* event)
+{
+    if (state() == QAbstractItemView::EditingState) {
+        QTreeView::keyPressEvent(event);
+        return;
+    }
+
+    const auto key = event->key();
+    const auto mods = event->modifiers();
+
+    const bool allowedDeleteModifiers = mods == Qt::NoModifier || mods == Qt::KeypadModifier;
+
+#if defined(Q_OS_MACOS) || defined(Q_OS_MAC)
+    const bool isDeleteKey = key == Qt::Key_Backspace || key == Qt::Key_Delete;
+    const bool isEditKey = (mods == Qt::NoModifier)
+        && (key == Qt::Key_Return || key == Qt::Key_Enter);
+#else
+    const bool isDeleteKey = key == Qt::Key_Delete;
+    const bool isEditKey = (mods == Qt::NoModifier) && (key == Qt::Key_F2);
+#endif
+
+    if (allowedDeleteModifiers && isDeleteKey) {
+        if (removeSelectedDynamicProperties()) {
+            event->accept();
+            return;
+        }
+    }
+    else if (isEditKey) {
+        // open a persistent editor when an edit key is pressed
+        event->accept();
+        auto index = model() ? model()->buddy(currentIndex()) : QModelIndex();
+        if (index.isValid()) {
+            openEditor(index);
+        }
+        return;
+    }
+
+    QTreeView::keyPressEvent(event);
+}
+
 void PropertyEditor::commitData(QWidget* editor)
 {
     committing = true;
@@ -244,8 +303,10 @@ void PropertyEditor::editorDestroyed(QObject* editor)
 
 void PropertyEditor::currentChanged(const QModelIndex& current, const QModelIndex& previous)
 {
-    FC_LOG("current changed " << current.row() << "," << current.column() << "  " << previous.row()
-                              << "," << previous.column());
+    FC_LOG(
+        "current changed " << current.row() << "," << current.column() << "  " << previous.row()
+                           << "," << previous.column()
+    );
 
     QTreeView::currentChanged(current, previous);
 
@@ -303,11 +364,6 @@ void PropertyEditor::openEditor(const QModelIndex& index)
         return;
     }
 
-    auto& app = App::GetApplication();
-    if (app.getActiveTransaction()) {
-        FC_LOG("editor already transacting " << app.getActiveTransaction());
-        return;
-    }
     auto item = static_cast<PropertyItem*>(editingIndex.internalPointer());
     auto items = item->getPropertyData();
     for (auto propItem = item->parent(); items.empty() && propItem; propItem = propItem->parent()) {
@@ -319,9 +375,9 @@ void PropertyEditor::openEditor(const QModelIndex& index)
     }
     auto prop = items[0];
     auto parent = prop->getContainer();
-    auto obj = Base::freecad_dynamic_cast<App::DocumentObject>(parent);
+    auto obj = freecad_cast<App::DocumentObject*>(parent);
     if (!obj) {
-        auto view = Base::freecad_dynamic_cast<ViewProviderDocumentObject>(parent);
+        auto view = freecad_cast<ViewProviderDocumentObject*>(parent);
         if (view) {
             obj = view->getObject();
         }
@@ -352,12 +408,24 @@ void PropertyEditor::openEditor(const QModelIndex& index)
     if (items.size() > 1) {
         str << "...";
     }
-    transactionID = app.setActiveTransaction(str.str().c_str());
-    FC_LOG("editor transaction " << app.getActiveTransaction());
+    transactionID = Command::openActiveDocumentCommand(str.str());
+    FC_LOG("editor transaction " << App::GetApplication().getTransactionName(transactionID));
 }
 
 void PropertyEditor::onItemActivated(const QModelIndex& index)
 {
+    if (!index.isValid()) {
+        return;
+    }
+    if (auto* prop = static_cast<PropertyItem*>(index.internalPointer());
+        prop && prop->isSeparator()) {
+
+        // setExpanded() only works on column 0
+        QModelIndex idxFirstColum = propertyModel->index(index.row(), 0, index.parent());
+        setExpanded(idxFirstColum, !isExpanded(idxFirstColum));
+        return;
+    }
+
     if (index.column() != 1) {
         return;
     }
@@ -377,29 +445,34 @@ void PropertyEditor::recomputeDocument(App::Document* doc)
     }
     // do not re-throw
     catch (const Base::Exception& e) {
-        e.ReportException();
+        e.reportException();
     }
     catch (const std::exception& e) {
-        Base::Console().Error(
+        Base::Console().error(
             "Unhandled std::exception caught in PropertyEditor::recomputeDocument.\n"
             "The error message is: %s\n",
-            e.what());
+            e.what()
+        );
     }
     catch (...) {
-        Base::Console().Error(
-            "Unhandled unknown exception caught in PropertyEditor::recomputeDocument.\n");
+        Base::Console().error(
+            "Unhandled unknown exception caught in PropertyEditor::recomputeDocument.\n"
+        );
     }
 }
 
 void PropertyEditor::closeTransaction()
 {
-    int tid = 0;
-    if (App::GetApplication().getActiveTransaction(&tid) && tid == transactionID) {
+    App::Document* doc = App::GetApplication().getActiveDocument();
+    if (!doc) {
+        return;
+    }
+    if (doc->getBookedTransactionID() == transactionID) {
         if (autoupdate) {
-            App::Document* doc = App::GetApplication().getActiveDocument();
             recomputeDocument(doc);
         }
-        App::GetApplication().closeActiveTransaction();
+        doc->commitTransaction();
+        transactionID = 0;
     }
 }
 
@@ -503,11 +576,7 @@ void PropertyEditor::reset()
     }
 }
 
-void PropertyEditor::onRowsMoved(const QModelIndex& parent,
-                                 int start,
-                                 int end,
-                                 const QModelIndex& dst,
-                                 int)
+void PropertyEditor::onRowsMoved(const QModelIndex& parent, int start, int end, const QModelIndex& dst, int)
 {
     if (parent != dst) {
         auto item = static_cast<PropertyItem*>(parent.internalPointer());
@@ -584,9 +653,7 @@ void PropertyEditor::onRowsRemoved(const QModelIndex&, int, int)
     removingRows = 0;
 }
 
-void PropertyEditor::drawBranches(QPainter* painter,
-                                  const QRect& rect,
-                                  const QModelIndex& index) const
+void PropertyEditor::drawBranches(QPainter* painter, const QRect& rect, const QModelIndex& index) const
 {
     QTreeView::drawBranches(painter, rect, index);
 
@@ -597,9 +664,11 @@ void PropertyEditor::drawBranches(QPainter* painter,
     }
 }
 
-void Gui::PropertyEditor::PropertyEditor::drawRow(QPainter* painter,
-                                                  const QStyleOptionViewItem& options,
-                                                  const QModelIndex& index) const
+void Gui::PropertyEditor::PropertyEditor::drawRow(
+    QPainter* painter,
+    const QStyleOptionViewItem& options,
+    const QModelIndex& index
+) const
 {
     // render background also for non alternate rows based on the `itemBackground` property.
     painter->fillRect(options.rect, itemBackground());
@@ -607,13 +676,19 @@ void Gui::PropertyEditor::PropertyEditor::drawRow(QPainter* painter,
     QTreeView::drawRow(painter, options, index);
 }
 
+void PropertyEditor::blockCollapseAll()
+{
+    blockCollapse = true;
+}
+
 void PropertyEditor::buildUp(PropertyModel::PropertyList&& props, bool _checkDocument)
 {
     checkDocument = _checkDocument;
 
     if (committing) {
-        Base::Console().Warning(
-            "While committing the data to the property the selection has changed.\n");
+        Base::Console().warning(
+            "While committing the data to the property the selection has changed.\n"
+        );
         delaybuild = true;
         return;
     }
@@ -643,15 +718,26 @@ void PropertyEditor::buildUp(PropertyModel::PropertyList&& props, bool _checkDoc
                 continue;
             }
             // Include document to get proper handling in PropertyView::slotDeleteDocument()
-            if (checkDocument && container->isDerivedFrom(App::DocumentObject::getClassTypeId())) {
+            if (checkDocument && container->isDerivedFrom<App::DocumentObject>()) {
                 propOwners.insert(static_cast<App::DocumentObject*>(container)->getDocument());
             }
             propOwners.insert(container);
         }
     }
 
-    if (autoexpand) {
-        expandAll();
+    switch (expansionMode) {
+        case ExpansionMode::DefaultExpand:
+            // take the current expansion state
+            break;
+        case ExpansionMode::AutoExpand:
+            expandAll();
+            break;
+        case ExpansionMode::AutoCollapse:
+            if (!blockCollapse) {
+                collapseAll();
+            }
+            blockCollapse = false;
+            break;
     }
 }
 
@@ -661,6 +747,7 @@ void PropertyEditor::updateProperty(const App::Property& prop)
     if (!committing) {
         propertyModel->updateProperty(prop);
     }
+    blockCollapseAll();
 }
 
 void PropertyEditor::setEditorMode(const QModelIndex& parent, int start, int end)
@@ -677,10 +764,9 @@ void PropertyEditor::setEditorMode(const QModelIndex& parent, int start, int end
 
 void PropertyEditor::removeProperty(const App::Property& prop)
 {
-    for (PropertyModel::PropertyList::iterator it = propList.begin(); it != propList.end(); ++it) {
+    for (auto it = propList.begin(); it != propList.end(); ++it) {
         // find the given property in the list and remove it if it's there
-        std::vector<App::Property*>::iterator pos =
-            std::find(it->second.begin(), it->second.end(), &prop);
+        auto pos = std::ranges::find(it->second, &prop);
         if (pos != it->second.end()) {
             it->second.erase(pos);
             // if the last property of this name is removed then also remove the whole group
@@ -691,34 +777,213 @@ void PropertyEditor::removeProperty(const App::Property& prop)
             break;
         }
     }
+    blockCollapseAll();
+}
+
+void PropertyEditor::renameProperty(const App::Property& prop)
+{
+    for (auto& it : propList) {
+        // find the given property in the list and rename it if it's there
+        auto pos = std::ranges::find(it.second, &prop);
+        if (pos != it.second.end()) {
+            propertyModel->renameProperty(prop);
+            break;
+        }
+    }
+    blockCollapseAll();
+}
+
+static bool movePossible(const App::SubObjectT& subObj, const App::Property* prop)
+{
+    App::DocumentObject* obj = subObj.getSubObject();
+    if (obj == nullptr) {
+        return false;
+    }
+    if (obj->getPropertyByName(prop->getName())) {
+        FC_ERR(obj->getFullName() << " already has property " << prop->getName());
+        return false;
+    }
+    return true;
+}
+
+static App::Document* propertyDocument(App::PropertyContainer* cont)
+{
+    if (auto* doc = freecad_cast<App::Document*>(cont)) {
+        return doc;
+    }
+    if (auto* docObj = freecad_cast<App::DocumentObject*>(cont)) {
+        return docObj->getDocument();
+    }
+    if (auto* vp = freecad_cast<Gui::ViewProviderDocumentObject*>(cont)) {
+        return vp->getDocument()->getDocument();
+    }
+    return nullptr;
+}
+
+static void moveProperties(std::unordered_set<App::Property*>& props, QList<App::SubObjectT>& subObjects)
+{
+    if (subObjects.empty() || props.empty()) {
+        return;
+    }
+
+    for (auto& prop : props) {
+        if (std::ranges::any_of(subObjects, [&prop](const App::SubObjectT& subObj) {
+                return !movePossible(subObj, prop);
+            })) {
+            return;
+        }
+    }
+
+    int tid = 0;
+    for (auto& prop : props) {
+        auto* obj = freecad_cast<App::DocumentObject*>(prop->getContainer());
+        if (!obj) {
+            FC_ERR(
+                "Cannot move property " << prop->getName()
+                                        << " because its container is not a DocumentObject"
+            );
+            continue;
+        }
+        if (App::Document* doc = propertyDocument(prop->getContainer())) {
+            tid = doc->openTransaction("Move Property");
+        }
+        obj->moveDynamicProperty(prop, subObjects[0].getObject());
+    }
+    App::GetApplication().commitTransaction(tid);
 }
 
 enum MenuAction
 {
+    MA_AutoCollapse,
     MA_AutoExpand,
+    MA_ExpandToDefault,
+    MA_DefaultExpand,
+    MA_CollapseAll,
+    MA_ExpandAll,
     MA_ShowHidden,
     MA_Expression,
     MA_RemoveProp,
+    MA_RenameProp,
     MA_AddProp,
+    MA_MoveProp,
+    MA_EditPropTooltip,
     MA_EditPropGroup,
+    MA_ShowPropUses,
     MA_Transient,
     MA_Output,
+    MA_Input,
     MA_NoRecompute,
     MA_ReadOnly,
     MA_Hidden,
     MA_Touched,
     MA_EvalOnRestore,
     MA_CopyOnChange,
+    MA_Copy,
 };
 
-void PropertyEditor::contextMenuEvent(QContextMenuEvent*)
+void PropertyEditor::setFirstLevelExpanded(bool doExpand)
 {
-    QMenu menu;
-    QAction* autoExpand = nullptr;
+    if (!propertyModel) {
+        return;
+    }
 
-    auto contextIndex = currentIndex();
+    std::function<void(const QModelIndex&, bool)> setExpanded = [&](const QModelIndex& index,
+                                                                    bool doExpand) {
+        if (!index.isValid()) {
+            return;
+        }
 
-    // acquiring the selected properties
+        auto* item = static_cast<PropertyItem*>(index.internalPointer());
+        if (!item || item->childCount() <= 0) {
+            return;
+        }
+
+        if (doExpand) {
+            expand(index);
+        }
+        else {
+            collapse(index);
+        }
+
+        for (int row = 0; row < propertyModel->rowCount(index); ++row) {
+            setExpanded(propertyModel->index(row, 0, index), false);
+        }
+    };
+
+    const QModelIndex root = QModelIndex();
+    for (int row = 0; row < propertyModel->rowCount(root); ++row) {
+        setExpanded(propertyModel->index(row, 0, root), doExpand);
+    }
+}
+
+void PropertyEditor::expandToDefault()
+{
+    setFirstLevelExpanded(true);
+}
+
+void PropertyEditor::collapseAll()
+{
+    setFirstLevelExpanded(false);
+}
+
+QMenu* PropertyEditor::setupExpansionSubmenu(QWidget* parent)
+{
+    auto* expandMenu = new QMenu(tr("Expand/Collapse Properties"), parent);
+
+    QAction* expandToDefault = expandMenu->addAction(tr("Expand to Default"));
+    expandToDefault->setData(QVariant(MA_ExpandToDefault));
+    QAction* expandAll = expandMenu->addAction(tr("Expand All"));
+    expandAll->setData(QVariant(MA_ExpandAll));
+    QAction* collapseAll = expandMenu->addAction(tr("Collapse All"));
+    collapseAll->setData(QVariant(MA_CollapseAll));
+
+    auto* group = new QActionGroup(expandMenu);
+    group->setExclusive(true);
+
+    QAction* defaultExpand = expandMenu->addAction(tr("Default Expand"));
+    defaultExpand->setData(QVariant(MA_DefaultExpand));
+
+    QAction* autoExpand = expandMenu->addAction(tr("Auto Expand"));
+    autoExpand->setData(QVariant(MA_AutoExpand));
+
+    QAction* autoCollapse = expandMenu->addAction(tr("Auto Collapse"));
+    autoCollapse->setData(QVariant(MA_AutoCollapse));
+
+    for (QAction* action : {defaultExpand, autoExpand, autoCollapse}) {
+        action->setCheckable(true);
+        group->addAction(action);
+    }
+
+    switch (expansionMode) {
+        case ExpansionMode::DefaultExpand:
+            defaultExpand->setChecked(true);
+            break;
+        case ExpansionMode::AutoExpand:
+            autoExpand->setChecked(true);
+            break;
+        case ExpansionMode::AutoCollapse:
+            autoCollapse->setChecked(true);
+            break;
+    }
+
+    return expandMenu;
+}
+
+static App::PropertyContainer* getSelectedPropertyContainer()
+{
+    auto sels = Gui::Selection().getSelection("*");
+    if (sels.size() == 1) {
+        return sels[0].pObject;
+    }
+    std::vector<Gui::Document*> docs = Gui::TreeWidget::getSelectedDocuments();
+    if (docs.size() == 1) {
+        return docs[0]->getDocument();
+    }
+    return nullptr;
+}
+
+std::unordered_set<App::Property*> PropertyEditor::acquireSelectedProperties() const
+{
     std::unordered_set<App::Property*> props;
     const auto indexes = selectedIndexes();
     for (const auto& index : indexes) {
@@ -733,15 +998,190 @@ void PropertyEditor::contextMenuEvent(QContextMenuEvent*)
                 break;
             }
         }
+        if (index.column() > 0) {
+            continue;
+        }
+    }
+    return props;
+}
+
+void PropertyEditor::removeProperties(const std::unordered_set<App::Property*>& props)
+{
+    int tid = 0;
+    for (auto prop : props) {
+        try {
+            if (App::Document* doc = propertyDocument(prop->getContainer())) {
+                tid = doc->openTransaction("Remove property");
+            }
+            prop->getContainer()->removeDynamicProperty(prop->getName());
+        }
+        catch (Base::Exception& e) {
+            App::GetApplication().abortTransaction(tid);
+            e.reportException();
+        }
+    }
+    App::GetApplication().commitTransaction(tid);
+}
+
+static inline std::string indent(int level)
+{
+    return std::string(2 * level, ' ');
+}
+
+void PropertyEditor::getPropUsesObj(
+    int level,
+    const App::DocumentObject* obj,
+    const std::set<App::ObjectIdentifier>& ids,
+    QString& content
+) const
+{
+    content += indent(level);
+    content += tr("object %1 (%2):\n")
+                   .arg(QString::fromUtf8(obj->getNameInDocument()))
+                   .arg(QString::fromUtf8(obj->Label.getValue()));
+
+
+    for (const auto& id : ids) {
+        content += indent(level + 1);
+        content += tr("property %1\n").arg(QString::fromStdString(id.toString()));
+    }
+}
+
+void PropertyEditor::getPropUsesDoc(
+    int level,
+    const App::Document* doc,
+    const std::set<App::ObjectIdentifier>& ids,
+    QString& content
+) const
+{
+    content += indent(level);
+    content += tr("document %1:\n").arg(QString::fromUtf8(doc->getName()));
+
+    std::map<App::DocumentObject*, std::set<App::ObjectIdentifier>> objToIds;
+    for (const auto& id : ids) {
+        if (auto obj = id.getDocumentObject()) {
+            objToIds[obj].insert(id);
+        }
+    }
+
+
+    for (const auto& [obj, objIds] : objToIds) {
+        getPropUsesObj(level + 1, obj, objIds, content);
+    }
+}
+
+QString PropertyEditor::getPropUses(App::Property* prop) const
+{
+    QString content;
+
+    std::set<App::ObjectIdentifier> uses = App::DocumentObject::getPropertyUses(prop);
+    auto* obj = freecad_cast<App::DocumentObject*>(prop->getContainer());
+    if (obj == nullptr) {
+        return content;
+    }
+
+    content += tr("The property %1 in object %2 (%3) in document %4 is referenced by:")
+                   .arg(QString::fromUtf8(prop->getName()))
+                   .arg(QString::fromUtf8(obj->getNameInDocument()))
+                   .arg(QString::fromUtf8(obj->Label.getValue()))
+                   .arg(QString::fromUtf8(obj->getDocument()->getName()));
+    content += "\n";
+
+    std::map<App::Document*, std::set<App::ObjectIdentifier>> docToIds;
+    for (const auto& id : uses) {
+        if (auto doc = id.getDocument()) {
+            docToIds[doc].insert(id);
+        }
+    }
+
+    if (docToIds.empty()) {
+        content += indent(1);
+        content += tr("(No references found.)");
+        return content;
+    }
+
+    for (const auto& [doc, objs] : docToIds) {
+        getPropUsesDoc(1, doc, objs, content);
+    }
+
+    return content;
+}
+
+constexpr int WidthPropUsesDialog = 800;
+constexpr int HeightPropUsesDialog = 600;
+
+void PropertyEditor::reportPropUses(App::Property* prop) const
+{
+    auto* dialog = new QDialog(Gui::getMainWindow());
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowTitle(tr("Property Uses"));
+    dialog->resize(WidthPropUsesDialog, HeightPropUsesDialog);
+
+    auto* layout = new QVBoxLayout(dialog);
+
+    auto* textBrowser = new QTextBrowser(dialog);
+    textBrowser->setReadOnly(true);
+    textBrowser->setPlainText(getPropUses(prop));
+
+    auto* buttonBox = new QDialogButtonBox(QDialogButtonBox::Close, dialog);
+    QObject::connect(buttonBox, &QDialogButtonBox::rejected, dialog, &QDialog::close);
+
+    layout->addWidget(textBrowser);
+    layout->addWidget(buttonBox);
+    dialog->setLayout(layout);
+    dialog->show();
+}
+
+void PropertyEditor::contextMenuEvent(QContextMenuEvent*)
+{
+    QMenu menu;
+    menu.setToolTipsVisible(true);
+    auto contextIndex = currentIndex();
+
+    std::unordered_set<App::Property*> props = acquireSelectedProperties();
+
+    // copy value to clipboard
+    if (props.size() == 1) {
+        const QVariant valueToCopy = contextIndex.data(Qt::DisplayRole);
+        if (valueToCopy.isValid()) {
+            QAction* copyAction = menu.addAction(tr("Copy"));
+            copyAction->setData(QVariant(MA_Copy));
+            menu.addSeparator();
+        }
     }
 
     // add property
-    menu.addAction(tr("Add property"))->setData(QVariant(MA_AddProp));
+    if (getSelectedPropertyContainer()) {
+        menu.addAction(tr("Add Property"))->setData(QVariant(MA_AddProp));
+    }
+
+    // rename property group
     if (!props.empty() && std::all_of(props.begin(), props.end(), [](auto prop) {
-            return prop->testStatus(App::Property::PropDynamic)
-                && !boost::starts_with(prop->getName(), prop->getGroup());
+            return prop->testStatus(App::Property::PropDynamic);
         })) {
-        menu.addAction(tr("Rename property group"))->setData(QVariant(MA_EditPropGroup));
+        QAction* renameGroupAction = menu.addAction(tr("Rename Property Group"));
+        renameGroupAction->setData(QVariant(MA_EditPropGroup));
+
+        // Check if any property name starts with its group name
+        bool hasGroupPrefix = std::any_of(props.begin(), props.end(), [](auto prop) {
+            return boost::starts_with(prop->getName(), prop->getGroup());
+        });
+
+        if (hasGroupPrefix) {
+            renameGroupAction->setEnabled(false);
+            renameGroupAction
+                ->setToolTip(tr("Cannot rename group: one or more properties have names that start with the group name"));
+        }
+    }
+
+    // rename property
+    if (props.size() == 1) {
+        auto prop = *props.begin();
+        if (prop->testStatus(App::Property::PropDynamic)
+            && !prop->testStatus(App::Property::LockDynamic)) {
+            menu.addAction(tr("Rename Property"))->setData(QVariant(MA_RenameProp));
+            menu.addAction(tr("Edit Property Tooltip"))->setData(QVariant(MA_EditPropTooltip));
+        }
     }
 
     // remove property
@@ -757,35 +1197,49 @@ void PropertyEditor::contextMenuEvent(QContextMenuEvent*)
         }
     }
     if (canRemove) {
-        menu.addAction(tr("Remove property"))->setData(QVariant(MA_RemoveProp));
+        menu.addAction(tr("Delete Property"))->setData(QVariant(MA_RemoveProp));
+    }
+
+    // show property uses
+    if (props.size() == 1 && App::DocumentObject::canPropBeReferenced(*props.begin())) {
+        menu.addAction(tr("Property Uses"))->setData(QVariant(MA_ShowPropUses));
+    }
+
+    auto canBeMoved = [](const App::Property* prop) {
+        auto* obj = freecad_cast<App::DocumentObject*>(prop->getContainer());
+        return obj && prop->testStatus(App::Property::PropDynamic)
+            && !prop->testStatus(App::Property::LockDynamic);
+    };
+
+    if (props.size() > 0 && std::ranges::all_of(props, canBeMoved)) {
+        menu.addAction(tr("Move Property"))->setData(QVariant(MA_MoveProp));
     }
 
     // add a separator between adding/removing properties and the rest
     menu.addSeparator();
 
+    QMenu* expandMenu = setupExpansionSubmenu(&menu);
+    menu.addMenu(expandMenu);
+
     // show all
-    QAction* showHidden = menu.addAction(tr("Show hidden"));
+    QAction* showHidden = menu.addAction(tr("Show Hidden"));
     showHidden->setCheckable(true);
     showHidden->setChecked(PropertyView::showAll());
     showHidden->setData(QVariant(MA_ShowHidden));
 
-    // auto expand
-    autoExpand = menu.addAction(tr("Auto expand"));
-    autoExpand->setCheckable(true);
-    autoExpand->setChecked(autoexpand);
-    autoExpand->setData(QVariant(MA_AutoExpand));
+    menu.addSeparator();
 
     // expression
     if (props.size() == 1) {
         auto item = static_cast<PropertyItem*>(contextIndex.internalPointer());
         auto prop = *props.begin();
-        if (item->isBound() && !prop->isDerivedFrom(App::PropertyExpressionEngine::getClassTypeId())
+        if (item->isBound() && !prop->isDerivedFrom<App::PropertyExpressionEngine>()
             && !prop->isReadOnly() && !prop->testStatus(App::Property::Immutable)
             && !(prop->getType() & App::Prop_ReadOnly)) {
             contextIndex = propertyModel->buddy(contextIndex);
             setCurrentIndex(contextIndex);
             // menu.addSeparator();
-            menu.addAction(tr("Expression..."))->setData(QVariant(MA_Expression));
+            menu.addAction(tr("Expression"))->setData(QVariant(MA_Expression));
         }
     }
 
@@ -794,30 +1248,31 @@ void PropertyEditor::contextMenuEvent(QContextMenuEvent*)
         menu.addSeparator();
 
         // the subMenu is allocated on the heap but managed by menu.
-        auto subMenu = new QMenu(QString::fromLatin1("Status"), &menu);
+        auto subMenu = new QMenu(QStringLiteral("Status"), &menu);
 
         QAction* action;
         QString text;
-#define _ACTION_SETUP(_name)                                                                       \
-    do {                                                                                           \
-        text = tr(#_name);                                                                         \
-        action = subMenu->addAction(text);                                                         \
-        action->setData(QVariant(MA_##_name));                                                     \
-        action->setCheckable(true);                                                                \
-        if (propStatus & (1 << App::Property::_name))                                              \
-            action->setChecked(true);                                                              \
+#define _ACTION_SETUP(_name) \
+    do { \
+        text = tr(#_name); \
+        action = subMenu->addAction(text); \
+        action->setData(QVariant(MA_##_name)); \
+        action->setCheckable(true); \
+        if (propStatus & (1 << App::Property::_name)) \
+            action->setChecked(true); \
     } while (0)
-#define ACTION_SETUP(_name)                                                                        \
-    do {                                                                                           \
-        _ACTION_SETUP(_name);                                                                      \
-        if (propType & App::Prop_##_name) {                                                        \
-            action->setText(text + QString::fromLatin1(" *"));                                     \
-            action->setChecked(true);                                                              \
-        }                                                                                          \
+#define ACTION_SETUP(_name) \
+    do { \
+        _ACTION_SETUP(_name); \
+        if (propType & App::Prop_##_name) { \
+            action->setText(text + QStringLiteral(" *")); \
+            action->setChecked(true); \
+        } \
     } while (0)
 
         ACTION_SETUP(Hidden);
         ACTION_SETUP(Output);
+        ACTION_SETUP(Input);
         ACTION_SETUP(NoRecompute);
         ACTION_SETUP(ReadOnly);
         ACTION_SETUP(Transient);
@@ -834,28 +1289,49 @@ void PropertyEditor::contextMenuEvent(QContextMenuEvent*)
     }
 
     switch (action->data().toInt()) {
+        case MA_ExpandToDefault:
+            expandToDefault();
+            return;
+        case MA_CollapseAll:
+            collapseAll();
+            return;
+        case MA_ExpandAll:
+            expandAll();
+            return;
+        case MA_DefaultExpand:
+            action->setChecked(true);
+            expansionMode = ExpansionMode::DefaultExpand;
+            return;
+        case MA_AutoCollapse:
+            action->setChecked(true);
+            expansionMode = ExpansionMode::AutoCollapse;
+            collapseAll();
+            return;
         case MA_AutoExpand:
-            if (autoExpand) {
-                // Variable autoExpand should not be null when we arrive here, but
-                // since we explicitly initialize the variable to nullptr, a check
-                // nonetheless.
-                autoexpand = autoExpand->isChecked();
-                if (autoexpand) {
-                    expandAll();
-                }
-            }
+            action->setChecked(true);
+            expansionMode = ExpansionMode::AutoExpand;
+            expandAll();
             return;
         case MA_ShowHidden:
             PropertyView::setShowAll(action->isChecked());
             return;
-#define ACTION_CHECK(_name)                                                                        \
-    case MA_##_name:                                                                               \
-        for (auto prop : props)                                                                    \
-            prop->setStatus(App::Property::_name, action->isChecked());                            \
+        case MA_Copy: {
+            const QVariant valueToCopy = contextIndex.data(Qt::DisplayRole);
+            if (valueToCopy.isValid()) {
+                auto* clipboard = QApplication::clipboard();
+                clipboard->setText(valueToCopy.toString());
+            }
+            return;
+        }
+#define ACTION_CHECK(_name) \
+    case MA_##_name: \
+        for (auto prop : props) \
+            prop->setStatus(App::Property::_name, action->isChecked()); \
         break
             ACTION_CHECK(Transient);
             ACTION_CHECK(ReadOnly);
             ACTION_CHECK(Output);
+            ACTION_CHECK(Input);
             ACTION_CHECK(Hidden);
             ACTION_CHECK(EvalOnRestore);
             ACTION_CHECK(CopyOnChange);
@@ -877,20 +1353,85 @@ void PropertyEditor::contextMenuEvent(QContextMenuEvent*)
             }
             break;
         case MA_AddProp: {
-            App::AutoTransaction committer("Add property");
-            std::unordered_set<App::PropertyContainer*> containers;
-            auto sels = Gui::Selection().getSelection("*");
-            if (sels.size() == 1) {
-                containers.insert(sels[0].pObject);
+            App::PropertyContainer* container = getSelectedPropertyContainer();
+            if (!container) {
+                return;
             }
-            else {
-                for (auto prop : props) {
-                    containers.insert(prop->getContainer());
-                }
+            int tid = 0;
+            if (App::Document* doc = propertyDocument(container)) {
+                tid = doc->openTransaction("Add property");
             }
-            Gui::Dialog::DlgAddProperty dlg(Gui::getMainWindow(), std::move(containers));
+            Gui::Dialog::DlgAddProperty dlg(Gui::getMainWindow(), container);
             dlg.exec();
+
+            App::GetApplication().commitTransaction(tid);
             return;
+        }
+        case MA_EditPropTooltip: {
+            if (props.size() != 1) {
+                break;
+            }
+
+            App::Property* prop = *props.begin();
+            if (!prop->testStatus(App::Property::PropDynamic)
+                || prop->testStatus(App::Property::LockDynamic)) {
+                break;
+            }
+
+            bool ok = false;
+            const QString currentTooltip = QString::fromUtf8(prop->getDocumentation());
+            QString newTooltip = QInputDialog::getMultiLineText(
+                Gui::getMainWindow(),
+                tr("Edit Property Tooltip"),
+                tr("Tooltip"),
+                currentTooltip,
+                &ok
+            );
+            if (!ok || newTooltip == currentTooltip) {
+                break;
+            }
+
+            prop->getContainer()
+                ->changeDynamicProperty(prop, prop->getGroup(), newTooltip.toUtf8().constData());
+            break;
+        }
+        case MA_RenameProp: {
+            if (props.size() != 1) {
+                break;
+            }
+
+            App::Property* prop = *props.begin();
+            if (!prop->testStatus(App::Property::PropDynamic)
+                || prop->testStatus(App::Property::LockDynamic)) {
+                break;
+            }
+            int tid = 0;
+            if (App::Document* doc = propertyDocument(prop->getContainer())) {
+                tid = doc->openTransaction("Rename property");
+            }
+            const char* oldName = prop->getName();
+            QString res = QInputDialog::getText(
+                Gui::getMainWindow(),
+                tr("Rename Property"),
+                tr("Property name"),
+                QLineEdit::Normal,
+                QString::fromUtf8(oldName)
+            );
+            if (res.isEmpty()) {
+                break;
+            }
+
+            std::string newName = res.toUtf8().constData();
+            try {
+                prop->getContainer()->renameDynamicProperty(prop, newName.c_str());
+            }
+            catch (Base::Exception& e) {
+                App::GetApplication().abortTransaction(tid);
+                e.reportException();
+                break;
+            }
+            App::GetApplication().commitTransaction(tid);
+            break;
         }
         case MA_EditPropGroup: {
             // This operation is not undoable yet.
@@ -898,12 +1439,49 @@ void PropertyEditor::contextMenuEvent(QContextMenuEvent*)
             if (!groupName) {
                 groupName = "Base";
             }
-            QString res = QInputDialog::getText(Gui::getMainWindow(),
-                                                tr("Rename property group"),
-                                                tr("Group name:"),
-                                                QLineEdit::Normal,
-                                                QString::fromUtf8(groupName));
-            if (res.size()) {
+
+            QInputDialog dialog(Gui::getMainWindow());
+            dialog.setInputMode(QInputDialog::TextInput);
+            dialog.setWindowTitle(tr("Rename Property Group"));
+            dialog.setLabelText(tr("Group name:"));
+            dialog.setTextValue(QString::fromUtf8(groupName));
+
+            if (auto* lineEdit = dialog.findChild<QLineEdit*>()) {
+                QStringList groups;
+                if (auto* container = (*props.begin())->getContainer()) {
+                    std::vector<App::Property*> properties;
+                    container->getPropertyList(properties);
+                    for (auto* property : properties) {
+                        const char* group = property ? property->getGroup() : nullptr;
+                        if (!group || !*group) {
+                            continue;
+                        }
+                        const QString groupName = QString::fromUtf8(group);
+                        if (!groups.contains(groupName)) {
+                            groups.push_back(groupName);
+                        }
+                    }
+                }
+                if (!groups.isEmpty()) {
+                    auto* completer = new QCompleter(groups, lineEdit);
+                    completer->setCaseSensitivity(Qt::CaseInsensitive);
+                    completer->setCompletionMode(QCompleter::PopupCompletion);
+                    lineEdit->setCompleter(completer);
+                    connect(
+                        completer,
+                        qOverload<const QString&>(&QCompleter::activated),
+                        &dialog,
+                        &QDialog::accept,
+                        Qt::QueuedConnection
+                    );
+                }
+            }
+
+            if (dialog.exec() == QDialog::Accepted) {
+                QString res = dialog.textValue().trimmed();
+                if (res.isEmpty()) {
+                    return;
+                }
                 std::string group = res.toUtf8().constData();
                 for (auto prop : props) {
                     prop->getContainer()->changeDynamicProperty(prop, group.c_str(), nullptr);
@@ -913,15 +1491,26 @@ void PropertyEditor::contextMenuEvent(QContextMenuEvent*)
             return;
         }
         case MA_RemoveProp: {
-            App::AutoTransaction committer("Remove property");
-            for (auto prop : props) {
-                try {
-                    prop->getContainer()->removeDynamicProperty(prop->getName());
-                }
-                catch (Base::Exception& e) {
-                    e.ReportException();
-                }
+            removeProperties(props);
+            break;
+        }
+        case MA_ShowPropUses: {
+            if (props.size() != 1) {
+                break;
             }
+            reportPropUses(*props.begin());
+            break;
+        }
+        case MA_MoveProp: {
+            Gui::Dialog::DlgDocumentObject dlg(Gui::getMainWindow());
+            App::Property* prop = *props.begin();
+            auto* obj = freecad_cast<App::DocumentObject*>(prop->getContainer());
+            dlg.init(obj);
+            if (dlg.exec() == QDialog::Rejected) {
+                break;
+            }
+            QList<App::SubObjectT> subObjects = dlg.currentSubObjects();
+            moveProperties(props, subObjects);
             break;
         }
         default:
@@ -943,7 +1532,8 @@ bool PropertyEditor::eventFilter(QObject* object, QEvent* event)
                     // using minimal size = dragSensibility * 2 to prevent collapsing
                     header_view->resizeSection(
                         dragSection,
-                        qMax(dragSensibility * 2, header_view->sectionSize(dragSection) + delta));
+                        qMax(dragSensibility * 2, header_view->sectionSize(dragSection) + delta)
+                    );
                     return true;
                 }
                 else {  // set mouse cursor shape
@@ -955,8 +1545,10 @@ bool PropertyEditor::eventFilter(QObject* object, QEvent* event)
                     }
                 }
             }
-            else if (mouse_event->type() == QEvent::MouseButtonPress
-                     && mouse_event->button() == Qt::LeftButton && !dragInProgress) {
+            else if (
+                mouse_event->type() == QEvent::MouseButtonPress
+                && mouse_event->button() == Qt::LeftButton && !dragInProgress
+            ) {
                 if (indexResizable(mouse_event->pos()).isValid()) {
                     dragInProgress = true;
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -968,12 +1560,15 @@ bool PropertyEditor::eventFilter(QObject* object, QEvent* event)
                     return true;
                 }
             }
-            else if (mouse_event->type() == QEvent::MouseButtonRelease
-                     && mouse_event->button() == Qt::LeftButton && dragInProgress) {
+            else if (
+                mouse_event->type() == QEvent::MouseButtonRelease
+                && mouse_event->button() == Qt::LeftButton && dragInProgress
+            ) {
                 dragInProgress = false;
 
                 auto hGrp = App::GetApplication().GetParameterGroupByPath(
-                    "User parameter:BaseApp/Preferences/DockWindows/PropertyView");
+                    "User parameter:BaseApp/Preferences/DockWindows/PropertyView"
+                );
                 hGrp->SetInt("FirstColumnSize", header()->sectionSize(0));
                 return true;
             }

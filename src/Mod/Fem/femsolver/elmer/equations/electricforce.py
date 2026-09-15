@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2020 Wilfried Hortschitz  <w.hortschitz@gmail.com>      *
 # *                                                                         *
@@ -54,6 +56,7 @@ class Proxy(linear.Proxy, equationbase.ElectricforceProxy):
                 "That solver is only executed after solution converged\n"
                 "To execute always, change to 'Always'"
             ),
+            locked=True,
         )
 
         obj.ExecSolver = SOLVER_EXEC_METHODS

@@ -1,23 +1,24 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2018 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
@@ -25,13 +26,16 @@ from __future__ import print_function
 
 """The BIM library tool"""
 
-import sys
 import os
+import sys
+import tempfile
+
 import FreeCAD
 import FreeCADGui
 
 QT_TRANSLATE_NOOP = FreeCAD.Qt.QT_TRANSLATE_NOOP
 translate = FreeCAD.Qt.translate
+
 PARAMS = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM")
 
 FILTERS = [
@@ -57,9 +61,7 @@ LIBRARYURL = "https://github.com/FreeCAD/FreeCAD-library/tree/master"
 RAWURL = LIBRARYURL.replace("/tree", "/raw")
 LIBINDEXFILE = "OfflineLibrary.py"
 USE_API = True  # True to use github API instead of web fetching... Way faster
-REFRESH_INTERVAL = (
-    3600  # Min seconds between allowing a new API calls (3600 = one hour)
-)
+REFRESH_INTERVAL = 3600  # Min seconds between allowing a new API calls (3600 = one hour)
 
 
 # TODO as https://github.com/yorikvanhavre/BIM_Workbench/pull/77
@@ -81,7 +83,7 @@ class BIM_Library:
     def GetResources(self):
         return {
             "Pixmap": "BIM_Library",
-            "MenuText": QT_TRANSLATE_NOOP("BIM_Library", "Objects library"),
+            "MenuText": QT_TRANSLATE_NOOP("BIM_Library", "Objects Library"),
             "ToolTip": QT_TRANSLATE_NOOP("BIM_Library", "Opens the objects library"),
         }
 
@@ -101,23 +103,26 @@ class BIM_Library:
                 # save file paths with forward slashes even on windows
                 pr.SetString("destination", addondir.replace("\\", "/"))
                 libok = True
-        FreeCADGui.Control.showDialog(BIM_Library_TaskPanel(offlinemode=libok))
+        panel = BIM_Library_TaskPanel(offlinemode=libok)
+        task = FreeCADGui.Control.showDialog(panel)
+        task.setDocumentName(panel.mainDocName)
+        task.setAutoCloseOnDeletedDocument(True)
 
 
 class BIM_Library_TaskPanel:
 
     def __init__(self, offlinemode=False):
 
-        from PySide import QtCore, QtGui
+        from PySide import QtGui
 
         self.mainDocName = FreeCAD.Gui.ActiveDocument.Document.Name
         self.previewDocName = "Viewer"
 
         self.linked = False
 
-        self.librarypath = FreeCAD.ParamGet(
-            "User parameter:Plugins/parts_library"
-        ).GetString("destination", "")
+        self.librarypath = FreeCAD.ParamGet("User parameter:Plugins/parts_library").GetString(
+            "destination", ""
+        )
         self.form = FreeCADGui.PySideUic.loadUi(":/ui/dialogLibrary.ui")
         self.form.setWindowIcon(QtGui.QIcon(":/icons/BIM_Library.svg"))
 
@@ -165,18 +170,14 @@ class BIM_Library_TaskPanel:
             ],
         }
         for k, v in sites.items():
-            self.form.comboSearch.addItem(QtGui.QIcon(":/icons/"+v[0]), k, v[1])
+            self.form.comboSearch.addItem(QtGui.QIcon(":/icons/" + v[0]), k, v[1])
         self.form.comboSearch.currentIndexChanged.connect(self.onExternalSearch)
 
         # retrieve preferences
         self.form.checkOnline.toggled.connect(self.onCheckOnline)
-        self.form.checkOnline.setChecked(
-            PARAMS.GetBool("LibraryOnline", not offlinemode)
-        )
+        self.form.checkOnline.setChecked(PARAMS.GetBool("LibraryOnline", not offlinemode))
         self.form.checkFCStdOnly.toggled.connect(self.onCheckFCStdOnly)
         self.form.checkFCStdOnly.setChecked(PARAMS.GetBool("LibraryFCStdOnly", False))
-        self.form.checkWebSearch.toggled.connect(self.onCheckWebSearch)
-        self.form.checkWebSearch.setChecked(PARAMS.GetBool("LibraryWebSearch", False))
         self.form.check3DPreview.toggled.connect(self.onCheck3DPreview)
         self.form.check3DPreview.setChecked(PARAMS.GetBool("3DPreview", False))
 
@@ -225,7 +226,7 @@ class BIM_Library_TaskPanel:
         else:
             path = self.filemodel.itemFromIndex(index).toolTip()
         if path.startswith(":github"):
-            path = RAWURL + "/" + path[7:]
+            path = RAWURL + path[7:]
         thumb = self.getThumbnail(path)
         if thumb:
             px = QtGui.QPixmap(thumb)
@@ -266,10 +267,10 @@ class BIM_Library_TaskPanel:
                         FreeCAD.newDocument(self.previewDocName)
                         FreeCAD.setActiveDocument(self.previewDocName)
                         Part.show(Part.read(self.path))
-                        FreeCADGui.SendMsgToActiveView("ViewFit")
+                        FreeCADGui.ActiveDocument.ActiveView.sendMessage("ViewFit")
                     elif self.path.lower().endswith(".fcstd"):
                         openedDoc = FreeCAD.openDocument(self.path)
-                        FreeCADGui.SendMsgToActiveView("ViewFit")
+                        FreeCADGui.ActiveDocument.ActiveView.sendMessage("ViewFit")
                         self.previewDocName = FreeCAD.ActiveDocument.Name
                         thumbnailSave = PARAMS.GetBool("SaveThumbnails", False)
                         if thumbnailSave == True:
@@ -302,7 +303,9 @@ class BIM_Library_TaskPanel:
         try:
             # check if the working document is saved
             if FreeCAD.getDocument(self.mainDocName).FileName == "":
-                FreeCAD.Console.PrintWarning(translate("BIM","Please save the working file before linking.")+"\n")
+                FreeCAD.Console.PrintWarning(
+                    translate("BIM", "Save the working file before linking.") + "\n"
+                )
             else:
                 self.previewOn = PARAMS.GetBool("3DPreview", False)
                 self.linked = True
@@ -340,17 +343,19 @@ class BIM_Library_TaskPanel:
                     return self.linked
         except:
             FreeCAD.Console.PrintWarning(
-                translate("BIM","It is not possible to link because the main document is closed.")+"\n")
+                translate("BIM", "It is not possible to link because the main document is closed.")
+                + "\n"
+            )
 
     def addtolibrary(self):
         # DISABLED
 
-        import Part, Mesh, os
+        import os
+        import Mesh
+        import Part
 
-        self.fileDialog = QtGui.QFileDialog.getSaveFileName(
-            None, "Save As", self.librarypath
-        )
-        #print(self.fileDialog[0])
+        self.fileDialog = QtGui.QFileDialog.getSaveFileName(None, "Save As", self.librarypath)
+        # print(self.fileDialog[0])
         # check if file saving has been canceled and save .fcstd, .step and .stl copies
         if self.fileDialog[0] != "":
             # remove the file extension from the file path
@@ -380,28 +385,32 @@ class BIM_Library_TaskPanel:
 
     def setSearchModel(self, text):
 
-        import PartGui
         from PySide import QtGui
+
+        def add_line(f, dp, sep):
+            if self.isAllowed(f) and (text.lower() in f.lower()):
+                it = QtGui.QStandardItem(f)
+                it.setToolTip(dp.rstrip(sep) + sep + f.lstrip(sep))
+                self.filemodel.appendRow(it)
+                if f.lower().endswith(".fcstd"):
+                    it.setIcon(QtGui.QIcon(":icons/freecad-doc.png"))
+                elif f.lower().endswith(".ifc"):
+                    it.setIcon(QtGui.QIcon(":/icons/IFC.svg"))
+                else:
+                    it.setIcon(QtGui.QIcon(":/icons/Part_document.svg"))
 
         self.form.tree.setModel(self.filemodel)
         self.filemodel.clear()
         if self.form.checkOnline.isChecked():
             res = self.getOfflineLib(structured=True)
+            for i in range(len(res[0])):
+                add_line(res[0][i], res[2][i], "/")
         else:
             res = os.walk(self.librarypath)
-        for dp, dn, fn in res:
-            for f in fn:
-                if self.isAllowed(f) and (text.lower() in f.lower()):
+            for dp, dn, fn in res:
+                for f in fn:
                     if not os.path.isdir(os.path.join(dp, f)):
-                        it = QtGui.QStandardItem(f)
-                        it.setToolTip(os.path.join(dp, f))
-                        self.filemodel.appendRow(it)
-                        if f.endswith(".fcstd"):
-                            it.setIcon(QtGui.QIcon(":icons/freecad-doc.png"))
-                        elif f.endswith(".ifc"):
-                            it.setIcon(QtGui.QIcon(":/icons/IFC.svg"))
-                        else:
-                            it.setIcon(QtGui.QIcon(":/icons/Part_document.svg"))
+                        add_line(f, dp, os.path.sep)
         self.modelmode = 0
 
     def getFilters(self):
@@ -440,7 +449,6 @@ class BIM_Library_TaskPanel:
     def setOnlineModel(self):
 
         from PySide import QtGui
-        import PartGui
 
         def addItems(root, d, path):
             for k, v in d.items():
@@ -450,9 +458,7 @@ class BIM_Library_TaskPanel:
                     it.setToolTip(path + "/" + k)
                     if isinstance(v, dict):
                         it.setIcon(
-                            QtGui.QIcon.fromTheme(
-                                "folder", QtGui.QIcon(":/icons/Group.svg")
-                            )
+                            QtGui.QIcon.fromTheme("folder", QtGui.QIcon(":/icons/Group.svg"))
                         )
                         addItems(it, v, path + "/" + k)
                         it.setToolTip("")
@@ -462,6 +468,7 @@ class BIM_Library_TaskPanel:
                         it.setIcon(QtGui.QIcon(":/icons/IFC.svg"))
                     else:
                         it.setIcon(QtGui.QIcon(":/icons/Part_document.svg"))
+
         self.form.tree.setModel(self.filemodel)
         self.filemodel.clear()
         d = self.getOfflineLib()
@@ -476,21 +483,21 @@ class BIM_Library_TaskPanel:
             dn = []
             dp = []
             for k, v in d.items():
-                if isinstance(v, dict):
+                if isinstance(v, dict) and v:
                     fn2, dn2, dp2 = addDir(v, root + "/" + k)
                     fn.extend(fn2)
                     dn.extend(dn2)
                     dp.extend(dp2)
-                else:
-                    fn += k
-                    dn += root
-                    dp += root + "/" + k
-            return dp, dn, fn
+                elif v:
+                    fn.append(k)
+                    dn.append(root)
+                    dp.append(root)
+            return fn, dn, dp
 
         templibfile = os.path.join(TEMPLIBPATH, LIBINDEXFILE)
         if not os.path.exists(templibfile):
             FreeCAD.Console.PrintError(
-                translate("BIM", "No structure in cache. Please refresh.") + "\n"
+                translate("BIM", "No structure in cache. Refresh required.") + "\n"
             )
             return {}
         import sys
@@ -506,7 +513,7 @@ class BIM_Library_TaskPanel:
 
     def urlencode(self, text):
 
-        #print(text, type(text))
+        # print(text, type(text))
         if sys.version_info.major < 3:
             import urllib
 
@@ -520,13 +527,7 @@ class BIM_Library_TaskPanel:
 
         from PySide import QtGui
 
-        s = PARAMS.GetBool("LibraryWebSearch", False)
-        if s:
-            import WebGui
-
-            WebGui.openBrowser(url)
-        else:
-            QtGui.QDesktopServices.openUrl(url)
+        QtGui.QDesktopServices.openUrl(url)
 
     def needsFullSpace(self):
 
@@ -543,6 +544,8 @@ class BIM_Library_TaskPanel:
         if hasattr(self, "box") and self.box:
             self.box.off()
         FreeCADGui.Control.closeDialog()
+        if self.previewDocName in FreeCAD.listDocuments():
+            FreeCAD.closeDocument(self.previewDocName)
         FreeCAD.ActiveDocument.recompute()
 
     def insert(self, index=None):
@@ -559,8 +562,6 @@ class BIM_Library_TaskPanel:
                 + "\n"
             )
             return
-        if self.previewDocName in FreeCAD.listDocuments().keys():
-            FreeCAD.closeDocument(self.previewDocName)
         if not index:
             index = self.form.tree.selectedIndexes()
             if not index:
@@ -579,17 +580,17 @@ class BIM_Library_TaskPanel:
             self.place(path)
         elif ext == ".fcstd":
             FreeCADGui.ActiveDocument.mergeProject(path)
-            from DraftGui import todo
+            from draftutils import todo
 
-            todo.delay(self.reject, None)
+            todo.ToDo.delay(self.reject, None)
         elif ext == ".ifc":
-            import importIFC
+            from importers import importIFC
 
             importIFC.ZOOMOUT = False
             importIFC.insert(path, FreeCAD.ActiveDocument.Name)
-            from DraftGui import todo
+            from draftutils import todo
 
-            todo.delay(self.reject, None)
+            todo.ToDo.delay(self.reject, None)
         elif ext in [".sat", ".sab"]:
             try:
                 # InventorLoader addon
@@ -607,9 +608,7 @@ class BIM_Library_TaskPanel:
                         + "\n"
                     )
                 else:
-                    path = CadExchangerIO.insert(
-                        path, FreeCAD.ActiveDocument.Name, returnpath=True
-                    )
+                    path = CadExchangerIO.insert(path, FreeCAD.ActiveDocument.Name, returnpath=True)
                     self.place(path)
             else:
                 path = importerIL.insert(path, FreeCAD.ActiveDocument.Name)
@@ -617,7 +616,7 @@ class BIM_Library_TaskPanel:
         for o in FreeCAD.ActiveDocument.Objects:
             if not o in before:
                 FreeCADGui.Selection.addSelection(o)
-        FreeCADGui.SendMsgToActiveView("ViewSelection")
+        FreeCADGui.ActiveDocument.ActiveView.sendMessage("ViewSelection")
 
     def download(self, url):
 
@@ -644,6 +643,7 @@ class BIM_Library_TaskPanel:
     def place(self, path):
 
         import Part
+        import WorkingPlane
 
         self.shape = Part.read(path)
         if hasattr(FreeCADGui, "Snapper"):
@@ -657,27 +657,40 @@ class BIM_Library_TaskPanel:
             self.delta = self.shape.BoundBox.Center
             self.box.move(self.delta)
             self.box.on()
-            if hasattr(FreeCAD, "DraftWorkingPlane"):
-                FreeCAD.DraftWorkingPlane.setup()
+            WorkingPlane.get_working_plane()
             self.origin = self.makeOriginWidget()
             FreeCADGui.Snapper.getPoint(
                 movecallback=self.mouseMove,
                 callback=self.mouseClick,
                 extradlg=self.origin,
+                hints=self.get_hints(),
             )
         else:
             Part.show(self.shape)
+
+    def get_hints(self):
+        "returns status bar input hints for the current tool state"
+        from draftguitools import gui_tool_utils
+
+        return (
+            [
+                FreeCADGui.InputHint(
+                    translate("BIM", "%1 pick insertion point"), FreeCADGui.UserInput.MouseLeft
+                )
+            ]
+            + gui_tool_utils._get_hint_xyz_constrain()
+            + gui_tool_utils._get_hint_mod_constrain()
+            + gui_tool_utils._get_hint_mod_snap()
+        )
 
     def makeOriginWidget(self):
 
         from PySide import QtGui
 
         w = QtGui.QWidget()
-        w.setWindowTitle(translate("BIM", "Insertion point"))
+        w.setWindowTitle(translate("BIM", "Insertion Point"))
         w.setWindowIcon(
-            QtGui.QIcon(
-                os.path.join(os.path.dirname(__file__), "icons", "BIM_Library.svg")
-            )
+            QtGui.QIcon(os.path.join(os.path.dirname(__file__), "icons", "BIM_Library.svg"))
         )
         l = QtGui.QVBoxLayout()
         w.setLayout(l)
@@ -725,17 +738,13 @@ class BIM_Library_TaskPanel:
 
     def getDelta(self):
 
-        d = FreeCAD.Vector(
-            -self.shape.BoundBox.Center.x, -self.shape.BoundBox.Center.y, 0
-        )
+        d = FreeCAD.Vector(-self.shape.BoundBox.Center.x, -self.shape.BoundBox.Center.y, 0)
         idx = self.origin.comboOrigin.currentIndex()
         if idx <= 0:
             return FreeCAD.Vector()
         elif idx == 1:
             return d.add(
-                FreeCAD.Vector(
-                    self.shape.BoundBox.XLength / 2, -self.shape.BoundBox.YLength / 2, 0
-                )
+                FreeCAD.Vector(self.shape.BoundBox.XLength / 2, -self.shape.BoundBox.YLength / 2, 0)
             )
         elif idx == 2:
             return d.add(FreeCAD.Vector(0, -self.shape.BoundBox.YLength / 2, 0))
@@ -755,61 +764,20 @@ class BIM_Library_TaskPanel:
             return d.add(FreeCAD.Vector(-self.shape.BoundBox.XLength / 2, 0, 0))
         elif idx == 7:
             return d.add(
-                FreeCAD.Vector(
-                    self.shape.BoundBox.XLength / 2, self.shape.BoundBox.YLength / 2, 0
-                )
+                FreeCAD.Vector(self.shape.BoundBox.XLength / 2, self.shape.BoundBox.YLength / 2, 0)
             )
         elif idx == 8:
             return d.add(FreeCAD.Vector(0, self.shape.BoundBox.YLength / 2, 0))
         elif idx == 9:
             return d.add(
-                FreeCAD.Vector(
-                    -self.shape.BoundBox.XLength / 2, self.shape.BoundBox.YLength / 2, 0
-                )
+                FreeCAD.Vector(-self.shape.BoundBox.XLength / 2, self.shape.BoundBox.YLength / 2, 0)
             )
-
-    def getOnlineContentsWEB(self, url):
-        """Returns a dirs,files pair representing files found from a github url. OBSOLETE"""
-
-        # obsolete code - now using getOnlineContentsAPI
-        import urllib.request
-        result = {}
-        u = urllib.request.urlopen(url)
-        if u:
-            p = u.read()
-            if sys.version_info.major >= 3:
-                p = str(p)
-            dirs = re.findall(r"<.*?octicon-file-directory.*?href.*?>(.*?)</a>", p)
-            files = re.findall(r'<.*?octicon-file".*?href.*?>(.*?)</a>', p)
-            nfiles = []
-            for f in files:
-                for ft in self.getFilters():
-                    if f.endswith(ft[1:]):
-                        nfiles.append(f)
-                        break
-            files = nfiles
-            for d in dirs:
-                # <spans>
-                if "</span" in d:
-                    d1 = re.findall(r"<span.*?>(.*?)<", d)
-                    d2 = re.findall(r"</span>(.*?)$", d)
-                    if d1 and d2:
-                        d = d1[0] + "/" + d2[0]
-                r = self.getOnlineContentsWEB(url + "/" + d.replace(" ", "%20"))
-                result[d] = r
-            for f in files:
-                result[f] = f
-        else:
-            FreeCAD.Console.PrintError(
-                translate("BIM", "Cannot open URL") + ":" + url + "\n"
-            )
-        return result
 
     def getOnlineContentsAPI(self, url):
         """same as getOnlineContents but uses github API (faster)"""
 
-        import requests
         import json
+        import requests
 
         result = {}
         count = 0
@@ -820,7 +788,7 @@ class BIM_Library_TaskPanel:
             j = json.loads(r.content)
             if j["truncated"]:
                 print(
-                    "WARNING: The fetched content exceeds maximum Github allowance and is truncated"
+                    "WARNING: The fetched content exceeds maximum GitHub allowance and is truncated"
                 )
             t = j["tree"]
             for f in t:
@@ -846,9 +814,7 @@ class BIM_Library_TaskPanel:
                     host[name] = name
                     count += 1
         else:
-            FreeCAD.Console.PrintError(
-                translate("BIM", "Could not fetch library contents") + "\n"
-            )
+            FreeCAD.Console.PrintError(translate("BIM", "Could not fetch library contents") + "\n")
         # print("result:",result)
         if not result:
             FreeCAD.Console.PrintError(
@@ -898,8 +864,6 @@ class BIM_Library_TaskPanel:
         def writeOfflineLib():
             if USE_API:
                 rootfiles = self.getOnlineContentsAPI(LIBRARYURL)
-            else:
-                rootfiles = self.getOnlineContentsWEB(LIBRARYURL)
             if rootfiles:
                 templibfile = os.path.join(TEMPLIBPATH, LIBINDEXFILE)
                 os.makedirs(TEMPLIBPATH, exist_ok=True)
@@ -932,12 +896,6 @@ class BIM_Library_TaskPanel:
         PARAMS.SetBool("LibraryFCStdOnly", state)
         self.dirmodel.setNameFilters(self.getFilters())
         self.onCheckOnline(self.form.checkOnline.isChecked())
-
-    def onCheckWebSearch(self, state):
-        """if the web search checkbox is clicked"""
-
-        # save state
-        PARAMS.SetBool("LibraryWebSearch", state)
 
     def onCheck3DPreview(self, state):
         """if the 3D preview checkbox is clicked"""
@@ -1057,7 +1015,7 @@ if FreeCAD.GuiUp:
     from PySide import QtCore, QtGui
 
     class LibraryModel(QtGui.QFileSystemModel):
-        "a custom QFileSystemModel that displays freecad file icons"
+        "a custom QFileSystemModel that displays FreeCAD file icons"
 
         def __init__(self):
 
@@ -1069,9 +1027,7 @@ if FreeCAD.GuiUp:
                 if index.data().lower().endswith(".fcstd"):
                     return QtGui.QIcon(":icons/freecad-doc.png")
                 elif index.data().lower().endswith(".ifc"):
-                    return QtGui.QIcon(
-                        os.path.join(os.path.dirname(__file__), "icons", "IFC.svg")
-                    )
+                    return QtGui.QIcon(os.path.join(os.path.dirname(__file__), "icons", "IFC.svg"))
                 elif index.data().lower() == "private":
                     return QtGui.QIcon.fromTheme("folder-lock")
             return super(LibraryModel, self).data(index, role)

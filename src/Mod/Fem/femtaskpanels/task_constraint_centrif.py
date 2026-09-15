@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2020 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -48,35 +50,38 @@ class _TaskPanel(base_femtaskpanel._BaseTaskPanel):
         super().__init__(obj)
 
         # parameter widget
-        self.parameterWidget = FreeCADGui.PySideUic.loadUi(
+        self.parameter_widget = FreeCADGui.PySideUic.loadUi(
             FreeCAD.getHomePath() + "Mod/Fem/Resources/ui/ConstraintCentrif.ui"
         )
         QtCore.QObject.connect(
-            self.parameterWidget.if_rotation_frequency,
+            self.parameter_widget.qsb_rotation_frequency,
             QtCore.SIGNAL("valueChanged(Base::Quantity)"),
             self.rotation_frequency_changed,
         )
         self.init_parameter_widget()
 
         # axis of rotation selection widget
-        self.AxisSelectionWidget = selection_widgets.GeometryElementsSelection(
+        self.axis_selection_widget = selection_widgets.GeometryElementsSelection(
             obj.RotationAxis, ["Edge"], False, False
+        )
+        self.axis_selection_widget.setWindowTitle(
+            self.axis_selection_widget.tr("Axis Reference Selector")
         )
 
         # loaded body selection widget
-        self.BodySelectionWidget = selection_widgets.GeometryElementsSelection(
-            obj.References, ["Solid"], False, False
+        self.body_selection_widget = selection_widgets.GeometryElementsSelection(
+            obj.References, ["Solid", "Face"], False, False
         )
 
         # form made from param and selection widget
-        self.form = [self.parameterWidget, self.BodySelectionWidget, self.AxisSelectionWidget]
+        self.form = [self.parameter_widget, self.body_selection_widget, self.axis_selection_widget]
 
     def accept(self):
         # check values RotationAxis
-        items = len(self.AxisSelectionWidget.references)
+        items = len(self.axis_selection_widget.references)
         FreeCAD.Console.PrintMessage(
             "Task panel: found axis references: {}\n{}\n".format(
-                items, self.AxisSelectionWidget.references
+                items, self.axis_selection_widget.references
             )
         )
 
@@ -86,7 +91,7 @@ class _TaskPanel(base_femtaskpanel._BaseTaskPanel):
             msgBox.setText(
                 f"Constraint Centrif requires exactly one line\n\nfound references: {items}"
             )
-            msgBox.setWindowTitle("FreeCAD FEM Constraint Centrif - Axis selection")
+            msgBox.setWindowTitle("FreeCAD FEM Constraint Centrif - Axis Selection")
             retryButton = msgBox.addButton(QtGui.QMessageBox.Retry)
             ignoreButton = msgBox.addButton(QtGui.QMessageBox.Ignore)
             msgBox.exec_()
@@ -97,10 +102,10 @@ class _TaskPanel(base_femtaskpanel._BaseTaskPanel):
                 pass
 
         # check values BodyReference
-        items = len(self.BodySelectionWidget.references)
+        items = len(self.body_selection_widget.references)
         FreeCAD.Console.PrintMessage(
             "Task panel: found body references: {}\n{}\n".format(
-                items, self.BodySelectionWidget.references
+                items, self.body_selection_widget.references
             )
         )
 
@@ -110,7 +115,7 @@ class _TaskPanel(base_femtaskpanel._BaseTaskPanel):
             msgBox = QtGui.QMessageBox()
             msgBox.setIcon(QtGui.QMessageBox.Question)
             msgBox.setText("Constraint Centrif requires at least one solid")
-            msgBox.setWindowTitle("FreeCAD FEM Constraint Centrif - Body selection")
+            msgBox.setWindowTitle("FEM Constraint Centrifuge - Body Selection")
             retryButton = msgBox.addButton(QtGui.QMessageBox.Retry)
             ignoreButton = msgBox.addButton(QtGui.QMessageBox.Ignore)
             msgBox.exec_()
@@ -126,7 +131,7 @@ class _TaskPanel(base_femtaskpanel._BaseTaskPanel):
             msgBox = QtGui.QMessageBox()
             msgBox.setIcon(QtGui.QMessageBox.Question)
             msgBox.setText("Rotational speed is zero")
-            msgBox.setWindowTitle("FreeCAD FEM Constraint Centrif - Rotational speed setting")
+            msgBox.setWindowTitle("FEM Constraint Centrifuge - Rotational Speed Setting")
             retryButton = msgBox.addButton(QtGui.QMessageBox.Retry)
             ignoreButton = msgBox.addButton(QtGui.QMessageBox.Ignore)
             msgBox.exec_()
@@ -137,20 +142,23 @@ class _TaskPanel(base_femtaskpanel._BaseTaskPanel):
                 pass
 
         self.obj.RotationFrequency = self.rotation_frequency
-        self.obj.RotationAxis = self.AxisSelectionWidget.references
-        self.obj.References = self.BodySelectionWidget.references
-        self.AxisSelectionWidget.finish_selection()
-        self.BodySelectionWidget.finish_selection()
+        self.obj.RotationAxis = self.axis_selection_widget.references
+        self.obj.References = self.body_selection_widget.references
+        self.axis_selection_widget.finish_selection()
+        self.body_selection_widget.finish_selection()
         return super().accept()
 
     def reject(self):
-        self.AxisSelectionWidget.finish_selection()
-        self.BodySelectionWidget.finish_selection()
+        self.axis_selection_widget.finish_selection()
+        self.body_selection_widget.finish_selection()
         return super().reject()
 
     def init_parameter_widget(self):
         self.rotation_frequency = self.obj.RotationFrequency
-        self.parameterWidget.if_rotation_frequency.setText(self.rotation_frequency.UserString)
+        FreeCADGui.ExpressionBinding(self.parameter_widget.qsb_rotation_frequency).bind(
+            self.obj, "RotationFrequency"
+        )
+        self.parameter_widget.qsb_rotation_frequency.setProperty("value", self.rotation_frequency)
 
     def rotation_frequency_changed(self, base_quantity_value):
         self.rotation_frequency = base_quantity_value

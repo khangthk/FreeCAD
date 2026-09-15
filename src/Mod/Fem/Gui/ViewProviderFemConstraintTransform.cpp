@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Authors: Michael Hindley <hindlemp@eskom.co.za>                       *
@@ -24,16 +26,14 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <Inventor/SbMatrix.h>
 #include <Inventor/SbRotation.h>
 #include <Inventor/SbVec3f.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoSwitch.h>
 #include <Inventor/nodes/SoTransform.h>
-#endif
+
 
 #include "Mod/Fem/App/FemConstraintTransform.h"
 #include "TaskFemConstraintTransform.h"
@@ -48,7 +48,7 @@ PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintTransform, FemGui::ViewProvider
 ViewProviderFemConstraintTransform::ViewProviderFemConstraintTransform()
 {
     sPixmap = "FEM_ConstraintTransform";
-    loadSymbol((resourceSymbolDir + "ConstraintTransform.iv").c_str());
+    loadSymbol(resourceSymbolDir / "ConstraintTransform.iv");
 }
 
 ViewProviderFemConstraintTransform::~ViewProviderFemConstraintTransform() = default;
@@ -70,7 +70,7 @@ bool ViewProviderFemConstraintTransform::setEdit(int ModNum)
 
 void ViewProviderFemConstraintTransform::updateData(const App::Property* prop)
 {
-    auto obj = static_cast<Fem::ConstraintTransform*>(this->getObject());
+    auto obj = this->getObject<Fem::ConstraintTransform>();
 
     if (prop == &obj->Rotation) {
         updateSymbol();
@@ -102,11 +102,13 @@ void ViewProviderFemConstraintTransform::updateData(const App::Property* prop)
     ViewProviderFemConstraint::updateData(prop);
 }
 
-void ViewProviderFemConstraintTransform::transformSymbol(const Base::Vector3d& point,
-                                                         const Base::Vector3d& normal,
-                                                         SbMatrix& mat) const
+void ViewProviderFemConstraintTransform::transformSymbol(
+    const Base::Vector3d& point,
+    const Base::Vector3d& normal,
+    SbMatrix& mat
+) const
 {
-    auto obj = static_cast<const Fem::ConstraintTransform*>(this->getObject());
+    auto obj = this->getObject<const Fem::ConstraintTransform>();
 
     std::string transType = obj->TransformType.getValueAsString();
     if (transType == "Rectangular") {
@@ -116,22 +118,26 @@ void ViewProviderFemConstraintTransform::transformSymbol(const Base::Vector3d& p
         rot.getValue(axis, angle);
         float s = obj->getScaleFactor();
 
-        mat.setTransform(SbVec3f(point.x, point.y, point.z),
-                         SbRotation(SbVec3f(axis.x, axis.y, axis.z), angle),
-                         SbVec3f(s, s, s));
+        mat.setTransform(
+            SbVec3f(point.x, point.y, point.z),
+            SbRotation(SbVec3f(axis.x, axis.y, axis.z), angle),
+            SbVec3f(s, s, s)
+        );
     }
     else if (transType == "Cylindrical") {
         float s = obj->getScaleFactor();
 
-        mat.setTransform(SbVec3f(point.x, point.y, point.z),
-                         SbRotation(SbVec3f(0, 1, 0), SbVec3f(normal.x, normal.y, normal.z)),
-                         SbVec3f(s, s, s));
+        mat.setTransform(
+            SbVec3f(point.x, point.y, point.z),
+            SbRotation(SbVec3f(0, 1, 0), SbVec3f(normal.x, normal.y, normal.z)),
+            SbVec3f(s, s, s)
+        );
     }
 }
 
 void ViewProviderFemConstraintTransform::transformExtraSymbol() const
 {
-    auto obj = static_cast<const Fem::ConstraintTransform*>(this->getObject());
+    auto obj = this->getObject<const Fem::ConstraintTransform>();
     std::string transType = obj->TransformType.getValueAsString();
     if (transType == "Cylindrical") {
         SoTransform* trans = getExtraSymbolTransform();
@@ -140,9 +146,11 @@ void ViewProviderFemConstraintTransform::transformExtraSymbol() const
         float s = obj->getScaleFactor();
 
         SbMatrix mat;
-        mat.setTransform(SbVec3f(point.x, point.y, point.z),
-                         SbRotation(SbVec3f(0, 1, 0), SbVec3f(axis.x, axis.y, axis.z)),
-                         SbVec3f(s, s, s));
+        mat.setTransform(
+            SbVec3f(point.x, point.y, point.z),
+            SbRotation(SbVec3f(0, 1, 0), SbVec3f(axis.x, axis.y, axis.z)),
+            SbVec3f(s, s, s)
+        );
 
         trans->setMatrix(mat);
     }

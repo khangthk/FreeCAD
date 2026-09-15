@@ -1,33 +1,35 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2017 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 """This module contains FreeCAD commands for the BIM workbench"""
 
-import os
 import FreeCAD
 import FreeCADGui
 
 QT_TRANSLATE_NOOP = FreeCAD.Qt.QT_TRANSLATE_NOOP
 translate = FreeCAD.Qt.translate
+
 PARAMS = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM")
 
 if FreeCAD.GuiUp:
@@ -36,14 +38,17 @@ if FreeCAD.GuiUp:
     class MatLineEdit(QtGui.QLineEdit):
         "custom QLineEdit widget that has the power to catch up/down arrow keypress"
 
+        up = QtCore.Signal()
+        down = QtCore.Signal()
+
         def __init__(self, parent=None):
             QtGui.QLineEdit.__init__(self, parent)
 
         def keyPressEvent(self, event):
             if event.key() == QtCore.Qt.Key_Up:
-                self.emit(QtCore.SIGNAL("up()"))
+                self.up.emit()
             elif event.key() == QtCore.Qt.Key_Down:
-                self.emit(QtCore.SIGNAL("down()"))
+                self.down.emit()
             else:
                 QtGui.QLineEdit.keyPressEvent(self, event)
 
@@ -66,7 +71,11 @@ class BIM_Material:
 
     def Activated(self):
 
-        self.dlg = None
+        # only raise the dialog if it is already open
+        if getattr(self, "dlg", None):
+            self.dlg.raise_()
+            return
+
         self.dlg = QtGui.QDialog()
         self.dlg.objects = [
             obj
@@ -76,12 +85,10 @@ class BIM_Material:
         w = PARAMS.GetInt("BimMaterialDialogWidth", 230)
         h = PARAMS.GetInt("BimMaterialDialogHeight", 350)
         self.dlg.resize(w, h)
-        self.dlg.setWindowTitle(translate("BIM", "Select material"))
+        self.dlg.setWindowTitle(translate("BIM", "Select Material"))
         self.dlg.setWindowIcon(QtGui.QIcon(":/icons/Arch_Material.svg"))
         mw = FreeCADGui.getMainWindow()
-        self.dlg.move(
-            mw.frameGeometry().topLeft() + mw.rect().center() - self.dlg.rect().center()
-        )
+        self.dlg.move(mw.frameGeometry().topLeft() + mw.rect().center() - self.dlg.rect().center())
         lay = QtGui.QVBoxLayout(self.dlg)
         matList = QtGui.QListWidget(self.dlg)
         matList.setSortingEnabled(True)
@@ -97,8 +104,8 @@ class BIM_Material:
             searchLayout = QtGui.QHBoxLayout()
             searchLayout.setSpacing(2)
             searchBox = MatLineEdit(self.dlg)
-            searchBox.setPlaceholderText(translate("BIM", "Search..."))
-            searchBox.setToolTip(translate("BIM", "Searches object labels"))
+            searchBox.setPlaceholderText(translate("BIM", "Search materials"))
+            searchBox.setToolTip(translate("BIM", "Searches for materials in the list"))
             self.dlg.searchBox = searchBox
             searchLayout.addWidget(searchBox)
             searchBox.textChanged.connect(self.onSearch)
@@ -118,48 +125,47 @@ class BIM_Material:
             buttonClear.clicked.connect(self.onClearSearch)
             lay.addLayout(searchLayout)
 
-            # create
-            createLayout = QtGui.QHBoxLayout()
-            buttonCreate = QtGui.QPushButton(
-                translate("BIM", "Create new material"), self.dlg
+            createButtonsLayoutBox = QtGui.QGroupBox(
+                translate("BIM", " Material Operations"), self.dlg
             )
+            createButtonsLayoutBox.setObjectName("matOpsGrpBox")
+            createButtonsLayout = QtGui.QGridLayout()
+
+            # create
+            buttonCreate = QtGui.QPushButton(translate("BIM", "New Material"), self.dlg)
             buttonCreate.setIcon(QtGui.QIcon(":/icons/Arch_Material.svg"))
-            createLayout.addWidget(buttonCreate)
+            createButtonsLayout.addWidget(buttonCreate, 0, 0)
             buttonCreate.clicked.connect(self.onCreate)
 
             # create multi
-            buttonMulti = QtGui.QPushButton(
-                translate("BIM", "Create new multi-material"), self.dlg
-            )
+            buttonMulti = QtGui.QPushButton(translate("BIM", "New Multi-Material"), self.dlg)
             buttonMulti.setIcon(QtGui.QIcon(":/icons/Arch_Material_Multi.svg"))
-            createLayout.addWidget(buttonMulti)
+            createButtonsLayout.addWidget(buttonMulti, 0, 1)
             buttonMulti.clicked.connect(self.onMulti)
-            lay.addLayout(createLayout)
 
             # merge dupes
             opsLayout = QtGui.QHBoxLayout()
-            buttonMergeDupes = QtGui.QPushButton(
-                translate("BIM", "Merge duplicates"), self.dlg
-            )
+            buttonMergeDupes = QtGui.QPushButton(translate("BIM", "Merge Duplicates"), self.dlg)
             buttonMergeDupes.setIcon(QtGui.QIcon(":/icons/view-refresh.svg"))
-            opsLayout.addWidget(buttonMergeDupes)
+            createButtonsLayout.addWidget(buttonMergeDupes, 1, 0)
+            self.dlg.buttonMergeDupes = buttonMergeDupes
             buttonMergeDupes.clicked.connect(self.onMergeDupes)
+            if len(self.dlg.materials) < 2:
+                buttonMergeDupes.setEnabled(False)
 
             # delete unused
-            buttonDeleteUnused = QtGui.QPushButton(
-                translate("BIM", "Delete unused"), self.dlg
-            )
+            buttonDeleteUnused = QtGui.QPushButton(translate("BIM", "Delete Unused"), self.dlg)
             buttonDeleteUnused.setIcon(QtGui.QIcon(":/icons/delete.svg"))
-            opsLayout.addWidget(buttonDeleteUnused)
+            createButtonsLayout.addWidget(buttonDeleteUnused, 1, 1)
             buttonDeleteUnused.clicked.connect(self.onDeleteUnused)
-            lay.addLayout(opsLayout)
+
+            createButtonsLayoutBox.setLayout(createButtonsLayout)
+            lay.addWidget(createButtonsLayoutBox)
 
             # add standard buttons
             buttonBox = QtGui.QDialogButtonBox(self.dlg)
             buttonBox.setOrientation(QtCore.Qt.Horizontal)
-            buttonBox.setStandardButtons(
-                QtGui.QDialogButtonBox.Cancel | QtGui.QDialogButtonBox.Ok
-            )
+            buttonBox.setStandardButtons(QtGui.QDialogButtonBox.Cancel | QtGui.QDialogButtonBox.Ok)
             lay.addWidget(buttonBox)
             buttonBox.accepted.connect(self.onAccept)
             buttonBox.rejected.connect(self.onReject)
@@ -170,12 +176,13 @@ class BIM_Material:
             context1.triggered.connect(self.onStartRename)
             context2 = self.contextMenu.addAction(translate("BIM", "Duplicate"))
             context2.triggered.connect(self.onDuplicate)
-            context3 = self.contextMenu.addAction(translate("BIM", "Merge to..."))
+            context3 = self.contextMenu.addAction(translate("BIM", "Merge To…"))
             context3.triggered.connect(self.onMergeTo)
             context4 = self.contextMenu.addAction(translate("BIM", "Delete"))
             context4.triggered.connect(self.onDelete)
 
             # other signal/slots to connect
+            self.dlg.rejected.connect(self.onReject)
             matList.customContextMenuRequested.connect(self.onRightClick)
             matList.itemDoubleClicked.connect(self.onAccept)
             matList.itemChanged.connect(self.onEndRename)
@@ -185,7 +192,7 @@ class BIM_Material:
 
         else:
             # no material in the document
-            self.dlg = None
+            self.onReject()
             FreeCADGui.runCommand("Arch_Material")
 
     def onRightClick(self, pos):
@@ -199,20 +206,11 @@ class BIM_Material:
             first = True
             for mat in self.dlg.materials:
                 orig = None
-                for om in mats:
-                    if om.Label == mat.Label:
-                        orig = om
-                        break
-                else:
-                    if (
-                        mat.Label[-1].isdigit()
-                        and mat.Label[-2].isdigit()
-                        and mat.Label[-3].isdigit()
-                    ):
-                        for om in self.dlg.materials:
-                            if om.Label == mat.Label[:-3].strip():
-                                orig = om
-                                break
+                if mat.Label[-1].isdigit() and mat.Label[-2].isdigit() and mat.Label[-3].isdigit():
+                    for om in self.dlg.materials:
+                        if om.Label == mat.Label[:-3].strip():
+                            orig = om
+                            break
                 if orig:
                     for par in mat.InList:
                         for prop in par.PropertiesList:
@@ -229,19 +227,14 @@ class BIM_Material:
                                     + "\n"
                                 )
                                 if first:
-                                    FreeCAD.ActiveDocument.openTransaction(
-                                        "Merge materials"
-                                    )
+                                    FreeCAD.ActiveDocument.openTransaction("Merge materials")
                                     first = False
                                 setattr(par, prop, orig)
                     todelete.append(mat)
             for tod in todelete:
                 if not tod.InList:
                     FreeCAD.Console.PrintMessage(
-                        translate("BIM", "Merging duplicate material")
-                        + " "
-                        + tod.Label
-                        + "\n"
+                        translate("BIM", "Merging duplicate material") + " " + tod.Label + "\n"
                     )
                     if first:
                         FreeCAD.ActiveDocument.openTransaction("Merge materials")
@@ -251,10 +244,7 @@ class BIM_Material:
                     tod.InList[0].isDerivedFrom("App::DocumentObjectGroup")
                 ):
                     FreeCAD.Console.PrintMessage(
-                        translate("BIM", "Merging duplicate material")
-                        + " "
-                        + tod.Label
-                        + "\n"
+                        translate("BIM", "Merging duplicate material") + " " + tod.Label + "\n"
                     )
                     if first:
                         FreeCAD.ActiveDocument.openTransaction("Merge materials")
@@ -291,15 +281,10 @@ class BIM_Material:
                             name = obj.Name
                             label = obj.Label
                             if first:
-                                FreeCAD.ActiveDocument.openTransaction(
-                                    "Delete materials"
-                                )
+                                FreeCAD.ActiveDocument.openTransaction("Delete materials")
                                 first = False
                             FreeCAD.Console.PrintMessage(
-                                translate("BIM", "Deleting unused material")
-                                + " "
-                                + label
-                                + "\n"
+                                translate("BIM", "Deleting unused material") + " " + label + "\n"
                             )
                             FreeCAD.ActiveDocument.removeObject(name)
         if not first:
@@ -348,19 +333,13 @@ class BIM_Material:
                 form = FreeCADGui.PySideUic.loadUi(":/ui/dialogListWidget.ui")
                 # center the dialog over FreeCAD window
                 mw = FreeCADGui.getMainWindow()
-                form.move(
-                    mw.frameGeometry().topLeft()
-                    + mw.rect().center()
-                    - form.rect().center()
-                )
-                form.setWindowTitle(translate("BIM", "Select material to merge to"))
+                form.move(mw.frameGeometry().topLeft() + mw.rect().center() - form.rect().center())
+                form.setWindowTitle(translate("BIM", "Select Material to Merge To"))
                 form.setWindowIcon(QtGui.QIcon(":/icons/Arch_Material.svg"))
                 for i in range(self.dlg.matList.count()):
                     oit = self.dlg.matList.item(i)
                     if oit != item:
-                        nit = QtGui.QListWidgetItem(
-                            oit.icon(), oit.text(), form.listWidget
-                        )
+                        nit = QtGui.QListWidgetItem(oit.icon(), oit.text(), form.listWidget)
                         nit.setToolTip(oit.toolTip())
                 result = form.exec_()
                 if result:
@@ -371,10 +350,7 @@ class BIM_Material:
                             parents = [
                                 parent
                                 for parent in oldmat.InList
-                                if (
-                                    hasattr(parent, "Material")
-                                    and (parent.Material == oldmat)
-                                )
+                                if (hasattr(parent, "Material") and (parent.Material == oldmat))
                             ]
                             name = oldmat.Name
                             FreeCAD.ActiveDocument.openTransaction("Merge material")
@@ -416,14 +392,12 @@ class BIM_Material:
                         self.rescan()
 
     def onCreate(self):
-        if self.dlg:
-            self.dlg.hide()
-            FreeCADGui.runCommand("Arch_Material")
+        self.onReject()
+        FreeCADGui.runCommand("Arch_Material")
 
     def onMulti(self):
-        if self.dlg:
-            self.dlg.hide()
-            FreeCADGui.runCommand("Arch_MultiMaterial")
+        self.onReject()
+        FreeCADGui.runCommand("Arch_MultiMaterial")
 
     def onAccept(self, item=None):
         if self.dlg:
@@ -435,8 +409,9 @@ class BIM_Material:
                         FreeCAD.ActiveDocument.openTransaction("Change material")
                         for obj in self.dlg.objects:
                             if hasattr(obj, "StepId"):
-                                from nativeifc import ifc_tools
-                                ifc_tools.set_material(mat, obj)
+                                from nativeifc import ifc_materials
+
+                                ifc_materials.set_material(mat, obj)
                             else:
                                 obj.Material = mat
                         FreeCAD.ActiveDocument.commitTransaction()
@@ -444,13 +419,15 @@ class BIM_Material:
             p = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM")
             p.SetInt("BimMaterialDialogWidth", self.dlg.width())
             p.SetInt("BimMaterialDialogHeight", self.dlg.height())
-            from DraftGui import todo
+        from DraftGui import todo
 
-            todo.delay(self.dlg.hide, None)
+        # delay required for matList.itemDoubleClicked action
+        todo.delay(self.onReject, None)
 
     def onReject(self):
         if self.dlg:
             self.dlg.hide()
+            self.dlg = None
 
     def onUpArrow(self):
         if self.dlg:
@@ -506,13 +483,14 @@ class BIM_Material:
                             name = "None"
                 self.dlg.matList.clear()
                 for o in self.dlg.materials:
-                    i = QtGui.QListWidgetItem(
-                        self.createIcon(o), o.Label, self.dlg.matList
-                    )
+                    i = QtGui.QListWidgetItem(self.createIcon(o), o.Label, self.dlg.matList)
                     i.setToolTip(o.Name)
                     i.setFlags(i.flags() | QtCore.Qt.ItemIsEditable)
                     if o.Name == name:
                         self.dlg.matList.setCurrentItem(i)
+            if hasattr(self.dlg, "buttonMergeDupes"):
+                hasMultipleMaterials = len(self.dlg.materials) > 1
+                self.dlg.buttonMergeDupes.setEnabled(hasMultipleMaterials)
 
     def createIcon(self, obj):
         from PySide import QtCore, QtGui
@@ -528,18 +506,14 @@ class BIM_Material:
             im = QtGui.QImage(48, 48, QtGui.QImage.Format_ARGB32)
             im.fill(QtCore.Qt.transparent)
             pt = QtGui.QPainter(im)
-            pt.setPen(
-                QtGui.QPen(QtCore.Qt.black, 2, QtCore.Qt.SolidLine, QtCore.Qt.FlatCap)
-            )
+            pt.setPen(QtGui.QPen(QtCore.Qt.black, 2, QtCore.Qt.SolidLine, QtCore.Qt.FlatCap))
             # pt.setBrush(QtGui.QBrush(matcolor, QtCore.Qt.SolidPattern))
             gradient = QtGui.QLinearGradient(0, 0, 48, 48)
             gradient.setColorAt(0, matcolor)
             gradient.setColorAt(1, darkcolor)
             pt.setBrush(QtGui.QBrush(gradient))
             pt.drawEllipse(6, 6, 36, 36)
-            pt.setPen(
-                QtGui.QPen(QtCore.Qt.white, 1, QtCore.Qt.SolidLine, QtCore.Qt.FlatCap)
-            )
+            pt.setPen(QtGui.QPen(QtCore.Qt.white, 1, QtCore.Qt.SolidLine, QtCore.Qt.FlatCap))
             pt.setBrush(QtGui.QBrush(QtCore.Qt.white, QtCore.Qt.SolidPattern))
             pt.drawEllipse(12, 12, 12, 12)
             pt.end()
@@ -550,27 +524,31 @@ class BIM_Material:
 
 
 class Arch_Material:
-
-
     "the Arch Material command definition"
 
     def GetResources(self):
 
-        return {'Pixmap': 'Arch_Material_Group',
-                'MenuText': QT_TRANSLATE_NOOP("Arch_Material","Material"),
-                'Accel': "M, T",
-                'ToolTip': QT_TRANSLATE_NOOP("Arch_Material","Creates or edits the material definition of a selected object.")}
+        return {
+            "Pixmap": "Arch_Material_Group",
+            "MenuText": QT_TRANSLATE_NOOP("Arch_Material", "Material"),
+            "Accel": "M, T",
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Arch_Material", "Creates or edits the material definition of a selected object."
+            ),
+        }
 
     def Activated(self):
 
         sel = FreeCADGui.Selection.getSelection()
-        FreeCAD.ActiveDocument.openTransaction(translate("Arch","Create material"))
+        FreeCAD.ActiveDocument.openTransaction(translate("Arch", "Create material"))
         FreeCADGui.addModule("Arch")
         FreeCADGui.Control.closeDialog()
         FreeCADGui.doCommand("mat = Arch.makeMaterial()")
         for obj in sel:
-            if hasattr(obj,"Material"):
-                FreeCADGui.doCommand("FreeCAD.ActiveDocument.getObject(\""+obj.Name+"\").Material = mat")
+            if hasattr(obj, "Material") and hasattr(obj, "MoveWithHost"):  # 'isComponent' check
+                FreeCADGui.doCommand(
+                    'FreeCAD.ActiveDocument.getObject("' + obj.Name + '").Material = mat'
+                )
         FreeCADGui.doCommandGui("mat.ViewObject.Document.setEdit(mat.ViewObject, 0)")
         FreeCAD.ActiveDocument.commitTransaction()
         FreeCAD.ActiveDocument.recompute()
@@ -581,28 +559,28 @@ class Arch_Material:
 
 
 class Arch_MultiMaterial:
-
-
     "the Arch MultiMaterial command definition"
 
     def GetResources(self):
 
-        return {'Pixmap': 'Arch_Material_Multi',
-                'MenuText': QT_TRANSLATE_NOOP("Arch_MultiMaterial","Multi-Material"),
-                'Accel': "M, T",
-                'ToolTip': QT_TRANSLATE_NOOP("Arch_MultiMaterial","Creates or edits multi-materials")}
+        return {
+            "Pixmap": "Arch_Material_Multi",
+            "MenuText": QT_TRANSLATE_NOOP("Arch_MultiMaterial", "Multi-Material"),
+            "Accel": "M, T",
+            "ToolTip": QT_TRANSLATE_NOOP("Arch_MultiMaterial", "Creates or edits multi-materials"),
+        }
 
     def Activated(self):
 
         sel = FreeCADGui.Selection.getSelection()
-        FreeCAD.ActiveDocument.openTransaction(translate("Arch","Create multi-material"))
+        FreeCAD.ActiveDocument.openTransaction(translate("Arch", "Create multi-material"))
         FreeCADGui.addModule("Arch")
         FreeCADGui.Control.closeDialog()
         FreeCADGui.doCommand("mat = Arch.makeMultiMaterial()")
         for obj in sel:
-            if hasattr(obj,"Material"):
+            if hasattr(obj, "Material"):
                 if not obj.isDerivedFrom("App::MaterialObject"):
-                    FreeCADGui.doCommand("FreeCAD.ActiveDocument."+obj.Name+".Material = mat")
+                    FreeCADGui.doCommand("FreeCAD.ActiveDocument." + obj.Name + ".Material = mat")
         FreeCADGui.doCommandGui("mat.ViewObject.Document.setEdit(mat.ViewObject, 0)")
         FreeCAD.ActiveDocument.commitTransaction()
         FreeCAD.ActiveDocument.recompute()
@@ -615,17 +593,20 @@ class Arch_MultiMaterial:
 class Arch_MaterialToolsCommand:
 
     def GetCommands(self):
-        return tuple(['Arch_Material','Arch_MultiMaterial'])
+        return tuple(["Arch_Material", "Arch_MultiMaterial"])
+
     def GetResources(self):
-        return { 'MenuText': QT_TRANSLATE_NOOP("Arch_MaterialTools",'Material tools'),
-                 'ToolTip': QT_TRANSLATE_NOOP("Arch_MaterialTools",'Material tools')
-               }
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Arch_MaterialTools", "Material Tools"),
+            "ToolTip": QT_TRANSLATE_NOOP("Arch_MaterialTools", "Material tools"),
+        }
+
     def IsActive(self):
         v = hasattr(FreeCADGui.getMainWindow().getActiveWindow(), "getSceneGraph")
         return v
 
 
 FreeCADGui.addCommand("BIM_Material", BIM_Material())
-FreeCADGui.addCommand('Arch_Material',Arch_Material())
-FreeCADGui.addCommand('Arch_MultiMaterial',Arch_MultiMaterial())
-FreeCADGui.addCommand('Arch_MaterialTools', Arch_MaterialToolsCommand())
+FreeCADGui.addCommand("Arch_Material", Arch_Material())
+FreeCADGui.addCommand("Arch_MultiMaterial", Arch_MultiMaterial())
+FreeCADGui.addCommand("Arch_MaterialTools", Arch_MaterialToolsCommand())

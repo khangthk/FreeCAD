@@ -1,17 +1,4 @@
-
-include_directories(
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_BINARY_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${OCC_INCLUDE_DIR}
-    ${PYTHON_INCLUDE_DIRS}
-    ${ZLIB_INCLUDE_DIR}
-    ${XercesC_INCLUDE_DIRS}
-)
-
-link_directories(${OCC_LIBRARY_DIR})
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 set(PathSimulator_LIBS
     Path
@@ -21,7 +8,7 @@ set(PathSimulator_LIBS
 )
 
 SET(Python_SRCS
-    PathSimPy.xml
+    PathSim.pyi
     PathSimPyImp.cpp
 )
 
@@ -32,22 +19,27 @@ SET(PathSimulator_SRCS
     PathSim.h
     VolSim.cpp
     VolSim.h
-    PreCompiled.cpp
     PreCompiled.h
     ${Python_SRCS}
 )
 
-generate_from_xml(PathSimPy)
+generate_from_py(PathSim)
 
 SOURCE_GROUP("Python" FILES ${Python_SRCS})
 
 add_library(PathSimulator SHARED ${PathSimulator_SRCS})
+target_include_directories(
+    PathSimulator
+    PRIVATE
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_BINARY_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
 target_link_libraries(PathSimulator ${PathSimulator_LIBS})
-if (FREECAD_WARN_ERROR)
-    target_compile_warn_error(PathSimulator)
-endif()
+target_compile_warn_error(PathSimulator)
 
-SET_BIN_DIR(PathSimulator PathSimulator /Mod/CAM)
+SET_BIN_DIR(PathSimulator)
 SET_PYTHON_PREFIX_SUFFIX(PathSimulator)
 
 install(TARGETS PathSimulator DESTINATION ${CMAKE_INSTALL_LIBDIR})

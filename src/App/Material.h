@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2005 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -21,10 +23,9 @@
  ***************************************************************************/
 
 
-#ifndef APP_MATERIAL_H
-#define APP_MATERIAL_H
+#pragma once
 
-#include <App/Color.h>
+#include <Base/Color.h>
 
 namespace App
 {
@@ -104,7 +105,7 @@ public:
      *  \li Ruby
      *  \li Emerald
      * Furthermore there two additional modes \a Default which defines a kind of grey metallic and
-     * user defined that does nothing. The Color and the other properties of the material are
+     * user defined that does nothing. The Base::Color and the other properties of the material are
      * defined in the range [0-1]. If \a MatName is an unknown material name then the type
      * USER_DEFINED is set and the material doesn't get changed.
      */
@@ -125,10 +126,10 @@ public:
     /** @name Properties */
     //@{
     // NOLINTBEGIN
-    Color ambientColor;  /**< Defines the ambient color. */
-    Color diffuseColor;  /**< Defines the diffuse color. */
-    Color specularColor; /**< Defines the specular color. */
-    Color emissiveColor; /**< Defines the emissive color. */
+    Base::Color ambientColor;  /**< Defines the ambient color. */
+    Base::Color diffuseColor;  /**< Defines the diffuse color. */
+    Base::Color specularColor; /**< Defines the specular color. */
+    Base::Color emissiveColor; /**< Defines the emissive color. */
     float shininess;
     float transparency;
     std::string image;
@@ -140,16 +141,17 @@ public:
     bool operator==(const Material& m) const
     {
         // clang-format off
-        return _matType == m._matType
-            && shininess == m.shininess
+        if (!uuid.empty() && uuid == m.uuid) {
+            return true;
+        }
+        return shininess == m.shininess
             && transparency == m.transparency
             && ambientColor == m.ambientColor
             && diffuseColor == m.diffuseColor
             && specularColor == m.specularColor
             && emissiveColor == m.emissiveColor
             && image == m.image
-            && image == m.imagePath
-            && uuid == m.uuid;
+            && imagePath == m.imagePath;
         // clang-format on
     }
     bool operator!=(const Material& m) const
@@ -166,5 +168,3 @@ private:
 };
 
 }  // namespace App
-
-#endif  // APP_MATERIAL_H

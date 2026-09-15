@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 Stefan Tröger <stefantroeger@gmx.net>              *
  *                                                                         *
@@ -20,22 +22,24 @@
  *                                                                         *
  ***************************************************************************/
 
+#include <limits>
 
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
+#include <QGridLayout>
 #include <QMessageBox>
-#endif
 
 #include <App/Document.h>
 #include <App/Origin.h>
 #include <Base/Console.h>
+#include <Base/Converter.h>
 #include <Base/UnitsApi.h>
 #include <Gui/Application.h>
 #include <Gui/Command.h>
 #include <Gui/Document.h>
+#include <Gui/InputHint.h>
 #include <Gui/MainWindow.h>
-#include <Gui/ViewProviderOrigin.h>
+#include <Gui/ViewProviderCoordinateSystem.h>
+#include <Gui/Inventor/Draggers/Gizmo.h>
+#include <Gui/Utilities.h>
 #include <Mod/PartDesign/App/Body.h>
 #include <Mod/PartDesign/App/FeaturePrimitive.h>
 
@@ -45,22 +49,103 @@
 
 using namespace PartDesignGui;
 
+namespace
+{
+bool isSubtractivePrimitive(PartDesign::FeaturePrimitive* primitive)
+{
+    return primitive->getAddSubType() == PartDesign::FeatureAddSub::Type::Subtractive;
+}
+
+const char* primitiveTypeName(PartDesign::FeaturePrimitive::Type type)
+{
+    switch (type) {
+        case PartDesign::FeaturePrimitive::Box:
+            return "Box";
+        case PartDesign::FeaturePrimitive::Cylinder:
+            return "Cylinder";
+        case PartDesign::FeaturePrimitive::Sphere:
+            return "Sphere";
+        case PartDesign::FeaturePrimitive::Cone:
+            return "Cone";
+        case PartDesign::FeaturePrimitive::Ellipsoid:
+            return "Ellipsoid";
+        case PartDesign::FeaturePrimitive::Torus:
+            return "Torus";
+        case PartDesign::FeaturePrimitive::Prism:
+            return "Prism";
+        case PartDesign::FeaturePrimitive::Wedge:
+            return "Wedge";
+    }
+
+    return "Primitive";
+}
+
+std::string primitiveTaskIconName(ViewProviderPrimitive* vp)
+{
+    auto* primitive = vp->getObject<PartDesign::FeaturePrimitive>();
+    std::string iconName = "PartDesign_";
+    iconName += isSubtractivePrimitive(primitive) ? "Subtractive" : "Additive";
+    iconName += primitiveTypeName(primitive->getPrimitiveType());
+    return iconName;
+}
+
+QString primitiveTaskTitle(ViewProviderPrimitive* vp)
+{
+    auto* primitive = vp->getObject<PartDesign::FeaturePrimitive>();
+    const bool subtractive = isSubtractivePrimitive(primitive);
+
+    switch (primitive->getPrimitiveType()) {
+        case PartDesign::FeaturePrimitive::Box:
+            return subtractive ? TaskBoxPrimitives::tr("Subtractive Box Parameters")
+                               : TaskBoxPrimitives::tr("Additive Box Parameters");
+        case PartDesign::FeaturePrimitive::Cylinder:
+            return subtractive ? TaskBoxPrimitives::tr("Subtractive Cylinder Parameters")
+                               : TaskBoxPrimitives::tr("Additive Cylinder Parameters");
+        case PartDesign::FeaturePrimitive::Sphere:
+            return subtractive ? TaskBoxPrimitives::tr("Subtractive Sphere Parameters")
+                               : TaskBoxPrimitives::tr("Additive Sphere Parameters");
+        case PartDesign::FeaturePrimitive::Cone:
+            return subtractive ? TaskBoxPrimitives::tr("Subtractive Cone Parameters")
+                               : TaskBoxPrimitives::tr("Additive Cone Parameters");
+        case PartDesign::FeaturePrimitive::Ellipsoid:
+            return subtractive ? TaskBoxPrimitives::tr("Subtractive Ellipsoid Parameters")
+                               : TaskBoxPrimitives::tr("Additive Ellipsoid Parameters");
+        case PartDesign::FeaturePrimitive::Torus:
+            return subtractive ? TaskBoxPrimitives::tr("Subtractive Torus Parameters")
+                               : TaskBoxPrimitives::tr("Additive Torus Parameters");
+        case PartDesign::FeaturePrimitive::Prism:
+            return subtractive ? TaskBoxPrimitives::tr("Subtractive Prism Parameters")
+                               : TaskBoxPrimitives::tr("Additive Prism Parameters");
+        case PartDesign::FeaturePrimitive::Wedge:
+            return subtractive ? TaskBoxPrimitives::tr("Subtractive Wedge Parameters")
+                               : TaskBoxPrimitives::tr("Additive Wedge Parameters");
+    }
+
+    return subtractive ? TaskBoxPrimitives::tr("Subtractive Primitive Parameters")
+                       : TaskBoxPrimitives::tr("Additive Primitive Parameters");
+}
+}  // namespace
+
 // clang-format off
 TaskBoxPrimitives::TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent)
-  : TaskBox(QPixmap(),tr("Primitive parameters"), true, parent)
+  : TaskFeatureAddSubParameters(vp, parent, primitiveTaskIconName(vp), primitiveTaskTitle(vp))
   , ui(new Ui_DlgPrimitives)
-  , vp(vp)
 {
+    vp->showPreview(true);
+    vp->showPreviousFeature(true);
+
     proxy = new QWidget(this);
     ui->setupUi(proxy);
 
     this->groupLayout()->addWidget(proxy);
 
     int index = 0;
+    QGridLayout* operationGrid = nullptr;
     switch(getObject<PartDesign::FeaturePrimitive>()->getPrimitiveType()) {
 
         case PartDesign::FeaturePrimitive::Box:
             index = 1;
+            operationGrid = ui->boxParametersLayout;
             ui->boxLength->setValue(getObject<PartDesign::Box>()->Length.getValue());
             ui->boxLength->bind(getObject<PartDesign::Box>()->Length);
             ui->boxHeight->setValue(getObject<PartDesign::Box>()->Height.getValue());
@@ -76,6 +161,7 @@ TaskBoxPrimitives::TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent)
             break;
         case PartDesign::FeaturePrimitive::Cylinder:
             index = 2;
+            operationGrid = ui->cylinderAngleLayout;
             ui->cylinderAngle->setValue(getObject<PartDesign::Cylinder>()->Angle.getValue());
             ui->cylinderAngle->bind(getObject<PartDesign::Cylinder>()->Angle);
             ui->cylinderHeight->setValue(getObject<PartDesign::Cylinder>()->Height.getValue());
@@ -95,6 +181,7 @@ TaskBoxPrimitives::TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent)
             break;
         case PartDesign::FeaturePrimitive::Sphere:
             index = 4;
+            operationGrid = ui->sphereAnglesLayout;
             ui->sphereAngle1->setValue(getObject<PartDesign::Sphere>()->Angle1.getValue());
             ui->sphereAngle1->bind(getObject<PartDesign::Sphere>()->Angle1);
             ui->sphereAngle2->setValue(getObject<PartDesign::Sphere>()->Angle2.getValue());
@@ -114,6 +201,7 @@ TaskBoxPrimitives::TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent)
             break;
         case PartDesign::FeaturePrimitive::Cone:
             index = 3;
+            operationGrid = ui->coneAngleLayout;
             ui->coneAngle->setValue(getObject<PartDesign::Cone>()->Angle.getValue());
             ui->coneAngle->bind(getObject<PartDesign::Cone>()->Angle);
             ui->coneHeight->setValue(getObject<PartDesign::Cone>()->Height.getValue());
@@ -133,6 +221,7 @@ TaskBoxPrimitives::TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent)
             break;
         case PartDesign::FeaturePrimitive::Ellipsoid:
             index = 5;
+            operationGrid = ui->ellipsoidAnglesLayout;
             ui->ellipsoidAngle1->setValue(getObject<PartDesign::Ellipsoid>()->Angle1.getValue());
             ui->ellipsoidAngle1->bind(getObject<PartDesign::Ellipsoid>()->Angle1);
             ui->ellipsoidAngle2->setValue(getObject<PartDesign::Ellipsoid>()->Angle2.getValue());
@@ -160,6 +249,7 @@ TaskBoxPrimitives::TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent)
             break;
         case PartDesign::FeaturePrimitive::Torus:
             index = 6;
+            operationGrid = ui->torusAnglesLayout;
             ui->torusAngle1->setValue(getObject<PartDesign::Torus>()->Angle1.getValue());
             ui->torusAngle1->bind(getObject<PartDesign::Torus>()->Angle1);
             ui->torusAngle2->setValue(getObject<PartDesign::Torus>()->Angle2.getValue());
@@ -186,6 +276,7 @@ TaskBoxPrimitives::TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent)
             break;
         case PartDesign::FeaturePrimitive::Prism:
             index = 7;
+            operationGrid = ui->prismParametersLayout;
             ui->prismPolygon->setValue(getObject<PartDesign::Prism>()->Polygon.getValue());
             ui->prismCircumradius->setValue(getObject<PartDesign::Prism>()->Circumradius.getValue());
             ui->prismCircumradius->bind(getObject<PartDesign::Prism>()->Circumradius);
@@ -202,6 +293,7 @@ TaskBoxPrimitives::TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent)
             break;
         case PartDesign::FeaturePrimitive::Wedge:
             index = 8;
+            operationGrid = ui->wedgeParametersLayout;
             ui->wedgeXmax->setValue(getObject<PartDesign::Wedge>()->Xmax.getValue());
             ui->wedgeXmax->bind(getObject<PartDesign::Wedge>()->Xmax);
             ui->wedgeXmin->setValue(getObject<PartDesign::Wedge>()->Xmin.getValue());
@@ -222,30 +314,31 @@ TaskBoxPrimitives::TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent)
             ui->wedgeZ2max->bind(getObject<PartDesign::Wedge>()->Z2max);
             ui->wedgeZ2min->setValue(getObject<PartDesign::Wedge>()->Z2min.getValue());
             ui->wedgeZ2min->bind(getObject<PartDesign::Wedge>()->Z2min);
-            ui->wedgeXmin->setMinimum(INT_MIN);
+            ui->wedgeXmin->setMinimum(std::numeric_limits<int>::min());
             ui->wedgeXmin->setMaximum(ui->wedgeXmax->rawValue()); // must be < than wedgeXmax
-            ui->wedgeYmin->setMinimum(INT_MIN);
+            ui->wedgeYmin->setMinimum(std::numeric_limits<int>::min());
             ui->wedgeYmin->setMaximum(ui->wedgeYmax->rawValue()); // must be < than wedgeYmax
-            ui->wedgeZmin->setMinimum(INT_MIN);
+            ui->wedgeZmin->setMinimum(std::numeric_limits<int>::min());
             ui->wedgeZmin->setMaximum(ui->wedgeZmax->rawValue()); // must be < than wedgeZmax
-            ui->wedgeX2min->setMinimum(INT_MIN);
+            ui->wedgeX2min->setMinimum(std::numeric_limits<int>::min());;
             ui->wedgeX2min->setMaximum(ui->wedgeX2max->rawValue()); // must be <= than wedgeXmax
-            ui->wedgeZ2min->setMinimum(INT_MIN);
+            ui->wedgeZ2min->setMinimum(std::numeric_limits<int>::min());;
             ui->wedgeZ2min->setMaximum(ui->wedgeZ2max->rawValue()); // must be <= than wedgeXmax
             ui->wedgeXmax->setMinimum(ui->wedgeXmin->rawValue());
-            ui->wedgeXmax->setMaximum(INT_MAX);
+            ui->wedgeXmax->setMaximum(std::numeric_limits<int>::max());
             ui->wedgeYmax->setMinimum(ui->wedgeYmin->rawValue());
-            ui->wedgeYmax->setMaximum(INT_MAX);
+            ui->wedgeYmax->setMaximum(std::numeric_limits<int>::max());
             ui->wedgeZmax->setMinimum(ui->wedgeZmin->rawValue());
-            ui->wedgeZmax->setMaximum(INT_MAX);
+            ui->wedgeZmax->setMaximum(std::numeric_limits<int>::max());
             ui->wedgeX2max->setMinimum(ui->wedgeX2min->rawValue());
-            ui->wedgeX2max->setMaximum(INT_MAX);
+            ui->wedgeX2max->setMaximum(std::numeric_limits<int>::max());
             ui->wedgeZ2max->setMinimum(ui->wedgeZ2min->rawValue());
-            ui->wedgeZ2max->setMaximum(INT_MAX);
+            ui->wedgeZ2max->setMaximum(std::numeric_limits<int>::max());
             break;
     }
 
     ui->widgetStack->setCurrentIndex(index);
+    setupOperation(operationGrid);
     ui->widgetStack->setMinimumSize(ui->widgetStack->widget(index)->minimumSize());
     for(int i=0; i<ui->widgetStack->count(); ++i) {
 
@@ -253,18 +346,15 @@ TaskBoxPrimitives::TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent)
             ui->widgetStack->widget(i)->setSizePolicy(QSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored));
     }
 
-    Gui::Document* doc = vp->getDocument();
-    this->attachDocument(doc);
-
     //show the parts coordinate system axis for selection
     if(PartDesign::Body * body = PartDesign::Body::findBodyOf(getObject())) {
         try {
             App::Origin *origin = body->getOrigin();
-            Gui::ViewProviderOrigin* vpOrigin {};
-            vpOrigin = static_cast<Gui::ViewProviderOrigin*>(Gui::Application::Instance->getViewProvider(origin));
-            vpOrigin->setTemporaryVisibility(true, true);
+            Gui::ViewProviderCoordinateSystem* vpOrigin {};
+            vpOrigin = static_cast<Gui::ViewProviderCoordinateSystem*>(Gui::Application::Instance->getViewProvider(origin));
+            vpOrigin->setTemporaryVisibility(Gui::DatumElement::Planes | Gui::DatumElement::Axes);
         } catch (const Base::Exception &ex) {
-            Base::Console().Error ("%s\n", ex.what () );
+            Base::Console().error ("%s\n", ex.what () );
         }
     }
 
@@ -367,6 +457,8 @@ TaskBoxPrimitives::TaskBoxPrimitives(ViewProviderPrimitive* vp, QWidget* parent)
             this, &TaskBoxPrimitives::onWedgeZ2maxChanged);
     connect(ui->wedgeZ2min, qOverload<double>(&Gui::QuantitySpinBox::valueChanged),
             this, &TaskBoxPrimitives::onWedgeZ2minChanged);
+
+    setupGizmos();
 }
 // clang-format on
 
@@ -380,22 +472,30 @@ TaskBoxPrimitives::~TaskBoxPrimitives()
         auto obj = getObject();
         if (PartDesign::Body* body = obj ? PartDesign::Body::findBodyOf(obj) : nullptr) {
             App::Origin* origin = body->getOrigin();
-            Gui::ViewProviderOrigin* vpOrigin;
-            vpOrigin = static_cast<Gui::ViewProviderOrigin*>(
-                Gui::Application::Instance->getViewProvider(origin));
+            Gui::ViewProviderCoordinateSystem* vpOrigin;
+            vpOrigin = static_cast<Gui::ViewProviderCoordinateSystem*>(
+                Gui::Application::Instance->getViewProvider(origin)
+            );
             vpOrigin->resetTemporaryVisibility();
         }
     }
     catch (const Base::Exception& ex) {
-        Base::Console().Error("%s\n", ex.what());
+        Base::Console().error("%s\n", ex.what());
     }
 }
 
-void TaskBoxPrimitives::slotDeletedObject(const Gui::ViewProviderDocumentObject& Obj)
+void TaskBoxPrimitives::setupOperation(QGridLayout* grid)
 {
-    if (this->vp == &Obj) {
-        this->vp = nullptr;
+    auto primitive = getObject<PartDesign::FeaturePrimitive>();
+    if (isSubtractivePrimitive(primitive)) {
+        assert(grid);
+        ui->operationLayout->removeWidget(ui->labelOperation);
+        ui->operationLayout->removeWidget(ui->comboOperation);
+        const int row = grid->rowCount();
+        grid->addWidget(ui->labelOperation, row, 0);
+        grid->addWidget(ui->comboOperation, row, grid->columnCount() - 1);
     }
+    TaskFeatureAddSubParameters::setupOperation(ui->labelOperation, ui->comboOperation);
 }
 
 void TaskBoxPrimitives::onBoxHeightChanged(double v)
@@ -807,149 +907,184 @@ void TaskBoxPrimitives::onWedgeZmaxChanged(double v)
     }
 }
 
+void TaskBoxPrimitives::changeEvent(QEvent* e)
+{
+    TaskBox::changeEvent(e);
+    if (e->type() == QEvent::LanguageChange) {
+        ui->retranslateUi(proxy);
+    }
+}
+
+void TaskBoxPrimitives::onPlacementChanged()
+{
+    setGizmoPositions();
+}
+
 
 bool TaskBoxPrimitives::setPrimitive(App::DocumentObject* obj)
 {
     try {
-        QString name(QString::fromLatin1(Gui::Command::getObjectCmd(obj).c_str()));
-        QString cmd;
         App::Document* doc = App::GetApplication().getActiveDocument();
         if (!doc) {
             return false;
         }
 
+        std::string cmd;
+        std::string name(Gui::Command::getObjectCmd(obj));
         Base::QuantityFormat format(Base::QuantityFormat::Fixed, Base::UnitsApi::getDecimals());
         switch (ui->widgetStack->currentIndex()) {
             case 1:  // box
-                cmd = QString::fromLatin1("%1.Length='%2'\n"
-                                          "%1.Width='%3'\n"
-                                          "%1.Height='%4'\n")
-                          .arg(name,
-                               ui->boxLength->value().getSafeUserString(),
-                               ui->boxWidth->value().getSafeUserString(),
-                               ui->boxHeight->value().getSafeUserString());
+                cmd = fmt::format(
+                    "{0}.Length='{1}'\n"
+                    "{0}.Width='{2}'\n"
+                    "{0}.Height='{3}'\n",
+                    name,
+                    ui->boxLength->value().getSafeUserString(),
+                    ui->boxWidth->value().getSafeUserString(),
+                    ui->boxHeight->value().getSafeUserString()
+                );
                 break;
 
             case 2:  // cylinder
-                cmd = QString::fromLatin1("%1.Radius='%2'\n"
-                                          "%1.Height='%3'\n"
-                                          "%1.Angle='%4'\n"
-                                          "%1.FirstAngle='%5'\n"
-                                          "%1.SecondAngle='%6'\n")
-                          .arg(name,
-                               ui->cylinderRadius->value().getSafeUserString(),
-                               ui->cylinderHeight->value().getSafeUserString(),
-                               ui->cylinderAngle->value().getSafeUserString(),
-                               ui->cylinderXSkew->value().getSafeUserString(),
-                               ui->cylinderYSkew->value().getSafeUserString());
+                cmd = fmt::format(
+                    "{0}.Radius='{1}'\n"
+                    "{0}.Height='{2}'\n"
+                    "{0}.Angle='{3}'\n"
+                    "{0}.FirstAngle='{4}'\n"
+                    "{0}.SecondAngle='{5}'\n",
+                    name,
+                    ui->cylinderRadius->value().getSafeUserString(),
+                    ui->cylinderHeight->value().getSafeUserString(),
+                    ui->cylinderAngle->value().getSafeUserString(),
+                    ui->cylinderXSkew->value().getSafeUserString(),
+                    ui->cylinderYSkew->value().getSafeUserString()
+                );
                 break;
 
             case 3:  // cone
-                cmd = QString::fromLatin1("%1.Radius1='%2'\n"
-                                          "%1.Radius2='%3'\n"
-                                          "%1.Height='%4'\n"
-                                          "%1.Angle='%5'\n")
-                          .arg(name,
-                               ui->coneRadius1->value().getSafeUserString(),
-                               ui->coneRadius2->value().getSafeUserString(),
-                               ui->coneHeight->value().getSafeUserString(),
-                               ui->coneAngle->value().getSafeUserString());
+                cmd = fmt::format(
+                    "{0}.Radius1='{1}'\n"
+                    "{0}.Radius2='{2}'\n"
+                    "{0}.Height='{3}'\n"
+                    "{0}.Angle='{4}'\n",
+                    name,
+                    ui->coneRadius1->value().getSafeUserString(),
+                    ui->coneRadius2->value().getSafeUserString(),
+                    ui->coneHeight->value().getSafeUserString(),
+                    ui->coneAngle->value().getSafeUserString()
+                );
                 break;
 
             case 4:  // sphere
-                cmd = QString::fromLatin1("%1.Radius='%2'\n"
-                                          "%1.Angle1='%3'\n"
-                                          "%1.Angle2='%4'\n"
-                                          "%1.Angle3='%5'\n")
-                          .arg(name,
-                               ui->sphereRadius->value().getSafeUserString(),
-                               ui->sphereAngle1->value().getSafeUserString(),
-                               ui->sphereAngle2->value().getSafeUserString(),
-                               ui->sphereAngle3->value().getSafeUserString());
+                cmd = fmt::format(
+                    "{0}.Radius='{1}'\n"
+                    "{0}.Angle1='{2}'\n"
+                    "{0}.Angle2='{3}'\n"
+                    "{0}.Angle3='{4}'\n",
+                    name,
+                    ui->sphereRadius->value().getSafeUserString(),
+                    ui->sphereAngle1->value().getSafeUserString(),
+                    ui->sphereAngle2->value().getSafeUserString(),
+                    ui->sphereAngle3->value().getSafeUserString()
+                );
                 break;
             case 5:  // ellipsoid
-                cmd = QString::fromLatin1("%1.Radius1='%2'\n"
-                                          "%1.Radius2='%3'\n"
-                                          "%1.Radius3='%4'\n"
-                                          "%1.Angle1='%5'\n"
-                                          "%1.Angle2='%6'\n"
-                                          "%1.Angle3='%7'\n")
-                          .arg(name,
-                               ui->ellipsoidRadius1->value().getSafeUserString(),
-                               ui->ellipsoidRadius2->value().getSafeUserString(),
-                               ui->ellipsoidRadius3->value().getSafeUserString(),
-                               ui->ellipsoidAngle1->value().getSafeUserString(),
-                               ui->ellipsoidAngle2->value().getSafeUserString(),
-                               ui->ellipsoidAngle3->value().getSafeUserString());
+                cmd = fmt::format(
+                    "{0}.Radius1='{1}'\n"
+                    "{0}.Radius2='{2}'\n"
+                    "{0}.Radius3='{3}'\n"
+                    "{0}.Angle1='{4}'\n"
+                    "{0}.Angle2='{5}'\n"
+                    "{0}.Angle3='{6}'\n",
+                    name,
+                    ui->ellipsoidRadius1->value().getSafeUserString(),
+                    ui->ellipsoidRadius2->value().getSafeUserString(),
+                    ui->ellipsoidRadius3->value().getSafeUserString(),
+                    ui->ellipsoidAngle1->value().getSafeUserString(),
+                    ui->ellipsoidAngle2->value().getSafeUserString(),
+                    ui->ellipsoidAngle3->value().getSafeUserString()
+                );
                 break;
 
             case 6:  // torus
-                cmd = QString::fromLatin1("%1.Radius1='%2'\n"
-                                          "%1.Radius2='%3'\n"
-                                          "%1.Angle1='%4'\n"
-                                          "%1.Angle2='%5'\n"
-                                          "%1.Angle3='%6'\n")
-                          .arg(name,
-                               ui->torusRadius1->value().getSafeUserString(),
-                               ui->torusRadius2->value().getSafeUserString(),
-                               ui->torusAngle1->value().getSafeUserString(),
-                               ui->torusAngle2->value().getSafeUserString(),
-                               ui->torusAngle3->value().getSafeUserString());
+                cmd = fmt::format(
+                    "{0}.Radius1='{1}'\n"
+                    "{0}.Radius2='{2}'\n"
+                    "{0}.Angle1='{3}'\n"
+                    "{0}.Angle2='{4}'\n"
+                    "{0}.Angle3='{5}'\n",
+                    name,
+                    ui->torusRadius1->value().getSafeUserString(),
+                    ui->torusRadius2->value().getSafeUserString(),
+                    ui->torusAngle1->value().getSafeUserString(),
+                    ui->torusAngle2->value().getSafeUserString(),
+                    ui->torusAngle3->value().getSafeUserString()
+                );
                 break;
             case 7:  // prism
-                cmd = QString::fromLatin1("%1.Polygon=%2\n"
-                                          "%1.Circumradius='%3'\n"
-                                          "%1.Height='%4'\n"
-                                          "%1.FirstAngle='%5'\n"
-                                          "%1.SecondAngle='%6'\n")
-                          .arg(name,
-                               QString::number(ui->prismPolygon->value()),
-                               ui->prismCircumradius->value().getSafeUserString(),
-                               ui->prismHeight->value().getSafeUserString(),
-                               ui->prismXSkew->value().getSafeUserString(),
-                               ui->prismYSkew->value().getSafeUserString());
+                cmd = fmt::format(
+                    "{0}.Polygon={1}\n"
+                    "{0}.Circumradius='{2}'\n"
+                    "{0}.Height='{3}'\n"
+                    "{0}.FirstAngle='{4}'\n"
+                    "{0}.SecondAngle='{5}'\n",
+                    name,
+                    ui->prismPolygon->value(),
+                    ui->prismCircumradius->value().getSafeUserString(),
+                    ui->prismHeight->value().getSafeUserString(),
+                    ui->prismXSkew->value().getSafeUserString(),
+                    ui->prismYSkew->value().getSafeUserString()
+                );
                 break;
             case 8:  // wedge
                 // Xmin/max, Ymin/max and Zmin/max must each not be equal
                 if (ui->wedgeXmin->value().getValue() == ui->wedgeXmax->value().getValue()) {
-                    QMessageBox::warning(Gui::getMainWindow(),
-                                         tr("Invalid wedge parameters"),
-                                         tr("X min must not be equal to X max!"));
+                    QMessageBox::warning(
+                        Gui::getMainWindow(),
+                        tr("Invalid wedge parameters"),
+                        tr("X min must not be equal to X max!")
+                    );
                     return false;
                 }
                 else if (ui->wedgeYmin->value().getValue() == ui->wedgeYmax->value().getValue()) {
-                    QMessageBox::warning(Gui::getMainWindow(),
-                                         tr("Invalid wedge parameters"),
-                                         tr("Y min must not be equal to Y max!"));
+                    QMessageBox::warning(
+                        Gui::getMainWindow(),
+                        tr("Invalid wedge parameters"),
+                        tr("Y min must not be equal to Y max!")
+                    );
                     return false;
                 }
                 else if (ui->wedgeZmin->value().getValue() == ui->wedgeZmax->value().getValue()) {
-                    QMessageBox::warning(Gui::getMainWindow(),
-                                         tr("Invalid wedge parameters"),
-                                         tr("Z min must not be equal to Z max!"));
+                    QMessageBox::warning(
+                        Gui::getMainWindow(),
+                        tr("Invalid wedge parameters"),
+                        tr("Z min must not be equal to Z max!")
+                    );
                     return false;
                 }
-                cmd = QString::fromLatin1("%1.Xmin='%2'\n"
-                                          "%1.Ymin='%3'\n"
-                                          "%1.Zmin='%4'\n"
-                                          "%1.X2min='%5'\n"
-                                          "%1.Z2min='%6'\n"
-                                          "%1.Xmax='%7'\n"
-                                          "%1.Ymax='%8'\n"
-                                          "%1.Zmax='%9'\n"
-                                          "%1.X2max='%10'\n"
-                                          "%1.Z2max='%11'\n")
-                          .arg(name,
-                               ui->wedgeXmin->value().getSafeUserString(),
-                               ui->wedgeYmin->value().getSafeUserString(),
-                               ui->wedgeZmin->value().getSafeUserString(),
-                               ui->wedgeX2min->value().getSafeUserString(),
-                               ui->wedgeZ2min->value().getSafeUserString(),
-                               ui->wedgeXmax->value().getSafeUserString(),
-                               ui->wedgeYmax->value().getSafeUserString(),
-                               ui->wedgeZmax->value().getSafeUserString())
-                          .arg(ui->wedgeX2max->value().getSafeUserString(),
-                               ui->wedgeZ2max->value().getSafeUserString());
+                cmd = fmt::format(
+                    "{0}.Xmin='{1}'\n"
+                    "{0}.Ymin='{2}'\n"
+                    "{0}.Zmin='{3}'\n"
+                    "{0}.X2min='{4}'\n"
+                    "{0}.Z2min='{5}'\n"
+                    "{0}.Xmax='{6}'\n"
+                    "{0}.Ymax='{7}'\n"
+                    "{0}.Zmax='{8}'\n"
+                    "{0}.X2max='{9}'\n"
+                    "{0}.Z2max='{10}'\n",
+                    name,
+                    ui->wedgeXmin->value().getSafeUserString(),
+                    ui->wedgeYmin->value().getSafeUserString(),
+                    ui->wedgeZmin->value().getSafeUserString(),
+                    ui->wedgeX2min->value().getSafeUserString(),
+                    ui->wedgeZ2min->value().getSafeUserString(),
+                    ui->wedgeXmax->value().getSafeUserString(),
+                    ui->wedgeYmax->value().getSafeUserString(),
+                    ui->wedgeZmax->value().getSafeUserString(),
+                    ui->wedgeX2max->value().getSafeUserString(),
+                    ui->wedgeZ2max->value().getSafeUserString()
+                );
                 break;
 
             default:
@@ -959,20 +1094,105 @@ bool TaskBoxPrimitives::setPrimitive(App::DocumentObject* obj)
         // Execute the Python block
         // No need to open a transaction because this is already done in the command
         // class or when starting to edit a primitive.
-        Gui::Command::runCommand(Gui::Command::Doc, cmd.toUtf8());
+        Gui::Command::runCommand(Gui::Command::Doc, cmd.c_str());
+        TaskFeatureAddSubParameters::apply();
         Gui::Command::runCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
     }
     catch (const Base::PyException& e) {
-        QMessageBox::warning(this,
-                             tr("Create primitive"),
-                             QApplication::translate("Exception", e.what()));
+        QMessageBox::warning(
+            this,
+            tr("Create primitive"),
+            QApplication::translate("Exception", e.what())
+        );
         return false;
     }
     return true;
 }
 
-TaskPrimitiveParameters::TaskPrimitiveParameters(ViewProviderPrimitive* PrimitiveView)
-    : vp_prm(PrimitiveView)
+void TaskBoxPrimitives::setupGizmos()
+{
+    if (!Gui::GizmoContainer::isEnabled()) {
+        return;
+    }
+
+    switch (getObject<PartDesign::FeaturePrimitive>()->getPrimitiveType()) {
+        case PartDesign::FeaturePrimitive::Box:
+            lengthGizmo = new Gui::LinearGizmo(ui->boxLength);
+            widthGizmo = new Gui::LinearGizmo(ui->boxWidth);
+            heightGizmo = new Gui::LinearGizmo(ui->boxHeight);
+
+            gizmoContainer = Gui::GizmoContainer::create({widthGizmo, heightGizmo, lengthGizmo}, vp);
+            break;
+        case PartDesign::FeaturePrimitive::Cylinder:
+            heightGizmo = new Gui::LinearGizmo(ui->cylinderHeight);
+            radiusGizmo = new Gui::LinearGizmo(ui->cylinderRadius);
+
+            gizmoContainer = Gui::GizmoContainer::create({heightGizmo, radiusGizmo}, vp);
+            break;
+        case PartDesign::FeaturePrimitive::Sphere:
+            radiusGizmo = new Gui::LinearGizmo(ui->sphereRadius);
+
+            gizmoContainer = Gui::GizmoContainer::create({radiusGizmo}, vp);
+            break;
+        default:
+            return;
+    }
+
+    setGizmoPositions();
+
+    if (Gui::GizmoContainer::isCoarseSnapEnabled()) {
+        const Gui::InputHint::UserInput key = Gui::GizmoContainer::getFineSnapKey();
+        const bool coarseByDefault = Gui::GizmoContainer::isCoarseByDefault();
+
+        QString message;
+        if (coarseByDefault) {
+            message = tr("%1 fine dragging");
+        }
+        else {
+            message = tr("%1 coarse dragging");
+        }
+
+        Gui::getMainWindow()->showHints({{
+            .message = message,
+            .sequences = {{key}},
+        }});
+    }
+}
+
+void TaskBoxPrimitives::setGizmoPositions()
+{
+    if (!gizmoContainer) {
+        return;
+    }
+
+    SbVec3f pos = Base::convertTo<SbVec3f>(vp->getObjectPlacement().getPosition());
+    SbRotation rot = Base::convertTo<SbRotation>(vp->getObjectPlacement().getRotation());
+    auto getVec = [rot](SbVec3f vec) {
+        rot.multVec(vec, vec);
+
+        return vec;
+    };
+    switch (getObject<PartDesign::FeaturePrimitive>()->getPrimitiveType()) {
+        case PartDesign::FeaturePrimitive::Box:
+            lengthGizmo->setDraggerPlacement(pos, getVec({1, 0, 0}));
+            widthGizmo->setDraggerPlacement(pos, getVec({0, 1, 0}));
+            heightGizmo->setDraggerPlacement(pos, getVec({0, 0, 1}));
+            break;
+        case PartDesign::FeaturePrimitive::Cylinder:
+            heightGizmo->setDraggerPlacement(pos, getVec({0, 0, 1}));
+            radiusGizmo->setDraggerPlacement(pos, getVec({1, 1, 0}));
+            break;
+        case PartDesign::FeaturePrimitive::Sphere:
+            radiusGizmo->setDraggerPlacement(pos, getVec({1, 1, 0}));
+            break;
+        default:
+            return;
+    }
+}
+
+TaskDlgPrimitiveParameters::TaskDlgPrimitiveParameters(ViewProviderPrimitive* PrimitiveView)
+    : TaskDlgFeatureParameters(PrimitiveView)
+    , vp_prm(PrimitiveView)
 {
     assert(PrimitiveView);
 
@@ -980,11 +1200,19 @@ TaskPrimitiveParameters::TaskPrimitiveParameters(ViewProviderPrimitive* Primitiv
     Content.push_back(primitive);
     parameter = new PartGui::TaskAttacher(PrimitiveView, nullptr, QString(), tr("Attachment"));
     Content.push_back(parameter);
+    Content.push_back(preview);
+
+    connect(
+        parameter,
+        &PartGui::TaskAttacher::placementUpdated,
+        primitive,
+        &TaskBoxPrimitives::onPlacementChanged
+    );
 }
 
-TaskPrimitiveParameters::~TaskPrimitiveParameters() = default;
+TaskDlgPrimitiveParameters::~TaskDlgPrimitiveParameters() = default;
 
-bool TaskPrimitiveParameters::accept()
+bool TaskDlgPrimitiveParameters::accept()
 {
     bool primitiveOK = primitive->setPrimitive(vp_prm->getObject());
     if (!primitiveOK) {
@@ -996,16 +1224,17 @@ bool TaskPrimitiveParameters::accept()
     return true;
 }
 
-bool TaskPrimitiveParameters::reject()
+bool TaskDlgPrimitiveParameters::reject()
 {
     // roll back the done things
-    Gui::Command::abortCommand();
+    // Gui::Command::abortCommand();
+    vp_prm->getDocument()->abortCommand();
     Gui::Command::doCommand(Gui::Command::Gui, "Gui.activeDocument().resetEdit()");
 
     return true;
 }
 
-QDialogButtonBox::StandardButtons TaskPrimitiveParameters::getStandardButtons() const
+QDialogButtonBox::StandardButtons TaskDlgPrimitiveParameters::getStandardButtons() const
 {
     return Gui::TaskView::TaskDialog::getStandardButtons();
 }

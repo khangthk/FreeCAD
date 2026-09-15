@@ -20,9 +20,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <Inventor/SoPickedPoint.h>
 #include <Inventor/actions/SoRayPickAction.h>
 #include <Inventor/actions/SoSearchAction.h>
@@ -32,37 +30,26 @@
 #include <Inventor/nodes/SoDrawStyle.h>
 #include <Inventor/nodes/SoFont.h>
 #include <Inventor/nodes/SoMaterial.h>
+#include <Inventor/nodes/SoPickStyle.h>
+#include <Inventor/nodes/SoResetTransform.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoSwitch.h>
-#endif
-
-#include <Inventor/nodes/SoResetTransform.h>
+#include <Inventor/sensors/SoNodeSensor.h>
 
 #include <App/GeoFeature.h>
 #include <App/PropertyGeo.h>
 
 #include "Application.h"
 #include "Document.h"
-#include "SoFCBoundingBox.h"
+#include "Inventor/SoFCBoundingBox.h"
 #include "SoFCSelection.h"
 #include "View3DInventorViewer.h"
 #include "ViewProviderGeometryObject.h"
 #include "ViewProviderGeometryObjectPy.h"
 
+#include <Base/Tools.h>
+
 using namespace Gui;
-
-// Helper functions to consistently convert between float and long
-namespace {
-float fromPercent(long value)
-{
-    return std::roundf(value) / 100.0F;
-}
-
-long toPercent(float value)
-{
-    return std::lround(100.0 * value);
-}
-}
 
 PROPERTY_SOURCE(Gui::ViewProviderGeometryObject, Gui::ViewProviderDragger)
 
@@ -71,53 +58,69 @@ const App::PropertyIntegerConstraint::Constraints intPercent = {0, 100, 5};
 ViewProviderGeometryObject::ViewProviderGeometryObject()
 {
     App::Material mat = App::Material::getDefaultAppearance();
-    long initialTransparency = toPercent(mat.transparency);
+
+    long initialTransparency = Base::toPercent(mat.transparency);
 
     static const char* dogroup = "Display Options";
     static const char* sgroup = "Selection";
     static const char* osgroup = "Object Style";
 
-    ADD_PROPERTY_TYPE(Transparency,
-                      (initialTransparency),
-                      osgroup,
-                      App::Prop_None,
-                      "Set object transparency");
+    ADD_PROPERTY_TYPE(
+        Transparency,
+        (initialTransparency),
+        osgroup,
+        App::Prop_None,
+        "Set object transparency"
+    );
     Transparency.setConstraints(&intPercent);
 
-    ADD_PROPERTY_TYPE(ShapeAppearance, (mat), osgroup, App::Prop_None, "Shape appearrance");
+    ADD_PROPERTY_TYPE(ShapeAppearance, (mat), osgroup, App::Prop_None, "Shape appearance");
     ADD_PROPERTY_TYPE(BoundingBox, (false), dogroup, App::Prop_None, "Display object bounding box");
-    ADD_PROPERTY_TYPE(Selectable,
-                      (true),
-                      sgroup,
-                      App::Prop_None,
-                      "Set if the object is selectable in the 3d view");
+    ADD_PROPERTY_TYPE(
+        Selectable,
+        (true),
+        sgroup,
+        App::Prop_None,
+        "Set if the object is selectable in the 3d view"
+    );
 
+    pickStyle = new SoPickStyle();
+    pickStyle->ref();
+    pickStyle->style.setValue(SoPickStyle::SHAPE);
+    pcRoot->insertChild(pickStyle, 1);
     Selectable.setValue(isSelectionEnabled());
 
     pcShapeMaterial = new SoMaterial;
     setCoinAppearance(mat);
     pcShapeMaterial->ref();
-
-    pcBoundingBox = new Gui::SoFCBoundingBox;
-    pcBoundingBox->ref();
-
-    pcBoundColor = new SoBaseColor();
-    pcBoundColor->ref();
+    pcShapeMaterial->setName("ShapeMaterial");
+    materialAppearance = mat;
 
     sPixmap = "Feature";
 }
 
 ViewProviderGeometryObject::~ViewProviderGeometryObject()
 {
-    pcShapeMaterial->unref();
-    pcBoundingBox->unref();
-    pcBoundColor->unref();
+    if (pcShapeMaterial) {
+        pcShapeMaterial->unref();
+    }
+    if (pcBoundingBox) {
+        pcBoundingBox->unref();
+    }
+    if (pcBoundSwitch) {
+        pcBoundSwitch->unref();
+    }
+    if (pcBoundColor) {
+        pcBoundColor->unref();
+    }
+    delete pcSwitchSensor;
 }
 
 bool ViewProviderGeometryObject::isSelectionEnabled() const
 {
-    ParameterGrp::handle hGrp =
-        App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/View"
+    );
     return hGrp->GetBool("EnableSelection", true);
 }
 
@@ -132,8 +135,8 @@ void ViewProviderGeometryObject::onChanged(const App::Property* prop)
         setSelectable(Sel);
     }
     else if (prop == &Transparency) {
-        long value = toPercent(ShapeAppearance.getTransparency());
-        float trans = fromPercent(Transparency.getValue());
+        long value = Base::toPercent(ShapeAppearance.getTransparency());
+        float trans = Base::fromPercent(Transparency.getValue());
         if (value != Transparency.getValue()) {
             ShapeAppearance.setTransparency(trans);
         }
@@ -144,7 +147,7 @@ void ViewProviderGeometryObject::onChanged(const App::Property* prop)
         if (getObject() && getObject()->testStatus(App::ObjectStatus::TouchOnColorChange)) {
             getObject()->touch(true);
         }
-        long value = toPercent(ShapeAppearance.getTransparency());
+        long value = Base::toPercent(ShapeAppearance.getTransparency());
         if (value != Transparency.getValue()) {
             Transparency.setValue(value);
         }
@@ -167,38 +170,49 @@ void ViewProviderGeometryObject::attach(App::DocumentObject* pcObj)
 
 void ViewProviderGeometryObject::updateData(const App::Property* prop)
 {
-    if (prop->isDerivedFrom(App::PropertyComplexGeoData::getClassTypeId())) {
-        Base::BoundBox3d box =
-            static_cast<const App::PropertyComplexGeoData*>(prop)->getBoundingBox();
-        pcBoundingBox->minBounds.setValue(box.MinX, box.MinY, box.MinZ);
-        pcBoundingBox->maxBounds.setValue(box.MaxX, box.MaxY, box.MaxZ);
-    }
-    else if (prop->isDerivedFrom(App::PropertyPlacement::getClassTypeId())) {
-        auto geometry = dynamic_cast<App::GeoFeature*>(getObject());
-        if (geometry && prop == &geometry->Placement) {
-            const App::PropertyComplexGeoData* data = geometry->getPropertyOfGeometry();
-            if (data) {
-                Base::BoundBox3d box = data->getBoundingBox();
-                pcBoundingBox->minBounds.setValue(box.MinX, box.MinY, box.MinZ);
-                pcBoundingBox->maxBounds.setValue(box.MaxX, box.MaxY, box.MaxZ);
-            }
-        }
+    if (prop->isDerivedFrom<App::PropertyComplexGeoData>()) {
+        updateBoundingBox();
     }
     else if (std::string(prop->getName()) == "ShapeMaterial") {
         // Set the appearance from the material
-        auto geometry = dynamic_cast<App::GeoFeature*>(getObject());
-        if (geometry) {
+        if (auto geometry = getObject<App::GeoFeature>()) {
+            /*
+             * Change the appearance only if the appearance hasn't been set explicitly. A cached
+             * material appearance is used to see if the current appearance matches the last
+             * material. It is also compared against an empty material to see if the saved
+             * material value has been initialized.
+             */
+            App::Material defaultMaterial;
             auto material = geometry->getMaterialAppearance();
-            ShapeAppearance.setValue(material);
+            if ((ShapeAppearance.getSize() == 1)
+                && (ShapeAppearance[0] == defaultMaterial || ShapeAppearance[0] == materialAppearance)
+                && (material != defaultMaterial)) {
+                ShapeAppearance.setValue(material);
+                materialAppearance = material;
+            }
         }
     }
 
     ViewProviderDragger::updateData(prop);
 }
 
-SoPickedPointList ViewProviderGeometryObject::getPickedPoints(const SbVec2s& pos,
-                                                              const View3DInventorViewer& viewer,
-                                                              bool pickAll) const
+void ViewProviderGeometryObject::updateBoundingBox()
+{
+    if (pcBoundingBox) {
+        Base::BoundBox3d box = this->getBoundingBox(nullptr, nullptr, false);
+        if (!box.IsValid()) {
+            return;
+        }
+        pcBoundingBox->minBounds.setValue(box.MinX, box.MinY, box.MinZ);
+        pcBoundingBox->maxBounds.setValue(box.MaxX, box.MaxY, box.MaxZ);
+    }
+}
+
+SoPickedPointList ViewProviderGeometryObject::getPickedPoints(
+    const SbVec2s& pos,
+    const View3DInventorViewer& viewer,
+    bool pickAll
+) const
 {
     auto root = new SoSeparator;
     root->ref();
@@ -217,8 +231,10 @@ SoPickedPointList ViewProviderGeometryObject::getPickedPoints(const SbVec2s& pos
     return rp.getPickedPointList();
 }
 
-SoPickedPoint* ViewProviderGeometryObject::getPickedPoint(const SbVec2s& pos,
-                                                          const View3DInventorViewer& viewer) const
+SoPickedPoint* ViewProviderGeometryObject::getPickedPoint(
+    const SbVec2s& pos,
+    const View3DInventorViewer& viewer
+) const
 {
     auto root = new SoSeparator;
     root->ref();
@@ -240,8 +256,9 @@ SoPickedPoint* ViewProviderGeometryObject::getPickedPoint(const SbVec2s& pos,
 
 unsigned long ViewProviderGeometryObject::getBoundColor() const
 {
-    ParameterGrp::handle hGrp =
-        App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/View"
+    );
     // white (255,255,255)
     unsigned long bbcol = hGrp->GetUnsigned("BoundingBoxColor", 4294967295UL);
     return bbcol;
@@ -249,28 +266,49 @@ unsigned long ViewProviderGeometryObject::getBoundColor() const
 
 void ViewProviderGeometryObject::setCoinAppearance(const App::Material& source)
 {
-    pcShapeMaterial->ambientColor.setValue(source.ambientColor.r,
-                                           source.ambientColor.g,
-                                           source.ambientColor.b);
-    pcShapeMaterial->diffuseColor.setValue(source.diffuseColor.r,
-                                           source.diffuseColor.g,
-                                           source.diffuseColor.b);
-    pcShapeMaterial->specularColor.setValue(source.specularColor.r,
-                                            source.specularColor.g,
-                                            source.specularColor.b);
-    pcShapeMaterial->emissiveColor.setValue(source.emissiveColor.r,
-                                            source.emissiveColor.g,
-                                            source.emissiveColor.b);
+    pcShapeMaterial->ambientColor
+        .setValue(source.ambientColor.r, source.ambientColor.g, source.ambientColor.b);
+    pcShapeMaterial->diffuseColor
+        .setValue(source.diffuseColor.r, source.diffuseColor.g, source.diffuseColor.b);
+    pcShapeMaterial->specularColor
+        .setValue(source.specularColor.r, source.specularColor.g, source.specularColor.b);
+    pcShapeMaterial->emissiveColor
+        .setValue(source.emissiveColor.r, source.emissiveColor.g, source.emissiveColor.b);
     pcShapeMaterial->shininess.setValue(source.shininess);
     pcShapeMaterial->transparency.setValue(source.transparency);
+}
+
+void ViewProviderGeometryObject::addBoundSwitch()
+{
+    if (!pcBoundSwitch) {
+        return;
+    }
+
+    for (int i = 0; i < pcModeSwitch->getNumChildren(); ++i) {
+        auto node = pcModeSwitch->getChild(i);
+        if (!node->isOfType(SoGroup::getClassTypeId())) {
+            continue;
+        }
+        auto group = static_cast<SoGroup*>(node);
+        int idx = group->findChild(pcBoundSwitch);
+        if (idx >= 0) {
+            // make sure we are added last
+            if (idx == group->getNumChildren() - 1) {
+                continue;
+            }
+            group->removeChild(idx);
+        }
+        group->addChild(pcBoundSwitch);
+    }
 }
 
 namespace
 {
 float getBoundBoxFontSize()
 {
-    ParameterGrp::handle hGrp =
-        App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/View"
+    );
     return hGrp->GetFloat("BoundingBoxFontSize", 10.0);
 }
 }  // namespace
@@ -287,30 +325,65 @@ void ViewProviderGeometryObject::showBoundingBox(bool show)
         blue = ((bbcol >> 8) & 0xff) / 255.0F;
 
         pcBoundSwitch = new SoSwitch();
+        pcBoundSwitch->ref();
+        pcBoundSwitch->setName("BoundSwitch");
         auto pBoundingSep = new SoSeparator();
         auto lineStyle = new SoDrawStyle;
         lineStyle->lineWidth = 2.0F;
         pBoundingSep->addChild(lineStyle);
 
+        if (!pcBoundColor) {
+            pcBoundColor = new SoBaseColor;
+            pcBoundColor->ref();
+            pcBoundColor->setName("BoundColor");
+        }
         pcBoundColor->rgb.setValue(red, green, blue);
         pBoundingSep->addChild(pcBoundColor);
         auto font = new SoFont();
         font->size.setValue(getBoundBoxFontSize());
         pBoundingSep->addChild(font);
 
-        pBoundingSep->addChild(new SoResetTransform());
+        if (!pcBoundingBox) {
+            pcBoundingBox = new SoFCBoundingBox;
+            pcBoundingBox->ref();
+            pcBoundingBox->setName("BoundingBox");
+        }
         pBoundingSep->addChild(pcBoundingBox);
         pcBoundingBox->coordsOn.setValue(false);
         pcBoundingBox->dimensionsOn.setValue(true);
 
         // add to the highlight node
         pcBoundSwitch->addChild(pBoundingSep);
-        pcRoot->addChild(pcBoundSwitch);
+
+        updateBoundingBox();
+
+        addBoundSwitch();
+        pcSwitchSensor = new SoNodeSensor;
+        pcSwitchSensor->setData(this);
+        pcSwitchSensor->attach(pcModeSwitch);
+        pcSwitchSensor->setFunction([](void* data, SoSensor*) {
+            static_cast<ViewProviderGeometryObject*>(data)->addBoundSwitch();
+        });
     }
 
     if (pcBoundSwitch) {
-        pcBoundSwitch->whichChild = (show ? 0 : -1);
+        // Respect object visibility: never show bounding box on a hidden object
+        pcBoundSwitch->whichChild = (show && isShow()) ? 0 : -1;
     }
+}
+
+void ViewProviderGeometryObject::hide()
+{
+    if (pcBoundSwitch) {
+        pcBoundSwitch->whichChild = -1;
+    }
+    ViewProviderDragger::hide();
+}
+
+void ViewProviderGeometryObject::show()
+{
+    ViewProviderDragger::show();
+    showBoundingBox(BoundingBox.getValue());
 }
 
 void ViewProviderGeometryObject::setSelectable(bool selectable)
@@ -328,17 +401,19 @@ void ViewProviderGeometryObject::setSelectable(bool selectable)
         if (selectable) {
             if (selNode) {
                 selNode->selectionMode = SoFCSelection::SEL_ON;
-                selNode->highlightMode = SoFCSelection::AUTO;
+                selNode->preselectionMode = SoFCSelection::AUTO;
             }
         }
         else {
             if (selNode) {
                 selNode->selectionMode = SoFCSelection::SEL_OFF;
-                selNode->highlightMode = SoFCSelection::OFF;
+                selNode->preselectionMode = SoFCSelection::OFF;
                 selNode->selected = SoFCSelection::NOTSELECTED;
             }
         }
     }
+
+    pickStyle->style.setValue(selectable ? SoPickStyle::SHAPE : SoPickStyle::UNPICKABLE);
 }
 
 PyObject* ViewProviderGeometryObject::getPyObject()
@@ -350,18 +425,22 @@ PyObject* ViewProviderGeometryObject::getPyObject()
     return pyViewObject;
 }
 
-void ViewProviderGeometryObject::handleChangedPropertyName(Base::XMLReader& reader,
-                                                           const char* TypeName,
-                                                           const char* PropName)
+void ViewProviderGeometryObject::handleChangedPropertyName(
+    Base::XMLReader& reader,
+    const char* TypeName,
+    const char* PropName
+)
 {
     if (strcmp(PropName, "ShapeColor") == 0
-        && strcmp(TypeName, App::PropertyColor::getClassTypeId().getName()) == 0) {
+        && TypeName == App::PropertyColor::getClassTypeId().getName()) {
         App::PropertyColor prop;
         prop.Restore(reader);
         ShapeAppearance.setDiffuseColor(prop.getValue());
     }
-    else if (strcmp(PropName, "ShapeMaterial") == 0
-             && strcmp(TypeName, App::PropertyMaterial::getClassTypeId().getName()) == 0) {
+    else if (
+        strcmp(PropName, "ShapeMaterial") == 0
+        && TypeName == App::PropertyMaterial::getClassTypeId().getName()
+    ) {
         App::PropertyMaterial prop;
         prop.Restore(reader);
         ShapeAppearance.setValue(prop.getValue());

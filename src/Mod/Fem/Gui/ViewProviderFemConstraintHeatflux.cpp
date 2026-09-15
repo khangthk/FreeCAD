@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Authors: Michael Hindley <hindlemp@eskom.co.za>                       *
@@ -23,11 +25,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
-#endif
-
 #include "Mod/Fem/App/FemConstraintHeatflux.h"
 #include <Gui/Control.h>
 
@@ -37,13 +34,12 @@
 
 using namespace FemGui;
 
-PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintHeatflux,
-                FemGui::ViewProviderFemConstraintOnBoundary)
+PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintHeatflux, FemGui::ViewProviderFemConstraintOnBoundary)
 
 ViewProviderFemConstraintHeatflux::ViewProviderFemConstraintHeatflux()
 {
     sPixmap = "FEM_ConstraintHeatflux";
-    loadSymbol((resourceSymbolDir + "ConstraintHeatFlux.iv").c_str());
+    loadSymbol(resourceSymbolDir / "ConstraintHeatFlux.iv");
     ShapeAppearance.setDiffuseColor(1.0f, 0.0f, 0.0f);
 }
 

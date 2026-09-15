@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -19,10 +21,8 @@
  *                                                                         *
  **************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <string>
-#endif
+
 
 #include <App/Application.h>
 #include <App/Material.h>
@@ -46,31 +46,44 @@ Base::Reference<ParameterGrp> Preferences::getPreferenceGroup(const char* Name)
         ->GetGroup(Name);
 }
 
-App::Color Preferences::defaultLineColor()
+Base::Color Preferences::defaultLineColor()
 {
-    App::Color fcColor;
+    Base::Color fcColor;
     fcColor.setPackedValue(
-        getPreferenceGroup("Appearance")->GetUnsigned("DefaultLineColor", 0x3CF00000));
+        getPreferenceGroup("Appearance")->GetUnsigned("DefaultLineColor", 0x3CF00000)
+    );
     return fcColor;
 }
 
-App::Color Preferences::defaultTextColor()
+Base::Color Preferences::defaultTextColor()
 {
-    App::Color fcColor;
+    Base::Color fcColor;
     fcColor.setPackedValue(
-        getPreferenceGroup("Appearance")->GetUnsigned("DefaultTextColor", 0x00000000));
+        getPreferenceGroup("Appearance")->GetUnsigned("DefaultTextColor", 0x00000000)
+    );
     return fcColor;
 }
 
-App::Color Preferences::defaultTextBackgroundColor()
+Base::Color Preferences::defaultTextBackgroundColor()
 {
-    App::Color fcColor;
+    Base::Color fcColor;
     fcColor.setPackedValue(
-        getPreferenceGroup("Appearance")->GetUnsigned("DefaultTextBackgroundColor", 0x3CF00000));
+        getPreferenceGroup("Appearance")->GetUnsigned("DefaultTextBackgroundColor", 0x3CF00000)
+    );
     return fcColor;
 }
 
 int Preferences::defaultFontSize()
 {
     return getPreferenceGroup("Appearance")->GetInt("DefaultFontSize", 18);
+}
+
+int Preferences::defaultArrowRadius()
+{
+    return getPreferenceGroup("Appearance")->GetInt("DefaultArrowRadius", 6);
+}
+
+int Preferences::defaultArrowHeight()
+{
+    return getPreferenceGroup("Appearance")->GetInt("DefaultArrowHeight", 18);
 }

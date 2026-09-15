@@ -14,8 +14,1316 @@
    <string>Job Edit</string>
   </property>
   <property name="currentIndex">
-   <number>2</number>
+   <number>0</number>
   </property>
+  <widget class="QWidget" name="tabSetup">
+   <attribute name="title">
+    <string>Setup</string>
+   </attribute>
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QToolBox" name="toolBox_2">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="page_3">
+       <property name="geometry">
+        <rect>
+         <x>0</x>
+         <y>0</y>
+         <width>688</width>
+         <height>1368</height>
+        </rect>
+       </property>
+       <attribute name="label">
+        <string>Layout</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_9">
+        <item>
+         <widget class="QGroupBox" name="stockGroup">
+          <property name="title">
+           <string>Stock</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_5">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_5">
+             <item>
+              <widget class="QComboBox" name="stock">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="toolTip">
+                <string>Sets the stock creation method: box (explicit dimensions), cylinder, bounding box extension of the model (default), or an existing solid from the document.</string>
+               </property>
+               <property name="currentIndex">
+                <number>2</number>
+               </property>
+               <item>
+                <property name="text">
+                 <string>Create box</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Create cylinder</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Extend model's bounding box</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Use existing solid</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="refreshStock">
+               <property name="text">
+                <string>Refresh</string>
+               </property>
+               <property name="toolTip">
+                <string>Recreates the stock from the current settings. Useful after changing the model bounding box or stock parameters.</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>6</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QFrame" name="stockFromExisting">
+             <layout class="QGridLayout" name="gridLayout_8">
+              <item row="0" column="1">
+               <widget class="QComboBox" name="stockExisting"/>
+              </item>
+              <item row="1" column="1">
+               <widget class="QComboBox" name="comboBox"/>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QFrame" name="stockFromBase">
+             <layout class="QGridLayout" name="gridLayout_9">
+              <property name="columnStretch">
+               <string notr="true">0,0,1,1</string>
+              </property>
+              <item row="0" column="1">
+               <widget class="QLabel" name="stockExtXLabel">
+                <property name="text">
+                 <string>Ext. X</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="Gui::QuantitySpinBox" name="stockExtXneg">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="3">
+               <widget class="Gui::QuantitySpinBox" name="stockExtXpos">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLabel" name="stockExtYLabel">
+                <property name="text">
+                 <string>Ext. Y</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="2">
+               <widget class="Gui::QuantitySpinBox" name="stockExtYneg">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="3">
+               <widget class="Gui::QuantitySpinBox" name="stockExtYpos">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QLabel" name="stockExtZLabel">
+                <property name="text">
+                 <string>Ext. Z</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="2">
+               <widget class="Gui::QuantitySpinBox" name="stockExtZneg">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="3">
+               <widget class="Gui::QuantitySpinBox" name="stockExtZpos">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QFrame" name="stockCreateCylinder">
+             <layout class="QGridLayout" name="gridLayout_10">
+              <item row="0" column="1">
+               <widget class="QLabel" name="stockCylinderAxisLabel">
+                <property name="text">
+                 <string>Axis</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="QComboBox" name="stockCylinderAxis"/>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLabel" name="stockCylinderRadiusLabel">
+                <property name="text">
+                 <string>Radius</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="2">
+               <widget class="Gui::QuantitySpinBox" name="stockCylinderRadius"/>
+              </item>
+              <item row="2" column="1">
+               <widget class="QLabel" name="stockCylinderHeightLabel">
+                <property name="text">
+                 <string>Height</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="2">
+               <widget class="Gui::QuantitySpinBox" name="stockCylinderHeight"/>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QFrame" name="stockCreateBox">
+             <layout class="QGridLayout" name="gridLayout_11">
+              <item row="0" column="1">
+               <widget class="QLabel" name="stockBoxLengthLabel">
+                <property name="text">
+                 <string>Length</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="2">
+               <widget class="Gui::QuantitySpinBox" name="stockBoxLength"/>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLabel" name="stockBoxWidthLabel">
+                <property name="text">
+                 <string>Width</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="2">
+               <widget class="Gui::QuantitySpinBox" name="stockBoxWidth"/>
+              </item>
+              <item row="2" column="1">
+               <widget class="QLabel" name="stockBoxHeightLabel">
+                <property name="text">
+                 <string>Height</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="2">
+               <widget class="Gui::QuantitySpinBox" name="stockBoxHeight"/>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="materialRowLayout">
+             <item>
+              <widget class="QPushButton" name="btnMaterial">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="toolTip">
+                <string>Assign stock material</string>
+               </property>
+               <property name="text">
+                <string>Assign Material</string>
+               </property>
+               <property name="icon">
+                <iconset resource="../../../../Material/Gui/Resources/Material.qrc">
+                 <normaloff>:/icons/MaterialWorkbench.svg</normaloff>:/icons/MaterialWorkbench.svg
+                </iconset>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="materialSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>16</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QLabel" name="materialLabel">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+                 <horstretch>1</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="toolTip">
+                <string>Stock material currently assigned. Click the material button to change.</string>
+               </property>
+               <property name="text">
+                <string/>
+               </property>
+               <property name="textInteractionFlags">
+                <set>Qt::TextSelectableByMouse</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="pickTargetGroup">
+          <property name="title">
+           <string>Selection Target</string>
+          </property>
+          <layout class="QHBoxLayout" name="chooseRefLayout">
+           <item>
+            <widget class="QPushButton" name="pickTargetModel">
+             <property name="text">
+              <string>Model</string>
+             </property>
+             <property name="toolTip">
+              <string>Set selection target to Model; stock becomes unselectable</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../Path.qrc">
+               <normaloff>:/icons/model.svg</normaloff>:/icons/model.svg
+              </iconset>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pickTargetStock">
+             <property name="text">
+              <string>Stock</string>
+             </property>
+             <property name="toolTip">
+              <string>Set selection target to Stock; model becomes unselectable</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../Path.qrc">
+               <normaloff>:/icons/stock.svg</normaloff>:/icons/stock.svg
+              </iconset>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="pickTargetSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="modelAlignGroup">
+          <property name="title">
+           <string>Origin &amp;&amp; Alignment</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_2">
+           <item row="0" column="0" colspan="3">
+            <widget class="QPushButton" name="moveToOrigin">
+             <property name="text">
+              <string>Move to Origin</string>
+             </property>
+             <property name="toolTip">
+              <string>Moves the selection to the origin point</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../Path.qrc">
+               <normaloff>:/icons/move-to-origin.svg</normaloff>:/icons/move-to-origin.svg
+              </iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>16</width>
+               <height>16</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3" colspan="3">
+            <widget class="QPushButton" name="setOrigin">
+             <property name="text">
+              <string>Set Origin</string>
+             </property>
+             <property name="toolTip">
+              <string>Sets the origin point to a selected point: a vertex, the center
+of an edge (or arc center), or the center of the selected face.
+The Selection Target buttons control whether the selection comes
+from the model or the stock.</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../Path.qrc">
+               <normaloff>:/icons/set-origin.svg</normaloff>:/icons/set-origin.svg
+              </iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>16</width>
+               <height>16</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0" colspan="3">
+            <widget class="QPushButton" name="centerInStock">
+             <property name="text">
+              <string>Center XYZ in Stock</string>
+             </property>
+             <property name="toolTip">
+              <string>Centers the model in the stock in X, Y and Z</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../Path.qrc">
+               <normaloff>:/icons/center-in-stock.svg</normaloff>:/icons/center-in-stock.svg
+              </iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>16</width>
+               <height>16</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3" colspan="3">
+            <widget class="QPushButton" name="centerInStockXY">
+             <property name="text">
+              <string>Center XY in Stock</string>
+             </property>
+             <property name="toolTip">
+              <string>Centers the model in the stock in X and Y; Z is unchanged</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../Path.qrc">
+               <normaloff>:/icons/xy-in-stock.svg</normaloff>:/icons/xy-in-stock.svg
+              </iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>16</width>
+               <height>16</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0" colspan="2">
+            <widget class="QPushButton" name="modelSetXAxis">
+             <property name="text">
+              <string>X-Axis</string>
+             </property>
+             <property name="toolTip">
+              <string>Rotates the model so a picked edge becomes the X-axis</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../Path.qrc">
+               <normaloff>:/icons/origin-x.svg</normaloff>:/icons/origin-x.svg
+              </iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>16</width>
+               <height>16</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2" colspan="2">
+            <widget class="QPushButton" name="modelSetYAxis">
+             <property name="text">
+              <string>Y-Axis</string>
+             </property>
+             <property name="toolTip">
+              <string>Rotates the model so a picked edge becomes the Y-axis</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../Path.qrc">
+               <normaloff>:/icons/origin-y.svg</normaloff>:/icons/origin-y.svg
+              </iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>16</width>
+               <height>16</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="4" colspan="2">
+            <widget class="QPushButton" name="modelSetZAxis">
+             <property name="text">
+              <string>Z-Axis</string>
+             </property>
+             <property name="toolTip">
+              <string>Rotates the model so a picked edge becomes the Z-axis</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../Path.qrc">
+               <normaloff>:/icons/origin-z.svg</normaloff>:/icons/origin-z.svg
+              </iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>16</width>
+               <height>16</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0" colspan="2">
+            <widget class="QPushButton" name="modelSetX0">
+             <property name="text">
+              <string>X=0</string>
+             </property>
+             <property name="toolTip">
+              <string>Translates the model so the picked vertex has X = 0</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="2" colspan="2">
+            <widget class="QPushButton" name="modelSetY0">
+             <property name="text">
+              <string>Y=0</string>
+             </property>
+             <property name="toolTip">
+              <string>Translates the model so the picked vertex has Y = 0</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="4" colspan="2">
+            <widget class="QPushButton" name="modelSetZ0">
+             <property name="text">
+              <string>Z=0</string>
+             </property>
+             <property name="toolTip">
+              <string>Translates the model so the picked vertex has Z = 0</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0" colspan="6">
+            <widget class="QCheckBox" name="linkStockAndModel">
+             <property name="text">
+              <string>Link stock and model</string>
+             </property>
+             <property name="toolTip">
+              <string>When checked, stock follows model translations and rotations
+performed in this dialog. When unchecked, stock can be
+positioned independently of the model.</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="modelMoveGroup">
+          <property name="title">
+           <string>Transform</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_modelMove">
+           <property name="spacing">
+            <number>6</number>
+           </property>
+           <property name="leftMargin">
+            <number>8</number>
+           </property>
+           <property name="topMargin">
+            <number>6</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>4</number>
+           </property>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_transform">
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             <item>
+              <spacer name="transformLeftSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>0</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <layout class="QVBoxLayout" name="verticalLayout_transformInner">
+               <property name="spacing">
+                <number>6</number>
+               </property>
+               <item>
+                <layout class="QGridLayout" name="gridLayout_3">
+                 <property name="horizontalSpacing">
+                  <number>6</number>
+                 </property>
+                 <property name="verticalSpacing">
+                  <number>6</number>
+                 </property>
+                 <property name="columnStretch">
+                  <string notr="true">0,0,0,0,0,1</string>
+                 </property>
+                 <item row="0" column="0" alignment="Qt::AlignLeft|Qt::AlignTop">
+                  <widget class="QLabel" name="modelMoveLabel">
+                   <property name="text">
+                    <string>X/Y</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="4" alignment="Qt::AlignHCenter|Qt::AlignTop">
+                  <widget class="QLabel" name="modelMoveZLabel">
+                   <property name="text">
+                    <string>Z</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="4" rowspan="3">
+                  <layout class="QVBoxLayout" name="verticalLayout_modelMoveZ">
+                   <property name="spacing">
+                    <number>6</number>
+                   </property>
+                   <item>
+                    <spacer name="modelMoveZTopSpacer">
+                     <property name="orientation">
+                      <enum>Qt::Vertical</enum>
+                     </property>
+                     <property name="sizeHint" stdset="0">
+                      <size>
+                       <width>0</width>
+                       <height>0</height>
+                      </size>
+                     </property>
+                    </spacer>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="modelMoveZUp">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <property name="maximumSize">
+                      <size>
+                       <width>40</width>
+                       <height>28</height>
+                      </size>
+                     </property>
+                     <property name="toolTip">
+                      <string>Moves the selection along the +Z axis by the step distance</string>
+                     </property>
+                     <property name="text">
+                      <string/>
+                     </property>
+                     <property name="icon">
+                      <iconset resource="../Path.qrc">
+                       <normaloff>:/icons/arrow-up-z.svg</normaloff>:/icons/arrow-up-z.svg
+                      </iconset>
+                     </property>
+                     <property name="iconSize">
+                      <size>
+                       <width>18</width>
+                       <height>18</height>
+                      </size>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="modelMoveZDown">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <property name="maximumSize">
+                      <size>
+                       <width>40</width>
+                       <height>28</height>
+                      </size>
+                     </property>
+                     <property name="toolTip">
+                      <string>Moves the selection along the -Z axis by the step distance</string>
+                     </property>
+                     <property name="text">
+                      <string/>
+                     </property>
+                     <property name="icon">
+                      <iconset resource="../Path.qrc">
+                       <normaloff>:/icons/arrow-down-z.svg</normaloff>:/icons/arrow-down-z.svg
+                      </iconset>
+                     </property>
+                     <property name="iconSize">
+                      <size>
+                       <width>18</width>
+                       <height>18</height>
+                      </size>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <spacer name="modelMoveZBottomSpacer">
+                     <property name="orientation">
+                      <enum>Qt::Vertical</enum>
+                     </property>
+                     <property name="sizeHint" stdset="0">
+                      <size>
+                       <width>0</width>
+                       <height>0</height>
+                      </size>
+                     </property>
+                    </spacer>
+                   </item>
+                  </layout>
+                 </item>
+                 <item row="0" column="1" alignment="Qt::AlignHCenter">
+                  <widget class="QPushButton" name="modelMoveUp">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>40</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Moves the selection along the +Y axis by the step distance</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                   <property name="icon">
+                    <iconset resource="../Path.qrc">
+                     <normaloff>:/icons/arrow-up-y.svg</normaloff>:/icons/arrow-up-y.svg
+                    </iconset>
+                   </property>
+                   <property name="iconSize">
+                    <size>
+                     <width>18</width>
+                     <height>18</height>
+                    </size>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="0">
+                  <widget class="QPushButton" name="modelMoveLeft">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>40</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Moves the selection along the -X axis by the step distance</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                   <property name="icon">
+                    <iconset resource="../Path.qrc">
+                     <normaloff>:/icons/arrow-left-x.svg</normaloff>:/icons/arrow-left-x.svg
+                    </iconset>
+                   </property>
+                   <property name="iconSize">
+                    <size>
+                     <width>18</width>
+                     <height>18</height>
+                    </size>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="1" alignment="Qt::AlignHCenter">
+                  <widget class="Gui::QuantitySpinBox" name="modelMoveValue">
+                   <property name="maximumSize">
+                    <size>
+                     <width>90</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Step distance for model move buttons (in document units)</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="2">
+                  <widget class="QPushButton" name="modelMoveRight">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>40</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Moves the selection along the +X axis by the step distance</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                   <property name="icon">
+                    <iconset resource="../Path.qrc">
+                     <normaloff>:/icons/arrow-right-x.svg</normaloff>:/icons/arrow-right-x.svg
+                    </iconset>
+                   </property>
+                   <property name="iconSize">
+                    <size>
+                     <width>18</width>
+                     <height>18</height>
+                    </size>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="2" column="1" alignment="Qt::AlignHCenter">
+                  <widget class="QPushButton" name="modelMoveDown">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>40</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Moves the selection along the -Y axis by the step distance</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                   <property name="icon">
+                    <iconset resource="../Path.qrc">
+                     <normaloff>:/icons/arrow-down-y.svg</normaloff>:/icons/arrow-down-y.svg
+                    </iconset>
+                   </property>
+                   <property name="iconSize">
+                    <size>
+                     <width>18</width>
+                     <height>18</height>
+                    </size>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="3">
+                  <spacer name="modelMoveZSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeType">
+                    <enum>QSizePolicy::Fixed</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>16</width>
+                     <height>4</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <widget class="QLabel" name="modelRotateLabel">
+                 <property name="text">
+                  <string>Rotate</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <layout class="QGridLayout" name="gridLayout_6">
+                 <property name="horizontalSpacing">
+                  <number>6</number>
+                 </property>
+                 <property name="verticalSpacing">
+                  <number>6</number>
+                 </property>
+                 <property name="columnStretch">
+                  <string notr="true">0,0,0,0,1</string>
+                 </property>
+                 <item row="0" column="0">
+                  <widget class="QPushButton" name="modelRotateLeft">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>40</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Rotates the selection counter-clockwise around the selected axis</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                   <property name="icon">
+                    <iconset resource="../Path.qrc">
+                     <normaloff>:/icons/arrow-ccw.svg</normaloff>:/icons/arrow-ccw.svg
+                    </iconset>
+                   </property>
+                   <property name="iconSize">
+                    <size>
+                     <width>18</width>
+                     <height>18</height>
+                    </size>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QComboBox" name="modelRotateAxis">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>90</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Axis the model is rotated around</string>
+                   </property>
+                   <item>
+                    <property name="text">
+                     <string>X Axis</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>Y Axis</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>Z Axis</string>
+                    </property>
+                   </item>
+                   <property name="currentIndex">
+                    <number>2</number>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="2">
+                  <widget class="QDoubleSpinBox" name="modelRotateValue">
+                   <property name="maximumSize">
+                    <size>
+                     <width>90</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Rotation angle applied by each press of the rotate buttons</string>
+                   </property>
+                   <property name="suffix">
+                    <string>°</string>
+                   </property>
+                   <property name="minimum">
+                    <double>-180.000000000000000</double>
+                   </property>
+                   <property name="maximum">
+                    <double>360.000000000000000</double>
+                   </property>
+                   <property name="value">
+                    <double>90.000000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="3">
+                  <widget class="QPushButton" name="modelRotateRight">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>40</width>
+                     <height>28</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Rotates the selection clockwise around the selected axis</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                   <property name="icon">
+                    <iconset resource="../Path.qrc">
+                     <normaloff>:/icons/arrow-cw.svg</normaloff>:/icons/arrow-cw.svg
+                    </iconset>
+                   </property>
+                   <property name="iconSize">
+                    <size>
+                     <width>18</width>
+                     <height>18</height>
+                    </size>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="0" colspan="4">
+                  <widget class="QCheckBox" name="modelRotateCompound">
+                   <property name="text">
+                    <string>Compound</string>
+                   </property>
+                   <property name="toolTip">
+                    <string>Only has an effect when more than one object is selected.
+When checked, all selected objects rotate together around
+the center of their combined bounding box. When unchecked,
+each object rotates around its own center.</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <spacer name="transformRightSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>0</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>195</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="page_4">
+       <property name="geometry">
+        <rect>
+         <x>0</x>
+         <y>0</y>
+         <width>707</width>
+         <height>648</height>
+        </rect>
+       </property>
+       <attribute name="label">
+        <string>Default values</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_13">
+        <item row="0" column="0">
+         <widget class="QGroupBox" name="groupBox">
+          <property name="title">
+           <string>Depths</string>
+          </property>
+          <layout class="QFormLayout" name="formLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_3">
+             <property name="text">
+              <string>Start depth</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="setupStartDepthExpr">
+             <property name="toolTip">
+              <string>Expression set as the StartDepth of a newly created operation.
+
+Default: OpStartDepth</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_4">
+             <property name="text">
+              <string>Final depth</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLineEdit" name="setupFinalDepthExpr">
+             <property name="toolTip">
+              <string>Expression set as the FinalDepth for a newly created operation.
+
+Default: OpFinalDepth</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_6">
+             <property name="text">
+              <string>Step down</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QLineEdit" name="setupStepDownExpr">
+             <property name="toolTip">
+              <string>Expression set as the StepDown of a newly created operation.
+
+Default: OpToolDiameter</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QGroupBox" name="groupBox_2">
+          <property name="title">
+           <string>Heights</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_4">
+           <item row="0" column="1" colspan="2">
+            <widget class="QLabel" name="label_15">
+             <property name="text">
+              <string>Expression</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QLabel" name="label_14">
+             <property name="text">
+              <string>Offset</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_13">
+             <property name="text">
+              <string>Clearance</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1" colspan="2">
+            <widget class="QLineEdit" name="setupClearanceHeightExpr">
+             <property name="toolTip">
+              <string>Expression set as ClearanceHeight for new operations.
+
+Default: &quot;OpStockZMax+SetupSheet.ClearanceHeightOffset&quot;</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="Gui::QuantitySpinBox" name="setupClearanceHeightOffs">
+             <property name="toolTip">
+              <string>ClearanceHeightOffset - can be used by expressions to set the default ClearanceHeight for new operations.
+
+Default: 3 mm</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="label_7">
+             <property name="text">
+              <string>Safe</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1" colspan="2">
+            <widget class="QLineEdit" name="setupSafeHeightExpr">
+             <property name="toolTip">
+              <string>Expression set as SafeHeight for new operations.
+
+Default: &quot;OpStockZMax+SetupSheet.SafeHeightOffset&quot;</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="3">
+            <widget class="Gui::QuantitySpinBox" name="setupSafeHeightOffs">
+             <property name="toolTip">
+              <string>SafeHeightOffset can be for expressions to set the SafeHeight for new operations.
+
+Default: &quot;5mm&quot;</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QGroupBox" name="groupBox_8">
+          <property name="title">
+           <string>Coolant</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_12">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_17">
+             <property name="text">
+              <string>Coolant mode</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QComboBox" name="setupCoolantMode"/>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <spacer name="verticalSpacer_5">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
   <widget class="QWidget" name="tabGeneral">
    <attribute name="title">
     <string>General</string>
@@ -103,21 +1411,39 @@
           </layout>
          </widget>
         </item>
+        <item>
+         <widget class="QGroupBox" name="machineGroup">
+          <property name="title">
+           <string>Machine</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_machine">
+           <item>
+            <widget class="QComboBox" name="jobMachine">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>Machine configuration for this job, drawn from machines available in the asset path. New machines can be added with the New Machine button.</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="jobMachineNew">
+             <property name="text">
+              <string>New Machine</string>
+             </property>
+             <property name="toolTip">
+              <string>Opens the Machine Editor to create a new machine. The new machine will be available for selection once saved.</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
        </layout>
-      </widget>
-      <widget class="QWidget" name="templateExport">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>100</width>
-         <height>30</height>
-        </rect>
-       </property>
-       <attribute name="label">
-        <string>Template Export</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_13"/>
       </widget>
      </widget>
     </item>
@@ -131,7 +1457,7 @@
     <item row="0" column="0">
      <widget class="QLabel" name="label_9">
       <property name="text">
-       <string>Output File</string>
+       <string>Output file</string>
       </property>
      </widget>
     </item>
@@ -169,7 +1495,7 @@ See the file save policy below on how to deal with name conflicts.</string>
     <item row="0" column="2">
      <widget class="QToolButton" name="postProcessorSetOutputFile">
       <property name="text">
-       <string notr="true">...</string>
+       <string notr="true">…</string>
       </property>
      </widget>
     </item>
@@ -193,7 +1519,7 @@ See the file save policy below on how to deal with name conflicts.</string>
     <item row="2" column="1" colspan="2">
      <widget class="QLineEdit" name="postProcessorArguments">
       <property name="toolTip">
-       <string>Optional arguments passed to the Post Processor. The arguments are specific for each Post Processor, please see its documentation for details.</string>
+       <string>Optional arguments passed to the post processor. The arguments are specific for each post processor, please see its documentation for details.</string>
       </property>
      </widget>
     </item>
@@ -232,7 +1558,7 @@ Ordering by operation will do each operation in all coordinate systems before mo
        <item row="2" column="0">
         <widget class="QLabel" name="label_2">
          <property name="text">
-          <string>Order By</string>
+          <string>Order by</string>
          </property>
         </widget>
        </item>
@@ -394,7 +1720,7 @@ FreeCAD has no knowledge of where a particular coordinate system exists within t
        <item row="3" column="0">
         <widget class="QCheckBox" name="splitOutput">
          <property name="toolTip">
-          <string>If multiple coordinate systems are in use, setting this to TRUE will cause the gcode to be written to multiple output files as controlled by the 'order by' property.  For example, if ordering by Fixture, the first output file will be for the first fixture and separate file for the second.</string>
+          <string>If multiple coordinate systems are in use, setting this to TRUE will cause the G-code to be written to multiple output files as controlled by the 'order by' property. For example, if ordering by fixture, the first output file will be for the first fixture and separate file for the second.</string>
          </property>
          <property name="whatsThis">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If True, post processing will create multiple output files based on the &lt;span style=&quot; font-style:italic;&quot;&gt;order by&lt;/span&gt; setting.
@@ -425,793 +1751,6 @@ If &lt;span style=&quot; font-style:italic;&quot;&gt;order by&lt;/span&gt; is se
        </size>
       </property>
      </spacer>
-    </item>
-   </layout>
-  </widget>
-  <widget class="QWidget" name="tabSetup">
-   <attribute name="title">
-    <string>Setup</string>
-   </attribute>
-   <layout class="QVBoxLayout" name="verticalLayout">
-    <item>
-     <widget class="QToolBox" name="toolBox_2">
-      <property name="currentIndex">
-       <number>0</number>
-      </property>
-      <widget class="QWidget" name="page_3">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>688</width>
-         <height>1368</height>
-        </rect>
-       </property>
-       <attribute name="label">
-        <string>Layout</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_9">
-        <item>
-         <widget class="QGroupBox" name="stockGroup">
-          <property name="title">
-           <string>Stock</string>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout_5">
-           <property name="spacing">
-            <number>0</number>
-           </property>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_5">
-             <item>
-              <widget class="QComboBox" name="stock">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="currentIndex">
-                <number>2</number>
-               </property>
-               <item>
-                <property name="text">
-                 <string>Create Box</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Create Cylinder</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Extend Model's Bounding Box</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Use Existing Solid</string>
-                </property>
-               </item>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="refreshStock">
-               <property name="text">
-                <string>Refresh</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="btnMaterial">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Fixed" vsizetype="MinimumExpanding">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="toolTip">
-                <string>Assign Stock Material</string>
-               </property>
-               <property name="text">
-                <string/>
-               </property>
-               <property name="icon">
-                <iconset resource="../../../../Material/Gui/Resources/Material.qrc">
-                 <normaloff>:/icons/MaterialWorkbench.svg</normaloff>:/icons/MaterialWorkbench.svg</iconset>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>6</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QFrame" name="stockFromExisting">
-             <layout class="QGridLayout" name="gridLayout_8">
-              <item row="0" column="1">
-               <widget class="QComboBox" name="stockExisting"/>
-              </item>
-              <item row="1" column="1">
-               <widget class="QComboBox" name="comboBox"/>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item>
-            <widget class="QFrame" name="stockFromBase">
-             <layout class="QGridLayout" name="gridLayout_9">
-              <item row="0" column="1">
-               <widget class="QLabel" name="stockExtXLabel">
-                <property name="text">
-                 <string>Ext. X</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="2">
-               <widget class="Gui::InputField" name="stockExtXneg"/>
-              </item>
-              <item row="0" column="3">
-               <widget class="Gui::InputField" name="stockExtXpos">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="1">
-               <widget class="QLabel" name="stockExtYLabel">
-                <property name="text">
-                 <string>Ext. Y</string>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="2">
-               <widget class="Gui::InputField" name="stockExtYneg"/>
-              </item>
-              <item row="1" column="3">
-               <widget class="Gui::InputField" name="stockExtYpos"/>
-              </item>
-              <item row="2" column="1">
-               <widget class="QLabel" name="stockExtZLabel">
-                <property name="text">
-                 <string>Ext. Z</string>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="2">
-               <widget class="Gui::InputField" name="stockExtZneg"/>
-              </item>
-              <item row="2" column="3">
-               <widget class="Gui::InputField" name="stockExtZpos"/>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item>
-            <widget class="QFrame" name="stockCreateCylinder">
-             <layout class="QGridLayout" name="gridLayout_10">
-              <item row="0" column="1">
-               <widget class="QLabel" name="stockCylinderRadiusLabel">
-                <property name="text">
-                 <string>Radius</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="2">
-               <widget class="Gui::InputField" name="stockCylinderRadius"/>
-              </item>
-              <item row="1" column="1">
-               <widget class="QLabel" name="stockCylinderHeightLabel">
-                <property name="text">
-                 <string>Height</string>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="2">
-               <widget class="Gui::InputField" name="stockCylinderHeight"/>
-              </item>
-             </layout>
-            </widget>
-           </item>
-           <item>
-            <widget class="QFrame" name="stockCreateBox">
-             <layout class="QGridLayout" name="gridLayout_11">
-              <item row="0" column="1">
-               <widget class="QLabel" name="stockBoxLengthLabel">
-                <property name="text">
-                 <string>Length</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="2">
-               <widget class="Gui::InputField" name="stockBoxLength"/>
-              </item>
-              <item row="1" column="1">
-               <widget class="QLabel" name="stockBoxWidthLabel">
-                <property name="text">
-                 <string>Width</string>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="2">
-               <widget class="Gui::InputField" name="stockBoxWidth"/>
-              </item>
-              <item row="2" column="1">
-               <widget class="QLabel" name="stockBoxHeightLabel">
-                <property name="text">
-                 <string>Height</string>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="2">
-               <widget class="Gui::InputField" name="stockBoxHeight"/>
-              </item>
-             </layout>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="modelAlignGroup">
-          <property name="title">
-           <string>Alignment</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_2">
-           <item row="0" column="0">
-            <widget class="QPushButton" name="moveToOrigin">
-             <property name="text">
-              <string>Move to Origin</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QPushButton" name="setOrigin">
-             <property name="text">
-              <string>Set Origin</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QPushButton" name="centerInStock">
-             <property name="text">
-              <string>Center in Stock</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QPushButton" name="centerInStockXY">
-             <property name="text">
-              <string>XY in Stock</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="modelSetGroup">
-          <property name="title">
-           <string>Set</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_5">
-           <item row="0" column="0">
-            <widget class="QPushButton" name="modelSetXAxis">
-             <property name="text">
-              <string>X-Axis</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QPushButton" name="modelSetYAxis">
-             <property name="text">
-              <string>Y-Axis</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="QPushButton" name="modelSetZAxis">
-             <property name="text">
-              <string>Z-Axis</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QPushButton" name="modelSetX0">
-             <property name="text">
-              <string>X=0</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QPushButton" name="modelSetY0">
-             <property name="text">
-              <string>Y=0</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="2">
-            <widget class="QPushButton" name="modelSetZ0">
-             <property name="text">
-              <string>Z=0</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QCheckBox" name="linkStockAndModel">
-             <property name="text">
-              <string>Link Stock and Model</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="modelMoveGroup">
-          <property name="title">
-           <string>Move - XY</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_3">
-           <item row="0" column="0">
-            <widget class="QPushButton" name="modelMoveLeftUp">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset resource="../Path.qrc">
-               <normaloff>:/icons/arrow-left-up.svg</normaloff>:/icons/arrow-left-up.svg</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>32</width>
-               <height>32</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QPushButton" name="modelMoveUp">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset resource="../Path.qrc">
-               <normaloff>:/icons/arrow-up.svg</normaloff>:/icons/arrow-up.svg</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>32</width>
-               <height>32</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="QPushButton" name="modelMoveRightUp">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset resource="../Path.qrc">
-               <normaloff>:/icons/arrow-right-up.svg</normaloff>:/icons/arrow-right-up.svg</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>32</width>
-               <height>32</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QPushButton" name="modelMoveLeft">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset resource="../Path.qrc">
-               <normaloff>:/icons/arrow-left.svg</normaloff>:/icons/arrow-left.svg</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>32</width>
-               <height>32</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QDoubleSpinBox" name="modelMoveValue">
-             <property name="minimum">
-              <double>-1000.000000000000000</double>
-             </property>
-             <property name="maximum">
-              <double>1000.000000000000000</double>
-             </property>
-             <property name="value">
-              <double>1.000000000000000</double>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="2">
-            <widget class="QPushButton" name="modelMoveRight">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset resource="../Path.qrc">
-               <normaloff>:/icons/arrow-right.svg</normaloff>:/icons/arrow-right.svg</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>32</width>
-               <height>32</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QPushButton" name="modelMoveLeftDown">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset resource="../Path.qrc">
-               <normaloff>:/icons/arrow-left-down.svg</normaloff>:/icons/arrow-left-down.svg</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>32</width>
-               <height>32</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QPushButton" name="modelMoveDown">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset resource="../Path.qrc">
-               <normaloff>:/icons/arrow-down.svg</normaloff>:/icons/arrow-down.svg</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>32</width>
-               <height>32</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="2">
-            <widget class="QPushButton" name="modelMoveRightDown">
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset resource="../Path.qrc">
-               <normaloff>:/icons/arrow-right-down.svg</normaloff>:/icons/arrow-right-down.svg</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>32</width>
-               <height>32</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="modelRotateGroup">
-          <property name="title">
-           <string>Rotate - XY</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_6">
-           <item row="0" column="0">
-            <widget class="QPushButton" name="modelRotateLeft">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="MinimumExpanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset resource="../Path.qrc">
-               <normaloff>:/icons/arrow-ccw.svg</normaloff>:/icons/arrow-ccw.svg</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>32</width>
-               <height>32</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <layout class="QVBoxLayout" name="verticalLayout_18">
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <item>
-              <widget class="QDoubleSpinBox" name="modelRotateValue">
-               <property name="minimum">
-                <double>-180.000000000000000</double>
-               </property>
-               <property name="maximum">
-                <double>360.000000000000000</double>
-               </property>
-               <property name="value">
-                <double>90.000000000000000</double>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QCheckBox" name="modelRotateCompound">
-               <property name="text">
-                <string>Compound</string>
-               </property>
-               <property name="checked">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item row="0" column="2">
-            <widget class="QPushButton" name="modelRotateRight">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="MinimumExpanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="icon">
-              <iconset resource="../Path.qrc">
-               <normaloff>:/icons/arrow-cw.svg</normaloff>:/icons/arrow-cw.svg</iconset>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>32</width>
-               <height>32</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <spacer name="verticalSpacer_2">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>195</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="page_4">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>707</width>
-         <height>648</height>
-        </rect>
-       </property>
-       <attribute name="label">
-        <string>Default Values</string>
-       </attribute>
-       <layout class="QGridLayout" name="gridLayout_13">
-        <item row="0" column="0">
-         <widget class="QGroupBox" name="groupBox">
-          <property name="title">
-           <string>Depths</string>
-          </property>
-          <layout class="QFormLayout" name="formLayout">
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_3">
-             <property name="text">
-              <string>Start Depth</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QLineEdit" name="setupStartDepthExpr">
-             <property name="toolTip">
-              <string>Expression set as the StartDepth of a newly created operation.
-
-Default: OpStartDepth</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="label_4">
-             <property name="text">
-              <string>Final Depth</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QLineEdit" name="setupFinalDepthExpr">
-             <property name="toolTip">
-              <string>Expression set as the FinalDepth for a newly created operation.
-
-Default: OpFinalDepth</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="label_6">
-             <property name="text">
-              <string>Step Down</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QLineEdit" name="setupStepDownExpr">
-             <property name="toolTip">
-              <string>Expression set as the StepDown of a newly created operation.
-
-Default: OpToolDiameter</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QGroupBox" name="groupBox_2">
-          <property name="title">
-           <string>Heights</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_4">
-           <item row="0" column="1" colspan="2">
-            <widget class="QLabel" name="label_15">
-             <property name="text">
-              <string>Expression</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="3">
-            <widget class="QLabel" name="label_14">
-             <property name="text">
-              <string>Offset</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="label_13">
-             <property name="text">
-              <string>Clearance</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1" colspan="2">
-            <widget class="QLineEdit" name="setupClearanceHeightExpr">
-             <property name="toolTip">
-              <string>Expression set as ClearanceHeight for new operations.
-
-Default: &quot;OpStockZMax+SetupSheet.ClearanceHeightOffset&quot;</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="3">
-            <widget class="Gui::QuantitySpinBox" name="setupClearanceHeightOffs">
-             <property name="toolTip">
-              <string>ClearanceHeightOffset - can be used by expressions to set the default ClearanceHeight for new operations.
-
-Default: 3 mm</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="0">
-            <widget class="QLabel" name="label_7">
-             <property name="text">
-              <string>Safe</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="1" colspan="2">
-            <widget class="QLineEdit" name="setupSafeHeightExpr">
-             <property name="toolTip">
-              <string>Expression set as SafeHeight for new operations.
-
-Default: &quot;OpStockZMax+SetupSheet.SafeHeightOffset&quot;</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="3">
-            <widget class="Gui::QuantitySpinBox" name="setupSafeHeightOffs">
-             <property name="toolTip">
-              <string>SafeHeightOffset can be for expressions to set the SafeHeight for new operations.
-
-Default: &quot;5mm&quot;</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item row="2" column="0">
-         <widget class="QGroupBox" name="groupBox_8">
-          <property name="title">
-           <string>Coolant</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_12">
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_17">
-             <property name="text">
-              <string>Coolant Mode</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QComboBox" name="setupCoolantMode"/>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item row="3" column="0">
-         <spacer name="verticalSpacer_5">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </widget>
-     </widget>
     </item>
    </layout>
   </widget>
@@ -1267,11 +1806,12 @@ Default: &quot;5mm&quot;</string>
                <string>Feed</string>
               </property>
               <property name="toolTip">
-               <string>Horizontal Feed</string>
+               <string>Horizontal feed</string>
               </property>
               <property name="icon">
                <iconset theme="object-flip-horizontal">
-                <normaloff>../../../../../../../../../../../../../../../../../../../../.designer/backup</normaloff>../../../../../../../../../../../../../../../../../../../../.designer/backup</iconset>
+                <normaloff>../../../../../../../../../../../../../../../../../../../../.designer/backup</normaloff>../../../../../../../../../../../../../../../../../../../../.designer/backup
+               </iconset>
               </property>
              </column>
              <column>
@@ -1279,11 +1819,12 @@ Default: &quot;5mm&quot;</string>
                <string>Feed</string>
               </property>
               <property name="toolTip">
-               <string>Vertical Feed</string>
+               <string>Vertical feed</string>
               </property>
               <property name="icon">
                <iconset theme="object-flip-vertical">
-                <normaloff>../../../../../../../../../../../../../../../../../../../../.designer/backup</normaloff>../../../../../../../../../../../../../../../../../../../../.designer/backup</iconset>
+                <normaloff>../../../../../../../../../../../../../../../../../../../../.designer/backup</normaloff>../../../../../../../../../../../../../../../../../../../../.designer/backup
+               </iconset>
               </property>
              </column>
              <column>
@@ -1367,7 +1908,7 @@ Default: &quot;5mm&quot;</string>
               </sizepolicy>
              </property>
              <property name="toolTip">
-              <string>Rapid horizontal speed assigned as HorizRapid to new ToolController.</string>
+              <string>Rapid horizontal speed assigned as HorizRapid to new ToolController</string>
              </property>
             </widget>
            </item>
@@ -1387,7 +1928,7 @@ Default: &quot;5mm&quot;</string>
               </sizepolicy>
              </property>
              <property name="toolTip">
-              <string>Rapid vertical speed assigned to VertRapid of new ToolController.</string>
+              <string>Rapid vertical speed assigned to VertRapid of new ToolController</string>
              </property>
             </widget>
            </item>
@@ -1440,10 +1981,40 @@ Default: &quot;5mm&quot;</string>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_4">
       <item>
-       <widget class="QListWidget" name="operationsList">
-        <property name="dragDropMode">
-         <enum>QAbstractItemView::InternalMove</enum>
-        </property>
+       <widget class="QTreeWidget" name="operationsList">
+        <column>
+         <property name="text">
+          <string>#</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Operation</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Tool</string>
+         </property>
+         <property name="textAlignment">
+          <set>AlignCenter</set>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Tool Controller</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Coolant</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Time</string>
+         </property>
+        </column>
        </widget>
       </item>
       <item>
@@ -1477,22 +2048,24 @@ Default: &quot;5mm&quot;</string>
          <item>
           <widget class="QToolButton" name="operationUp">
            <property name="text">
-            <string notr="true">...</string>
+            <string notr="true">…</string>
            </property>
            <property name="icon">
             <iconset resource="../../../../../Gui/Icons/resource.qrc">
-             <normaloff>:/icons/button_up.svg</normaloff>:/icons/button_up.svg</iconset>
+             <normaloff>:/icons/button_up.svg</normaloff>:/icons/button_up.svg
+            </iconset>
            </property>
           </widget>
          </item>
          <item>
           <widget class="QToolButton" name="operationDown">
            <property name="text">
-            <string notr="true">...</string>
+            <string notr="true">…</string>
            </property>
            <property name="icon">
             <iconset resource="../../../../../Gui/Icons/resource.qrc">
-             <normaloff>:/icons/button_down.svg</normaloff>:/icons/button_down.svg</iconset>
+             <normaloff>:/icons/button_down.svg</normaloff>:/icons/button_down.svg
+            </iconset>
            </property>
           </widget>
          </item>
@@ -1549,23 +2122,32 @@ Default: &quot;5mm&quot;</string>
     </item>
    </layout>
   </widget>
-  <widget class="QWidget" name="tabOpDefaults">
+  <widget class="QWidget" name="tabAdvanced">
    <attribute name="title">
-    <string>Op Defaults</string>
+    <string>Advanced</string>
    </attribute>
-   <layout class="QVBoxLayout" name="verticalLayout_11">
+   <layout class="QVBoxLayout" name="verticalLayout_advanced">
     <item>
-     <widget class="QComboBox" name="opDefaultOp"/>
+     <widget class="QTabWidget" name="advancedSubTabs">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="tabOpDefaults">
+       <attribute name="title">
+        <string>Operation Defaults</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_11">
+        <item>
+         <widget class="QComboBox" name="opDefaultOp"/>
+        </item>
+       </layout>
+      </widget>
+     </widget>
     </item>
    </layout>
   </widget>
  </widget>
  <customwidgets>
-  <customwidget>
-   <class>Gui::InputField</class>
-   <extends>QLineEdit</extends>
-   <header>Gui/InputField.h</header>
-  </customwidget>
   <customwidget>
    <class>Gui::QuantitySpinBox</class>
    <extends>QWidget</extends>

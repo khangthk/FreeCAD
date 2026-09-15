@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 // Box2D.h
 
 /*==============================
@@ -29,7 +31,10 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
 #include <string.h>  // for memcpy() prototype
-#include <math.h>    // for sqrt() prototype
+#include <cmath>     // for sqrt() prototype
+
+namespace heeks
+{
 
 class CBox2D
 {
@@ -158,3 +163,5 @@ public:
         return (m_maxxy.y);
     }
 };
+
+}  // namespace heeks

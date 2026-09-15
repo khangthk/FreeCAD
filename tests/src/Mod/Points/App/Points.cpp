@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 #include <gtest/gtest.h>
 #include <Base/FileInfo.h>
 #include <Mod/Points/App/Points.h>
@@ -46,9 +48,9 @@ protected:
         std::vector<Base::Vector3f> vec(8, Base::Vector3f(0, 0, 1));
         return vec;
     }
-    std::vector<App::Color> getColors() const
+    std::vector<Base::Color> getColors() const
     {
-        std::vector<App::Color> col(8);
+        std::vector<Base::Color> col(8);
         col[0].set(0, 0, 0);
         col[1].set(0, 0, 1);
         col[2].set(0, 1, 0);

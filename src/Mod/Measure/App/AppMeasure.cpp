@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Luke Parry <l.parry@warwick.ac.uk>                 *
  *                                                                         *
@@ -20,7 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
+#include <Mod/Measure/MeasureGlobal.h>
 
 #include <App/MeasureManager.h>
 #include <Base/Console.h>
@@ -37,11 +39,14 @@
 #include "MeasureBasePy.h"
 
 #include "MeasureAngle.h"
+#include "MeasureCOM.h"
 #include "MeasureDistance.h"
 #include "MeasurePosition.h"
 #include "MeasureLength.h"
 #include "MeasureArea.h"
+#include "MeasureDiameter.h"
 #include "MeasureRadius.h"
+#include "MassPropertiesObject.h"
 
 namespace Measure
 {
@@ -92,103 +97,148 @@ PyMOD_INIT_FUNC(Measure)
     Base::Interpreter().addType(&Measure::MeasurementPy::Type, mod, "Measurement");
     Base::Interpreter().addType(&Measure::MeasureBasePy::Type, mod, "MeasureBase");
 
-    Measure::Measurement ::init();
+    Measure::Measurement::init();
 
     // umf classes
-    Measure::MeasureDistanceType ::init();
-    Measure::MeasureBase ::init();
-    Measure::MeasurePython ::init();
-    Measure::MeasureAngle ::init();
-    Measure::MeasureDistance ::init();
+    Measure::MeasureDistanceType::init();
+    Measure::MeasureBase::init();
+    Measure::MeasurePython::init();
+    Measure::MeasureAngle::init();
+    Measure::MeasureCOM::init();
+    Measure::MeasureDistance::init();
     Measure::MeasureDistanceDetached::init();
-    Measure::MeasurePosition ::init();
-    Measure::MeasureLength ::init();
-    Measure::MeasureArea ::init();
-    Measure::MeasureRadius ::init();
+    Measure::MeasurePosition::init();
+    Measure::MeasureLength::init();
+    Measure::MeasureArea::init();
+    Measure::MeasureDiameter::init();
+    Measure::MeasureRadius::init();
+    Measure::Result::init();
 
     // Add fundamental umf Measure Types
 
-    App::MeasureManager::addMeasureType("DISTANCE",
-                                        "Distance",
-                                        "Measure::MeasureDistance",
-                                        MeasureDistance::isValidSelection,
-                                        MeasureDistance::isPrioritizedSelection);
+    App::MeasureManager::addMeasureType(
+        "DISTANCE",
+        QT_TRANSLATE_NOOP("TaskMeasure", "Distance"),
+        "Measure::MeasureDistance",
+        MeasureDistance::isValidSelection,
+        MeasureDistance::isPrioritizedSelection
+    );
 
-    App::MeasureManager::addMeasureType("DISTANCEFREE",
-                                        "Distance Free",
-                                        "Measure::MeasureDistanceDetached",
-                                        MeasureDistanceDetached::isValidSelection,
-                                        nullptr);
+    App::MeasureManager::addMeasureType(
+        "DISTANCEFREE",
+        QT_TRANSLATE_NOOP("TaskMeasure", "Distance Free"),
+        "Measure::MeasureDistanceDetached",
+        MeasureDistanceDetached::isValidSelection,
+        nullptr
+    );
 
-    App::MeasureManager::addMeasureType("ANGLE",
-                                        "Angle",
-                                        "Measure::MeasureAngle",
-                                        MeasureAngle::isValidSelection,
-                                        MeasureAngle::isPrioritizedSelection);
+    App::MeasureManager::addMeasureType(
+        "ANGLE",
+        QT_TRANSLATE_NOOP("TaskMeasure", "Angle"),
+        "Measure::MeasureAngle",
+        MeasureAngle::isValidSelection,
+        MeasureAngle::isPrioritizedSelection
+    );
 
-    App::MeasureManager::addMeasureType("LENGTH",
-                                        "Length",
-                                        "Measure::MeasureLength",
-                                        MeasureLength::isValidSelection,
-                                        nullptr);
+    App::MeasureManager::addMeasureType(
+        "LENGTH",
+        QT_TRANSLATE_NOOP("TaskMeasure", "Length"),
+        "Measure::MeasureLength",
+        MeasureLength::isValidSelection,
+        nullptr
+    );
 
-    App::MeasureManager::addMeasureType("POSITION",
-                                        "Position",
-                                        "Measure::MeasurePosition",
-                                        MeasurePosition::isValidSelection,
-                                        nullptr);
+    App::MeasureManager::addMeasureType(
+        "POSITION",
+        QT_TRANSLATE_NOOP("TaskMeasure", "Position"),
+        "Measure::MeasurePosition",
+        MeasurePosition::isValidSelection,
+        nullptr
+    );
 
-    App::MeasureManager::addMeasureType("AREA",
-                                        "Area",
-                                        "Measure::MeasureArea",
-                                        MeasureArea::isValidSelection,
-                                        nullptr);
+    App::MeasureManager::addMeasureType(
+        "AREA",
+        QT_TRANSLATE_NOOP("TaskMeasure", "Area"),
+        "Measure::MeasureArea",
+        MeasureArea::isValidSelection,
+        nullptr
+    );
 
-    App::MeasureManager::addMeasureType("RADIUS",
-                                        "Radius",
-                                        "Measure::MeasureRadius",
-                                        MeasureRadius::isValidSelection,
-                                        MeasureRadius::isPrioritizedSelection);
+    App::MeasureManager::addMeasureType(
+        "DIAMETER",
+        QT_TRANSLATE_NOOP("TaskMeasure", "Diameter"),
+        "Measure::MeasureDiameter",
+        MeasureDiameter::isValidSelection,
+        MeasureDiameter::isPrioritizedSelection
+    );
+
+    App::MeasureManager::addMeasureType(
+        "RADIUS",
+        QT_TRANSLATE_NOOP("TaskMeasure", "Radius"),
+        "Measure::MeasureRadius",
+        MeasureRadius::isValidSelection,
+        MeasureRadius::isPrioritizedSelection
+    );
+
+    App::MeasureManager::addMeasureType(
+        "CENTEROFMASS",
+        QT_TRANSLATE_NOOP("TaskMeasure", "Geometric Center"),
+        "Measure::MeasureCOM",
+        MeasureCOM::isValidSelection,
+        nullptr
+    );
 
     // load measure callbacks from Part module
     auto lengthList = Part::MeasureClient::reportLengthCB();
     for (auto& entry : lengthList) {
-        MeasureBaseExtendable<Part::MeasureLengthInfo>::addGeometryHandler(entry.m_module,
-                                                                           entry.m_callback);
+        MeasureBaseExtendable<Part::MeasureLengthInfo>::addGeometryHandler(
+            entry.m_module,
+            entry.m_callback
+        );
     }
     auto angleList = Part::MeasureClient::reportAngleCB();
     for (auto& entry : angleList) {
-        MeasureBaseExtendable<Part::MeasureAngleInfo>::addGeometryHandler(entry.m_module,
-                                                                          entry.m_callback);
+        MeasureBaseExtendable<Part::MeasureAngleInfo>::addGeometryHandler(
+            entry.m_module,
+            entry.m_callback
+        );
     }
     auto areaList = Part::MeasureClient::reportAreaCB();
     for (auto& entry : areaList) {
-        MeasureBaseExtendable<Part::MeasureAreaInfo>::addGeometryHandler(entry.m_module,
-                                                                         entry.m_callback);
+        MeasureBaseExtendable<Part::MeasureAreaInfo>::addGeometryHandler(
+            entry.m_module,
+            entry.m_callback
+        );
     }
     auto distanceList = Part::MeasureClient::reportDistanceCB();
     for (auto& entry : distanceList) {
-        MeasureBaseExtendable<Part::MeasureDistanceInfo>::addGeometryHandler(entry.m_module,
-                                                                             entry.m_callback);
+        MeasureBaseExtendable<Part::MeasureDistanceInfo>::addGeometryHandler(
+            entry.m_module,
+            entry.m_callback
+        );
     }
     auto positionList = Part::MeasureClient::reportPositionCB();
     for (auto& entry : positionList) {
-        MeasureBaseExtendable<Part::MeasurePositionInfo>::addGeometryHandler(entry.m_module,
-                                                                             entry.m_callback);
+        MeasureBaseExtendable<Part::MeasurePositionInfo>::addGeometryHandler(
+            entry.m_module,
+            entry.m_callback
+        );
     }
     auto radiusList = Part::MeasureClient::reportRadiusCB();
     for (auto& entry : radiusList) {
-        MeasureBaseExtendable<Part::MeasureRadiusInfo>::addGeometryHandler(entry.m_module,
-                                                                           entry.m_callback);
+        MeasureBaseExtendable<Part::MeasureRadiusInfo>::addGeometryHandler(
+            entry.m_module,
+            entry.m_callback
+        );
     }
 
 
-    Base::Console().Log("Loading Measure module... done\n");
+    Base::Console().log("Loading Measure module… done\n");
     PyMOD_Return(mod);
 }
 
 // debug print for sketchsolv
 void debugprint(const std::string& text)
 {
-    Base::Console().Log("%s", text.c_str());
+    Base::Console().log("%s", text.c_str());
 }

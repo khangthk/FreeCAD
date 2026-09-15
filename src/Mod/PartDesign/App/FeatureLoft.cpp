@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 Stefan Tröger <stefantroeger@gmx.net>              *
  *                                                                         *
@@ -20,16 +22,11 @@
  *                                                                         *
  ***************************************************************************/
 
+#include <BRepBuilderAPI_Sewing.hxx>
+#include <BRepClass3d_SolidClassifier.hxx>
+#include <TopoDS.hxx>
+#include <Precision.hxx>
 
-
-// NOLINTNEXTLINE(CppUnusedIncludeDirective)
-#include "PreCompiled.h"    // NOLINT(misc-include-cleaner)
-#ifndef _PreComp_
-# include <BRepBuilderAPI_Sewing.hxx>
-# include <BRepClass3d_SolidClassifier.hxx>
-# include <TopoDS.hxx>
-# include <Precision.hxx>
-#endif
 
 #include <boost/core/ignore_unused.hpp>
 
@@ -43,79 +40,184 @@
 #include "FeatureLoft.h"
 using namespace PartDesign;
 
+namespace
+{
+
+void sortWiresByNesting(std::vector<Part::TopoShape>& wires)
+{
+    if (wires.size() < 2) {
+        return;
+    }
+
+    struct WireInfo
+    {
+        Part::TopoShape wire;
+        std::size_t depth {0};
+    };
+
+    std::vector<WireInfo> wireInfos;
+    wireInfos.reserve(wires.size());
+    for (const auto& wire : wires) {
+        if (!wire.isClosed()) {
+            return;
+        }
+        wireInfos.push_back({wire, 0});
+    }
+
+    try {
+        for (std::size_t outer = 0; outer < wireInfos.size(); ++outer) {
+            const auto outerWire = TopoDS::Wire(wireInfos[outer].wire.getShape());
+            for (std::size_t inner = 0; inner < wireInfos.size(); ++inner) {
+                if (outer == inner) {
+                    continue;
+                }
+                const auto innerWire = TopoDS::Wire(wireInfos[inner].wire.getShape());
+                if (Part::FaceMakerCheese::isInside(outerWire, innerWire)) {
+                    ++wireInfos[inner].depth;
+                }
+            }
+        }
+    }
+    catch (const Standard_Failure&) {
+        // Non-planar or otherwise unsuitable wires are still valid loft inputs. Preserve their
+        // original order and let the loft algorithm report any actual construction error.
+        return;
+    }
+
+    // Keep the original ordering within the same depth (e.g., if multiple wires/loops exist within
+    // an outer loop) because this doesn't determine correspondence between peers.
+    std::ranges::stable_sort(wireInfos, {}, &WireInfo::depth);
+    std::ranges::transform(wireInfos, wires.begin(), [](auto& info) { return std::move(info.wire); });
+}
+
+}  // namespace
+
 PROPERTY_SOURCE(PartDesign::Loft, PartDesign::ProfileBased)
 
 Loft::Loft()
 {
-    ADD_PROPERTY_TYPE(Sections,(nullptr),"Loft",App::Prop_None,"List of sections");
+    ADD_PROPERTY_TYPE(Sections, (nullptr), "Loft", App::Prop_None, "List of sections");
     Sections.setValue(nullptr);
-    ADD_PROPERTY_TYPE(Ruled,(false),"Loft",App::Prop_None,"Create ruled surface");
-    ADD_PROPERTY_TYPE(Closed,(false),"Loft",App::Prop_None,"Close Last to First Profile");
+    ADD_PROPERTY_TYPE(Ruled, (false), "Loft", App::Prop_None, "Create ruled surface");
+    ADD_PROPERTY_TYPE(Closed, (false), "Loft", App::Prop_None, "Close Last to First Profile");
 }
 
 short Loft::mustExecute() const
 {
-    if (Sections.isTouched())
+    if (Sections.isTouched()) {
         return 1;
-    if (Ruled.isTouched())
+    }
+    if (Ruled.isTouched()) {
         return 1;
-    if (Closed.isTouched())
+    }
+    if (Closed.isTouched()) {
         return 1;
+    }
 
     return ProfileBased::mustExecute();
 }
 
-std::vector<Part::TopoShape>
-Loft::getSectionShape(const char *name,
-                      App::DocumentObject *obj,
-                      const std::vector<std::string> &subs,
-                      size_t expected_size)
+std::vector<Part::TopoShape> Loft::getSectionShape(
+    const char* name,
+    App::DocumentObject* obj,
+    const std::vector<std::string>& subs,
+    size_t expected_size
+)
 {
+    auto useSketch = [](App::DocumentObject* obj, const std::vector<std::string>& subs) {
+        // Be smart. If part of a sketch is selected, use the entire sketch unless it is a single
+        // vertex - backward compatibility (#16630)
+        if (!obj) {
+            return false;
+        }
+
+        auto subName = subs.empty() ? "" : subs.front();
+        return obj->isDerivedFrom<Part::Part2DObject>() && subName.find("Vertex") != 0;
+    };
+
     std::vector<TopoShape> shapes;
-    // Be smart. If part of a sketch is selected, use the entire sketch unless it is a single vertex - 
-    // backward compatibility (#16630)
-    auto subName = subs.empty() ? "" : subs.front();
-    auto useEntireSketch = obj->isDerivedFrom(Part::Part2DObject::getClassTypeId()) &&  subName.find("Vertex") != 0;
-    if (subs.empty() || std::find(subs.begin(), subs.end(), std::string()) != subs.end() || useEntireSketch ) {
-        shapes.push_back(Part::Feature::getTopoShape(obj));
-        if (shapes.back().isNull())
-            FC_THROWM(Part::NullShapeException, "Failed to get shape of "
-                          << name << " " << App::SubObjectT(obj, "").getSubObjectFullName(obj->getDocument()->getName()));
-    } else {
-        for (const auto &sub : subs) {
-            shapes.push_back(Part::Feature::getTopoShape(obj, sub.c_str(), /*needSubElement*/true));
-            if (shapes.back().isNull())
-                FC_THROWM(Part::NullShapeException, "Failed to get shape of " << name << " "
-                                                                              << App::SubObjectT(obj, sub.c_str()).getSubObjectFullName(obj->getDocument()->getName()));
+    auto useEntireSketch = useSketch(obj, subs);
+    if (subs.empty() || std::ranges::find(subs, std::string()) != subs.end() || useEntireSketch) {
+        shapes.push_back(
+            Part::Feature::getTopoShape(obj, Part::ShapeOption::ResolveLink | Part::ShapeOption::Transform)
+        );
+        if (shapes.back().isNull()) {
+            std::stringstream str;
+            str << "Failed to get shape of " << name;
+            if (obj) {
+                auto doc = obj->getDocument();
+                str << " " << App::SubObjectT(obj, "").getSubObjectFullName(doc->getName());
+            }
+            THROWM(Part::NullShapeException, str.str());
         }
     }
-    auto compound = TopoShape(0).makeElementCompound(shapes, "", TopoShape::SingleShapeCompoundCreationPolicy::returnShape);
+    else {
+        for (const auto& sub : subs) {
+            shapes.push_back(
+                Part::Feature::getTopoShape(
+                    obj,
+                    Part::ShapeOption::NeedSubElement | Part::ShapeOption::ResolveLink
+                        | Part::ShapeOption::Transform,
+                    sub.c_str()
+                )
+            );
+            if (shapes.back().isNull()) {
+                std::stringstream str;
+                str << "Failed to get shape of " << name;
+                if (obj) {
+                    auto doc = obj->getDocument();
+                    App::SubObjectT subObj(obj, sub.c_str());
+                    str << " " << subObj.getSubObjectFullName(doc->getName());
+                }
+                THROWM(Part::NullShapeException, str.str());
+            }
+        }
+    }
+    auto compound = TopoShape(0).makeElementCompound(
+        shapes,
+        "",
+        TopoShape::SingleShapeCompoundCreationPolicy::returnShape
+    );
     auto wires = compound.getSubTopoShapes(TopAbs_WIRE);
-    auto edges = compound.getSubTopoShapes(TopAbs_EDGE, TopAbs_WIRE); // get free edges and make wires from it
-    if ( ! edges.empty()) {
+    auto edges = compound.getSubTopoShapes(TopAbs_EDGE, TopAbs_WIRE);  // get free edges and make
+                                                                       // wires from it
+    if (!edges.empty()) {
         auto extra = TopoShape(0).makeElementWires(edges).getSubTopoShapes(TopAbs_WIRE);
         wires.insert(wires.end(), extra.begin(), extra.end());
     }
-    const char *msg = "Sections need to have the same amount of wires or vertices as the base section";
+    const char* msg
+        = "Sections need to have the same amount of wires or vertices as the base section";
     if (!wires.empty()) {
-        if (expected_size && expected_size != wires.size())
+        if (expected_size && expected_size != wires.size()) {
             FC_THROWM(Base::CADKernelError, msg);
+        }
+        sortWiresByNesting(wires);
         return wires;
     }
     auto vertices = compound.getSubTopoShapes(TopAbs_VERTEX);
-    if (vertices.empty())
-        FC_THROWM(Base::CADKernelError, "Invalid " << name << " shape, expecting either wires or vertices");
-    if (expected_size && expected_size != vertices.size())
+    if (vertices.empty()) {
+        FC_THROWM(
+            Base::CADKernelError,
+            "Invalid " << name << " shape, expecting either wires or vertices"
+        );
+    }
+    if (expected_size && expected_size != vertices.size()) {
         FC_THROWM(Base::CADKernelError, msg);
+    }
     return vertices;
 }
 
-App::DocumentObjectExecReturn *Loft::execute()
+App::DocumentObjectExecReturn* Loft::execute()
 {
+    if (onlyHaveRefined()) {
+        return App::DocumentObject::StdReturn;
+    }
+
     std::vector<TopoShape> wires;
     try {
         wires = getSectionShape("Profile", Profile.getValue(), Profile.getSubValues());
-    } catch (const Base::Exception& e) {
+    }
+    catch (const Base::Exception& e) {
         return new App::DocumentObjectExecReturn(e.what());
     }
 
@@ -123,7 +225,8 @@ App::DocumentObjectExecReturn *Loft::execute()
     TopoShape base;
     try {
         base = getBaseTopoShape();
-    } catch (const Base::Exception&) {
+    }
+    catch (const Base::Exception&) {
     }
 
     auto hasher = getDocument()->getStringHasher();
@@ -132,130 +235,196 @@ App::DocumentObjectExecReturn *Loft::execute()
         // setup the location
         this->positionByPrevious();
         auto invObjLoc = this->getLocation().Inverted();
-        if(!base.isNull())
+        if (!base.isNull()) {
             base.move(invObjLoc);
+        }
 
         // build up multisections
         auto multisections = Sections.getSubListValues();
-        if(multisections.empty())
-            return new App::DocumentObjectExecReturn(QT_TRANSLATE_NOOP("Exception", "Loft: At least one section is needed"));
+        if (multisections.empty()) {
+            return new App::DocumentObjectExecReturn(
+                QT_TRANSLATE_NOOP("Exception", "Loft: At least one section is needed")
+            );
+        }
 
         std::vector<std::vector<TopoShape>> wiresections;
         wiresections.reserve(wires.size());
-        for(auto& wire : wires)
+        for (auto& wire : wires) {
             wiresections.emplace_back(1, wire);
-
-        for (const auto &subSet : multisections) {
-            int i=0;
-            for (const auto &s : getSectionShape("Section", subSet.first, subSet.second, wiresections.size()))
-                wiresections[i++].push_back(s);
         }
 
-        TopoShape result(0,hasher);
+        for (const auto& subSet : multisections) {
+            int i = 0;
+            for (const auto& s :
+                 getSectionShape("Section", subSet.first, subSet.second, wiresections.size())) {
+                wiresections[i++].push_back(s);
+            }
+        }
+
+        bool closed = Closed.getValue();
+        // invalid for less then 3 sections
+        if (multisections.size() < 2) {
+            closed = false;
+        }
+
+        TopoShape result(0, hasher);
         std::vector<TopoShape> shapes;
 
         // build all shells
         std::vector<TopoShape> shells;
-        for (auto &sectionWires : wiresections) {
-            for(auto& wire : sectionWires)
+        for (auto& sectionWires : wiresections) {
+            for (auto& wire : sectionWires) {
                 wire.move(invObjLoc);
+            }
             shells.push_back(TopoShape(0, hasher).makeElementLoft(
-                sectionWires, Part::IsSolid::notSolid, Ruled.getValue()? Part::IsRuled::ruled : Part::IsRuled::notRuled, Closed.getValue() ? Part::IsClosed::closed : Part::IsClosed::notClosed));
+                sectionWires,
+                Part::IsSolid::notSolid,
+                Ruled.getValue() ? Part::IsRuled::ruled : Part::IsRuled::notRuled,
+                closed ? Part::IsClosed::closed : Part::IsClosed::notClosed
+            ));
         }
 
         // build the top and bottom face, sew the shell and build the final solid
         TopoShape front;
         if (wiresections[0].front().shapeType() != TopAbs_VERTEX) {
             front = getTopoShapeVerifiedFace();
-            if (front.isNull())
+            if (front.isNull()) {
                 return new App::DocumentObjectExecReturn(
-                    QT_TRANSLATE_NOOP("Exception", "Loft: Creating a face from sketch failed"));
+                    QT_TRANSLATE_NOOP("Exception", "Loft: Creating a face from sketch failed")
+                );
+            }
             front.move(invObjLoc);
         }
 
         TopoShape back;
         if (wiresections[0].back().shapeType() != TopAbs_VERTEX) {
             std::vector<TopoShape> backwires;
-            for(auto& sectionWires : wiresections)
+            for (auto& sectionWires : wiresections) {
                 backwires.push_back(sectionWires.back());
-            back = TopoShape(0).makeElementFace(backwires);
+            }
+            const char* faceMaker[] = {
+                "Part::FaceMakerBullseye",
+                "Part::FaceMakerCheese",
+                "Part::FaceMakerSimple",
+                "Part::FaceMakerUnified",
+            };
+            for (size_t i = 0; i < std::size(faceMaker); i++) {
+                try {
+                    back = TopoShape(0).makeElementFace(backwires, nullptr, faceMaker[i]);
+                    break;
+                }
+                catch (...) {
+                    if (i == std::size(faceMaker) - 1) {
+                        throw;
+                    }
+                    continue;
+                }
+            }
         }
 
         if (!front.isNull() || !back.isNull()) {
             BRepBuilderAPI_Sewing sewer;
             sewer.SetTolerance(Precision::Confusion());
-            if (!front.isNull())
+            if (!front.isNull()) {
                 sewer.Add(front.getShape());
-            if (!back.isNull())
+            }
+            if (!back.isNull()) {
                 sewer.Add(back.getShape());
-            for(auto& s : shells)
+            }
+            for (auto& s : shells) {
                 sewer.Add(s.getShape());
+            }
 
             sewer.Perform();
 
-            if (!front.isNull())
+            if (!front.isNull()) {
                 shells.push_back(front);
-            if (!back.isNull())
+            }
+            if (!back.isNull()) {
                 shells.push_back(back);
+            }
             // equivalent of the removed: result = result.makeElementShape(sewer,shells);
-            result = result.makeShapeWithElementMap(sewer.SewedShape(), Part::MapperSewing(sewer), shells, Part::OpCodes::Sewing);
+            result = result.makeShapeWithElementMap(
+                sewer.SewedShape(),
+                Part::MapperSewing(sewer),
+                shells,
+                Part::OpCodes::Sewing
+            );
         }
 
-        if(!result.countSubShapes(TopAbs_SHELL))
-            return new App::DocumentObjectExecReturn(QT_TRANSLATE_NOOP("Exception", "Loft: Failed to create shell"));
+        if (!result.countSubShapes(TopAbs_SHELL)) {
+            return new App::DocumentObjectExecReturn(
+                QT_TRANSLATE_NOOP("Exception", "Loft: Failed to create shell")
+            );
+        }
         shapes = result.getSubTopoShapes(TopAbs_SHELL);
 
-        for (auto &s : shapes) {
+        for (auto& s : shapes) {
             // build the solid
             s = s.makeElementSolid();
             BRepClass3d_SolidClassifier SC(s.getShape());
             SC.PerformInfinitePoint(Precision::Confusion());
-            if ( SC.State() == TopAbs_IN)
-                s.setShape(s.getShape().Reversed(),false);
+            if (SC.State() == TopAbs_IN) {
+                s.setShape(s.getShape().Reversed(), false);
+            }
         }
 
-        AddSubShape.setValue(result.makeElementCompound(shapes, nullptr, Part::TopoShape::SingleShapeCompoundCreationPolicy::returnShape));
+        AddSubShape.setValue(result.makeElementCompound(
+            shapes,
+            nullptr,
+            Part::TopoShape::SingleShapeCompoundCreationPolicy::returnShape
+        ));
 
-        if (shapes.size() > 1)
+        if (shapes.size() > 1) {
             result.makeElementFuse(shapes);
-        else
+        }
+        else {
             result = shapes.front();
+        }
 
-        if(base.isNull()) {
+        if (base.isNull()) {
+            if (!isSingleSolidRuleSatisfied(result.getShape())) {
+                return new App::DocumentObjectExecReturn(QT_TRANSLATE_NOOP(
+                    "Exception",
+                    "Result has multiple solids: enable 'Allow Compound' in the active body."
+                ));
+            }
             Shape.setValue(getSolid(result));
             return App::DocumentObject::StdReturn;
         }
 
         result.Tag = -getID();
-        TopoShape boolOp(0,getDocument()->getStringHasher());
-
-        const char *maker;
-        switch(getAddSubType()) {
-            case Additive:
-                maker = Part::OpCodes::Fuse;
-                break;
-            case Subtractive:
-                maker = Part::OpCodes::Cut;
-                break;
-            default:
-                return new App::DocumentObjectExecReturn(QT_TRANSLATE_NOOP("Exception", "Unknown operation type"));
-        }
+        TopoShape boolOp(0, getDocument()->getStringHasher());
         try {
-            boolOp.makeElementBoolean(maker, {base,result});
+            boolOp.makeElementBoolean(
+                getBooleanMaker(),
+                {base, result},
+                nullptr,
+                FuzzyTolerance.getValue()
+            );
         }
-        catch(Standard_Failure&) {
-            return new App::DocumentObjectExecReturn(QT_TRANSLATE_NOOP("Exception", "Failed to perform boolean operation"));
+        catch (Standard_Failure&) {
+            return new App::DocumentObjectExecReturn(
+                QT_TRANSLATE_NOOP("Exception", "Failed to perform boolean operation")
+            );
         }
-        boolOp = this->getSolid(boolOp);
+        TopoShape solid = getSolid(boolOp);
         // lets check if the result is a solid
-        if (boolOp.isNull())
-            return new App::DocumentObjectExecReturn(QT_TRANSLATE_NOOP("Exception", "Resulting shape is not a solid"));
-
-        boolOp = refineShapeIfActive(boolOp);
-        boolOp = getSolid(boolOp);
-        if (!isSingleSolidRuleSatisfied(boolOp.getShape())) {
-            return new App::DocumentObjectExecReturn(QT_TRANSLATE_NOOP("Exception", "Result has multiple solids: that is not currently supported."));
+        if (solid.isNull()) {
+            return new App::DocumentObjectExecReturn(
+                QT_TRANSLATE_NOOP("Exception", "Resulting shape is not a solid")
+            );
         }
+        // store shape before refinement
+        this->rawShape = boolOp;
+        boolOp = refineShapeIfActive(boolOp);
+        if (!isSingleSolidRuleSatisfied(boolOp.getShape())) {
+            return new App::DocumentObjectExecReturn(QT_TRANSLATE_NOOP(
+                "Exception",
+                "Result has multiple solids: enable 'Allow Compound' in the active body."
+            ));
+        }
+        boolOp = getSolid(boolOp);
         Shape.setValue(boolOp);
         return App::DocumentObject::StdReturn;
     }
@@ -266,18 +435,22 @@ App::DocumentObjectExecReturn *Loft::execute()
         return new App::DocumentObjectExecReturn(e.what());
     }
     catch (...) {
-        return new App::DocumentObjectExecReturn(QT_TRANSLATE_NOOP("Exception", "Loft: A fatal error occurred when making the loft"));
+        return new App::DocumentObjectExecReturn(
+            QT_TRANSLATE_NOOP("Exception", "Loft: A fatal error occurred when making the loft")
+        );
     }
 }
 
 PROPERTY_SOURCE(PartDesign::AdditiveLoft, PartDesign::Loft)
-AdditiveLoft::AdditiveLoft() {
-    addSubType = Additive;
+AdditiveLoft::AdditiveLoft()
+{
+    defineAdditive();
 }
 
 PROPERTY_SOURCE(PartDesign::SubtractiveLoft, PartDesign::Loft)
-SubtractiveLoft::SubtractiveLoft() {
-    addSubType = Subtractive;
+SubtractiveLoft::SubtractiveLoft()
+{
+    defineSubtractive();
 }
 
 void Loft::handleChangedPropertyType(Base::XMLReader& reader, const char* TypeName, App::Property* prop)

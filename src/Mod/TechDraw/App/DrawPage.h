@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2007 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -20,10 +22,9 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef DrawPage_h_
-#define DrawPage_h_
+#pragma once
 
-#include <boost_signals2.hpp>
+#include <fastsignals/signal.h>
 
 #include <App/DocumentObject.h>
 #include <App/PropertyStandard.h>
@@ -48,7 +49,7 @@ public:
     App::PropertyBool KeepUpdated;
 
     App::PropertyFloatConstraint Scale;
-    App::PropertyEnumeration ProjectionType;// First or Third Angle
+    App::PropertyEnumeration ProjectionType;// First or Third angle
 
     App::PropertyInteger NextBalloonIndex;
 
@@ -63,7 +64,7 @@ public:
     int addView(App::DocumentObject* docObj, bool setPosition = true);
     int removeView(App::DocumentObject* docObj);
     short mustExecute() const override;
-    boost::signals2::signal<void(const DrawPage*)> signalGuiPaint;
+    fastsignals::signal<void(const DrawPage*)> signalGuiPaint;
 
     /// returns the type name of the ViewProvider
     const char* getViewProviderName() const override { return "TechDrawGui::ViewProviderPage"; }
@@ -109,6 +110,11 @@ public:
 
     void translateLabel(std::string context, std::string baseName, std::string uniqueName);
 
+    enum class PageProjectionConvention {
+        FirstAngle = 0,
+        ThirdAngle
+    };
+
 
 protected:
     void onBeforeChange(const App::Property* prop) override;
@@ -127,6 +133,3 @@ private:
 using DrawPagePython = App::FeaturePythonT<DrawPage>;
 
 }//namespace TechDraw
-
-
-#endif

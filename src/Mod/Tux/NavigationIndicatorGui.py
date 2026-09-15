@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # Navigation indicator for FreeCAD
 # Copyright (C) 2016, 2017, 2018 triplus @ FreeCAD
 #
@@ -30,18 +32,10 @@ p = App.ParamGet("User parameter:Tux/NavigationIndicator")
 pView = App.ParamGet("User parameter:BaseApp/Preferences/View")
 pMWin = App.ParamGet("User parameter:BaseApp/Preferences/MainWindow")
 
-try:
-    _encoding = QtGui.QApplication.UnicodeUTF8
 
-    def translate(context, text):
-        "convenience function for Qt 4 translator"
-        return QtGui.QApplication.translate(context, text, None, _encoding)
-
-except AttributeError:
-
-    def translate(context, text):
-        "convenience function for Qt 5 translator"
-        return QtGui.QApplication.translate(context, text, None)
+def translate(context, text):
+    "convenience function for Qt 5/6 translator"
+    return QtGui.QApplication.translate(context, text, None)
 
 
 class IndicatorButton(QtGui.QPushButton):
@@ -59,11 +53,12 @@ class IndicatorButton(QtGui.QPushButton):
         return super(IndicatorButton, self).changeEvent(event)
 
     def onChange(self, paramGrp, param):
-        if param == "NavigationStyle":
+        if param in ("NavigationStyle", "OrbitStyle", "SameStyleForAllViews"):
             setCurrent()
 
     def mousePressEvent(self, event):
         RePopulateIcons()
+        setCurrent()
         return super(IndicatorButton, self).mousePressEvent(event)
 
 
@@ -82,8 +77,10 @@ def RePopulateIcons():
     a6.setIcon(QtGui.QIcon(":/icons/NavigationOpenInventor_" + StyleSheetType + ".svg"))
     a7.setIcon(QtGui.QIcon(":/icons/NavigationOpenSCAD_" + StyleSheetType + ".svg"))
     a8.setIcon(QtGui.QIcon(":/icons/NavigationRevit_" + StyleSheetType + ".svg"))
-    a9.setIcon(QtGui.QIcon(":/icons/NavigationTinkerCAD_" + StyleSheetType + ".svg"))
-    a10.setIcon(QtGui.QIcon(":/icons/NavigationTouchpad_" + StyleSheetType + ".svg"))
+    a9.setIcon(QtGui.QIcon(":/icons/NavigationSiemensNX_" + StyleSheetType + ".svg"))
+    a10.setIcon(QtGui.QIcon(":/icons/NavigationSolidWorks_" + StyleSheetType + ".svg"))
+    a11.setIcon(QtGui.QIcon(":/icons/NavigationTinkerCAD_" + StyleSheetType + ".svg"))
+    a12.setIcon(QtGui.QIcon(":/icons/NavigationTouchpad_" + StyleSheetType + ".svg"))
 
 
 def retranslateUi():
@@ -481,6 +478,86 @@ def retranslateUi():
 
     global t9
     t9 = (
+        "<p align='center'><b>Siemens NX</b> "
+        + text06
+        + """</p>
+    <table>
+     <tr>
+      <th><small>"""
+        + text01
+        + """</small></th>
+      <th><small>"""
+        + text02
+        + """</small></th>
+      <th><small>"""
+        + text02
+        + """</small></th>
+      <th><small>"""
+        + text03
+        + """</small></th>
+      <th><small>"""
+        + text04
+        + """</small></th>
+        <th><small>"""
+        + text04
+        + """</small></th>
+     </tr>
+     <tr>
+      <td align='center'><img src=':/icons/Navigation_Mouse_Left.svg'></td>
+      <td align='center'><img src=':/icons/Navigation_Mouse_Scroll.svg'></td>
+      <td align='center'><img src=':/icons/Navigation_Mouse_MiddleLeft.svg'></td>
+      <td align='center'><img src=':/icons/Navigation_Mouse_Middle.svg'></td>
+      <td align='center'><img src=':/icons/Navigation_Mouse_MiddleRight.svg'></td>
+      <td align='center'><img src=':/icons/Navigation_Mouse_ShiftMiddle.svg'></td>
+     </tr>
+    </table>
+    <b>"""
+        + text08
+        + ":</b> "
+        + text10
+        + "</small></p>"
+    )
+
+    global t10
+    t10 = (
+        "<p align='center'><b>SolidWorks</b> "
+        + text06
+        + """</p>
+    <table>
+     <tr>
+      <th><small>"""
+        + text01
+        + """</small></th>
+      <th><small>"""
+        + text02
+        + """</small></th>
+      <th><small>"""
+        + text02
+        + """</small></th>
+      <th><small>"""
+        + text03
+        + """</small></th>
+      <th><small>"""
+        + text04
+        + """</small></th>
+     </tr>
+     <tr>
+      <td align='center'><img src=':/icons/Navigation_Mouse_Left.svg'></td>
+      <td align='center'><img src=':/icons/Navigation_Mouse_Scroll.svg'></td>
+      <td align='center'><img src=':/icons/Navigation_Mouse_ShiftMiddle.svg'></td>
+      <td align='center'><img src=':/icons/Navigation_Mouse_Middle.svg'></td>
+      <td align='center'><img src=':/icons/Navigation_Mouse_CtrlMiddle.svg'></td>
+     </tr>
+    </table>
+    <b>"""
+        + text08
+        + ":</b> "
+        + text10
+        + "</small></p>"
+    )
+
+    global t11
+    t11 = (
         "<p align='center'><b>TinkerCAD</b> "
         + text06
         + """</p>
@@ -508,8 +585,8 @@ def retranslateUi():
     </table>"""
     )
 
-    global t10
-    t10 = (
+    global t12
+    t12 = (
         "<p align='center'><b>Touchpad</b> "
         + text06
         + """</p>
@@ -581,6 +658,8 @@ def retranslateUi():
     aTurntable.setText(translate("NavigationIndicator", "Turntable"))
     aFreeTurntable.setText(translate("NavigationIndicator", "Free Turntable"))
     aTrackball.setText(translate("NavigationIndicator", "Trackball"))
+    aTrackballClassic.setText(translate("NavigationIndicator", "Trackball Classic"))
+    aRoundedArcball.setText(translate("NavigationIndicator", "Rounded Arcball"))
     a0.setText(translate("NavigationIndicator", "Undefined"))
 
 
@@ -588,6 +667,12 @@ indicator = IndicatorButton(statusBar)
 indicator.setFlat(True)
 indicator.adjustSize()
 indicator.setObjectName("NavigationIndicator")
+text = QtGui.QApplication.translate(
+    "NavigationIndicator",
+    "Navigation Styles",
+    "A context menu action used to show or hide the 'Navigation indicator' toolbar widget",
+)
+indicator.setWindowTitle(text)
 
 menu = QtGui.QMenu(indicator)
 indicator.setMenu(menu)
@@ -611,10 +696,18 @@ aTrackball.setCheckable(True)
 aFreeTurntable = QtGui.QAction(gOrbit)
 aFreeTurntable.setObjectName("NavigationIndicator_FreeTurntable")
 aFreeTurntable.setCheckable(True)
+aTrackballClassic = QtGui.QAction(gOrbit)
+aTrackballClassic.setObjectName("NavigationIndicator_TrackballClassic")
+aTrackballClassic.setCheckable(True)
+aRoundedArcball = QtGui.QAction(gOrbit)
+aRoundedArcball.setObjectName("NavigationIndicator_RoundedArcball")
+aRoundedArcball.setCheckable(True)
 
-menuOrbit.addAction(aTurntable)
+menuOrbit.addAction(aRoundedArcball)
 menuOrbit.addAction(aTrackball)
+menuOrbit.addAction(aTrackballClassic)
 menuOrbit.addAction(aFreeTurntable)
+menuOrbit.addAction(aTurntable)
 
 menuSettings.addMenu(menuOrbit)
 menuSettings.addSeparator()
@@ -669,14 +762,27 @@ a8.setData("Gui::RevitNavigationStyle")
 a8.setObjectName("Indicator_NavigationRevit")
 
 a9 = QtGui.QAction(gStyle)
-a9.setText("TinkerCAD  ")
-a9.setData("Gui::TinkerCADNavigationStyle")
-a9.setObjectName("Indicator_NavigationTinkerCAD")
+a9.setText("Siemens NX  ")
+a9.setData("Gui::SiemensNXNavigationStyle")
+a9.setObjectName("Indicator_NavigationSiemensNX")
 
 a10 = QtGui.QAction(gStyle)
-a10.setText("Touchpad  ")
-a10.setData("Gui::TouchpadNavigationStyle")
-a10.setObjectName("Indicator_NavigationTouchpad")
+a10.setText("SolidWorks  ")
+a10.setData("Gui::SolidWorksNavigationStyle")
+a10.setObjectName("Indicator_NavigationSolidWorks")
+
+a11 = QtGui.QAction(gStyle)
+a11.setText("TinkerCAD  ")
+a11.setData("Gui::TinkerCADNavigationStyle")
+a11.setObjectName("Indicator_NavigationTinkerCAD")
+
+a12 = QtGui.QAction(gStyle)
+a12.setText("Touchpad  ")
+a12.setData("Gui::TouchpadNavigationStyle")
+a12.setObjectName("Indicator_NavigationTouchpad")
+
+for action in gStyle.actions():
+    action.setCheckable(True)
 
 RePopulateIcons()
 
@@ -693,6 +799,8 @@ menu.addAction(a7)
 menu.addAction(a8)
 menu.addAction(a9)
 menu.addAction(a10)
+menu.addAction(a11)
+menu.addAction(a12)
 
 pView.Attach(indicator)
 
@@ -733,6 +841,8 @@ def onTooltip():
         a8.setToolTip(t8)
         a9.setToolTip(t9)
         a10.setToolTip(t10)
+        a11.setToolTip(t11)
+        a12.setToolTip(t12)
         p.SetBool("Tooltip", 1)
     else:
         for i in gStyle.actions():
@@ -751,12 +861,18 @@ def onOrbit():
         pView.SetInt("OrbitStyle", 1)
     elif aFreeTurntable.isChecked():
         pView.SetInt("OrbitStyle", 2)
+    elif aTrackballClassic.isChecked():
+        pView.SetInt("OrbitStyle", 3)
+    elif aRoundedArcball.isChecked():
+        pView.SetInt("OrbitStyle", 4)
+
+    onOrbitShow()
 
 
 def onOrbitShow():
     """Set turntable or trackball orbit style."""
 
-    OrbitStyle = pView.GetInt("OrbitStyle", 1)
+    OrbitStyle = pView.GetInt("OrbitStyle", 4)
     gOrbit.blockSignals(True)
     if OrbitStyle == 0:
         aTurntable.setChecked(True)
@@ -764,12 +880,43 @@ def onOrbitShow():
         aTrackball.setChecked(True)
     elif OrbitStyle == 2:
         aFreeTurntable.setChecked(True)
+    elif OrbitStyle == 3:
+        aTrackballClassic.setChecked(True)
+    elif OrbitStyle == 4:
+        aRoundedArcball.setChecked(True)
     gOrbit.blockSignals(False)
+
+
+def getActiveView():
+    """Return the active 3D view, if one is available."""
+
+    doc = getattr(Gui, "ActiveDocument", None)
+    return getattr(doc, "ActiveView", None)
+
+
+def getCurrentNavigationStyle():
+    """Return the navigation style for the current status-bar scope."""
+
+    if not pView.GetBool("SameStyleForAllViews", 1):
+        view = getActiveView()
+        if view and hasattr(view, "getNavigationType"):
+            return view.getNavigationType()
+
+    return pView.GetString("NavigationStyle")
 
 
 def onMenu(action):
     """Set navigation style on selection."""
-    pView.SetString("NavigationStyle", action.data())
+
+    style = action.data()
+    if pView.GetBool("SameStyleForAllViews", 1):
+        pView.SetString("NavigationStyle", style)
+    else:
+        view = getActiveView()
+        if view and hasattr(view, "setNavigationType"):
+            view.setNavigationType(style)
+
+    setCurrent()
 
 
 def setCurrent():
@@ -778,12 +925,13 @@ def setCurrent():
 
     s = False
     actions = gStyle.actions()
-    current = pView.GetString("NavigationStyle")
+    current = getCurrentNavigationStyle()
 
     if current and current != "Undefined":
         for i in actions:
             if i.data() == current:
                 s = True
+                i.setChecked(True)
                 setCompact(i)
                 menu.setDefaultAction(i)
                 indicator.setIcon(i.icon())
@@ -799,12 +947,19 @@ def setCurrent():
     else:
         a0.setVisible(True)
         a0.setEnabled(True)
+        a0.setChecked(True)
         setCompact(a0)
         menu.setDefaultAction(a0)
         indicator.setIcon(a0.icon())
         indicator.setToolTip(a0.toolTip())
 
     gStyle.blockSignals(False)
+
+
+def onActiveWindowChanged(window):
+    """Refresh when the active MDI view changes."""
+
+    setCurrent()
 
 
 if p.GetBool("Compact", 0):
@@ -817,17 +972,27 @@ retranslateUi()
 onCompact()
 onTooltip()
 
-label = statusBar.children()[2]
-statusBar.removeWidget(label)
-statusBar.addPermanentWidget(indicator)
-statusBar.addPermanentWidget(label)
-label.show()
+# MainWindow owns status-bar placement/ordering/persistence/menu; we only register.
+mw.addStatusBarItem(
+    indicator,
+    id="NavigationIndicator",
+    title=text,
+    slot="Right",
+    # Far right of the status bar, after Notifications.
+    order=900,
+)
 
 setCurrent()
+
+mdiAreaClass = getattr(QtGui, "QMdiArea", None)
+mdiArea = mw.findChild(mdiAreaClass) if mdiAreaClass else None
+if mdiArea:
+    mdiArea.subWindowActivated.connect(onActiveWindowChanged)
 
 gStyle.triggered.connect(onMenu)
 gOrbit.triggered.connect(onOrbit)
 aCompact.triggered.connect(onCompact)
 aTooltip.triggered.connect(onTooltip)
+menu.aboutToShow.connect(setCurrent)
 menuOrbit.aboutToShow.connect(onOrbitShow)
 menu.aboutToHide.connect(indicator.clearFocus)

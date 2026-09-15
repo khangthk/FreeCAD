@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /***************************************************************************
  *   Copyright (c) 2020 sliptonic <shopinthewoods@gmail.com>               *
  *                                                                         *
@@ -19,10 +20,9 @@
  *   Suite 330, Boston, MA  02111-1307, USA                                *
  *                                                                         *
  ***************************************************************************/
-#ifndef PATH_VORONOI_H
-#define PATH_VORONOI_H
+#pragma once
 
-#include <climits>
+#include <limits>
 #include <map>
 #include <vector>
 #include <Base/BaseClass.h>
@@ -33,11 +33,6 @@
 #include <boost/polygon/polygon.hpp>
 #include <boost/polygon/voronoi.hpp>
 
-#if (SIZE_MAX == UINT_MAX)
-#define PATH_VORONOI_COLOR_MASK 0x07FFFFFFul
-#else
-#define PATH_VORONOI_COLOR_MASK 0x07FFFFFFFFFFFFFFul
-#endif
 
 namespace Path
 {
@@ -51,8 +46,8 @@ public:
     ~Voronoi() override;
 
     using color_type = std::size_t;
-    static const int InvalidIndex = INT_MAX;
-    static const color_type ColorMask = PATH_VORONOI_COLOR_MASK;
+    static const int InvalidIndex = std::numeric_limits<int>::max();
+    static const color_type ColorMask = std::numeric_limits<color_type>::max() >> 5;
 
     // types
     using coordinate_type = double;
@@ -137,5 +132,3 @@ private:
 };
 
 }  // namespace Path
-
-#endif  // PATH_VORONOI_H

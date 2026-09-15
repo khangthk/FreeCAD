@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # ***************************************************************************
 # *   Copyright (c) 2021 Yorik van Havre <yorik@uncreated.net>              *
@@ -36,7 +36,7 @@ Basic usage:
     import Help
     Help.show("Draft Line")
     Help.show("Draft_Line") # works with spaces or underscores
-    Help.show("https://wiki.freecadweb.org/Draft_Line")
+    Help.show("https://wiki.freecad.org/Draft_Line")
     Help.show("https://gitlab.com/freecad/FreeCAD-documentation/-/raw/main/wiki/Draft_Line.md")
     Help.show("/home/myUser/.FreeCAD/Documentation/Draft_Line.md")
     Help.show("http://myserver.com/myfolder/Draft_Line.html")
@@ -59,7 +59,6 @@ import urllib.request
 import urllib.error
 import FreeCAD
 
-
 translate = FreeCAD.Qt.translate
 QT_TRANSLATE_NOOP = FreeCAD.Qt.QT_TRANSLATE_NOOP
 
@@ -70,11 +69,11 @@ MD_RENDERED_URL = "https://github.com/FreeCAD/FreeCAD-documentation/blob/main/wi
 MD_TRANSLATIONS_FOLDER = "translations"
 ERRORTXT = translate(
     "Help",
-    "Contents for this page could not be retrieved. Please check settings under menu Edit -> Preferences -> General -> Help",
+    "Contents for this page could not be retrieved. Please check settings under menu Edit → Preferences → General → Help",
 )
 LOCTXT = translate(
     "Help",
-    "Help files location could not be determined. Please check settings under menu Edit -> Preferences -> General -> Help",
+    "Help files location could not be determined. Please check settings under menu Edit → Preferences → General → Help",
 )
 LOGTXT = translate(
     "Help",
@@ -160,15 +159,20 @@ def location_url(url_localized: str, url_english: str) -> tuple:
     """
     Returns localized documentation url and page name, if they exist,
     otherwise defaults to english version.
+    Page name is gotten from:
+      a) Name/* metadata tag on raw markdown files from github,
+         Wiki translators should make sure to add it.
+      b) <title> HTML tag
     """
     try:
         req = urllib.request.Request(url_localized)
         with urllib.request.urlopen(req) as response:
             html = response.read().decode("utf-8")
-            if re.search(r"https://wiki.freecad.org", url_localized):
-                pagename_match = re.search(r"<title>(.*?) - .*?</title>", html)
-            else:
+            if url_localized.startswith(MD_RAW_URL):
                 pagename_match = re.search(r"Name/.*?:\s*(.+)", html)
+            else:
+                # Pages from FreeCAD Wiki fall here
+                pagename_match = re.search(r"<title>(.*?) - .*?</title>", html)
             if pagename_match is not None:
                 return (url_localized, pagename_match.group(1))
             else:
@@ -177,17 +181,19 @@ def location_url(url_localized: str, url_english: str) -> tuple:
         return (url_english, "")
 
 
-def get_location(page):
-    """retrieves the location (online or offline) of a given page"""
+def get_location(page) -> tuple:
+    """retrieves the location (online or offline) of a given page. Returns the location and the page name"""
 
     location = ""
     if page.startswith("http"):
-        return page
+        # NOTE: This gets activated when you open a link on the built-in browser, since
+        # we don't know the URL, using location_url() fallback to the HTML <title> tag
+        return location_url(page, page)
     if page.startswith("file://"):
-        return page[7:]
+        return (page[7:], "")
     # offline location
     if os.path.exists(page):
-        return page
+        return (page, "")
     page = page.replace(".md", "")
     page = page.replace(" ", "_")
     page = page.replace("wiki/", "")
@@ -230,7 +236,10 @@ def get_location(page):
                 "FreeCAD-documentation-main",
                 "wiki",
             )
-        location = os.path.join(location, page + ".md")
+        for ext in (".md", ".html", ".htm"):
+            if os.path.exists(os.path.join(location, page + ext)):
+                location = os.path.join(location, page + ext)
+                break
     return (location, pagename)
 
 
@@ -453,7 +462,7 @@ def openBrowserHTML(html, baseurl, title, icon, dialog=False):
 
     # save dock widget size and location
     def onDockLocationChanged(area):
-        PREFS.SetInt("dockWidgetArea", int(area))
+        PREFS.SetInt("dockWidgetArea", int(area.value))
         mw = FreeCADGui.getMainWindow()
         dock = mw.findChild(QtWidgets.QDockWidget, "HelpWidget")
         if dock:

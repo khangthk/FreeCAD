@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2015 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -52,11 +54,11 @@ class _TaskPanel:
     The TaskPanel for CalculiX ccx tools solver object
     """
 
-    PREFS_PATH = "User parameter:BaseApp/Preferences/Mod/Fem/Ccx"
+    PREFS_PATH = "User parameter:BaseApp/Preferences/Mod/Fem"
 
     def __init__(self, solver_object):
         self.form = FreeCADGui.PySideUic.loadUi(
-            FreeCAD.getHomePath() + "Mod/Fem/Resources/ui/SolverCalculix.ui"
+            FreeCAD.getHomePath() + "Mod/Fem/Resources/ui/SolverCcxTools.ui"
         )
 
         from femtools.ccxtools import CcxTools as ccx
@@ -68,7 +70,10 @@ class _TaskPanel:
         # task panel, may be deactivate write and run button.
         self.fea = ccx(solver_object)
         self.fea.setup_working_dir()
-        self.fea.setup_ccx()
+        try:
+            self.fea.setup_ccx()
+        except FileNotFoundError as e:
+            FreeCAD.Console.PrintWarning(e.args[0])
 
         self.Calculix = QtCore.QProcess()
         self.Timer = QtCore.QTimer()
@@ -264,24 +269,6 @@ class _TaskPanel:
         self.fea.reset_mesh_purge_results_checked()
         self.fea.inp_file_name = self.fea.inp_file_name
 
-        # check if ccx is greater than 2.10, if not do not read results
-        # https://forum.freecad.org/viewtopic.php?f=18&t=23548#p183829 Point 3
-        # https://forum.freecad.org/viewtopic.php?f=18&t=23548&start=20#p183909
-        # https://forum.freecad.org/viewtopic.php?f=18&t=23548&start=30#p185027
-        # https://github.com/FreeCAD/FreeCAD/commit/3dd1c9f
-        majorVersion, minorVersion = self.fea.get_ccx_version()
-        if majorVersion == 2 and minorVersion <= 10:
-            message = (
-                "The used CalculiX version {}.{} creates broken output files. "
-                "The result file will not be read by FreeCAD FEM. "
-                "You still can try to read it stand alone with FreeCAD, but it is "
-                "strongly recommended to upgrade CalculiX to a newer version.\n".format(
-                    majorVersion, minorVersion
-                )
-            )
-            QtGui.QMessageBox.warning(None, "Upgrade CalculiX", message)
-            raise
-
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             self.fea.load_results()
@@ -341,19 +328,16 @@ class _TaskPanel:
 
     def editCalculixInputFile(self):
         print(f"editCalculixInputFile {self.fea.inp_file_name}")
-        ccx_prefs = FreeCAD.ParamGet(self.PREFS_PATH)
-        if ccx_prefs.GetBool("UseInternalEditor", True):
-            FemGui.open(self.fea.inp_file_name)
+        gen_prefs = FreeCAD.ParamGet(self.PREFS_PATH).GetGroup("General")
+        ext_editor_path = gen_prefs.GetString("ExternalEditorPath", "")
+        if ext_editor_path:
+            self.start_ext_editor(ext_editor_path, self.fea.inp_file_name)
         else:
-            ext_editor_path = ccx_prefs.GetString("ExternalEditorPath", "")
-            if ext_editor_path:
-                self.start_ext_editor(ext_editor_path, self.fea.inp_file_name)
-            else:
-                print(
-                    "External editor is not defined in FEM preferences. "
-                    "Falling back to internal editor"
-                )
-                FemGui.open(self.fea.inp_file_name)
+            print(
+                "External editor is not defined in FEM preferences. "
+                "Falling back to internal editor"
+            )
+            FemGui.open(self.fea.inp_file_name)
 
     def runCalculix(self):
         if self.Calculix.state() == QtCore.QProcess.ProcessState.NotRunning:
@@ -379,15 +363,12 @@ class _TaskPanel:
             # there is also a limit of the length of file names so jump to the document directory
 
             # Set up for multi-threading. Note: same functionality as ccx_tools.py/start_ccx()
-            ccx_prefs = FreeCAD.ParamGet(self.PREFS_PATH)
+            ccx_prefs = FreeCAD.ParamGet(self.PREFS_PATH).GetGroup("Ccx")
             env = QtCore.QProcessEnvironment.systemEnvironment()
-            num_cpu_pref = ccx_prefs.GetInt("AnalysisNumCPUs", 1)
-            if num_cpu_pref > 1:
-                env.insert("OMP_NUM_THREADS", str(num_cpu_pref))
-            else:
-                cpu_count = os.cpu_count()
-                if cpu_count is not None and cpu_count > 1:
-                    env.insert("OMP_NUM_THREADS", str(cpu_count))
+            num_cpu_pref = ccx_prefs.GetInt("AnalysisNumCPUs", QtCore.QThread.idealThreadCount())
+            env.insert("OMP_NUM_THREADS", str(num_cpu_pref))
+            pastix_prec = "1" if self.fea.solver.PastixMixedPrecision else "0"
+            env.insert("PASTIX_MIXED_PRECISION", pastix_prec)
             self.Calculix.setProcessEnvironment(env)
 
             self.cwd = QtCore.QDir.currentPath()

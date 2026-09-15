@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2021 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -59,7 +61,9 @@ class Proxy(solverbase.Proxy):
 
         # mystran_prefs = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Fem/Mystran")
 
-        obj.addProperty("App::PropertyEnumeration", "AnalysisType", "Fem", "Type of the analysis")
+        obj.addProperty(
+            "App::PropertyEnumeration", "AnalysisType", "Fem", "Type of the analysis", locked=True
+        )
         obj.AnalysisType = ANALYSIS_TYPES
         obj.AnalysisType = ANALYSIS_TYPES[0]
 
@@ -92,6 +96,3 @@ class ViewProxy(solverbase.ViewProxy):
 
     def getIcon(self):
         return ":/icons/FEM_SolverMystran.svg"
-
-
-##  @}

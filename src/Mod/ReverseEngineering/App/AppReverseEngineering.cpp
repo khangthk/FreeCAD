@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2008 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -20,11 +22,10 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <Geom_BSplineSurface.hxx>
+#include <Standard_Version.hxx>
 #include <TColgp_Array1OfPnt.hxx>
-#endif
+
 
 #include <Base/Console.h>
 #include <Base/Converter.h>
@@ -35,9 +36,9 @@
 #include <Mod/Part/App/BSplineSurfacePy.h>
 #include <Mod/Points/App/PointsPy.h>
 #if defined(HAVE_PCL_FILTERS)
-#include <pcl/filters/passthrough.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/point_types.h>
+# include <pcl/filters/passthrough.h>
+# include <pcl/filters/voxel_grid.h>
+# include <pcl/point_types.h>
 #endif
 
 #include "ApproxSurface.h"
@@ -403,7 +404,11 @@ private:
                 }
             }
 
+#if OCC_VERSION_HEX >= 0x080000
+            TColgp_Array1OfPnt clPoints(pts.size()-1);
+#else
             TColgp_Array1OfPnt clPoints(0, pts.size()-1);
+#endif
             if (clPoints.Length() < uPoles * vPoles) {
                 throw Py::ValueError("Too less data points for the specified number of poles");
             }
@@ -999,7 +1004,7 @@ PyMOD_INIT_FUNC(ReverseEngineering)
     }
 
     PyObject* mod = Reen::initModule();
-    Base::Console().Log("Loading ReverseEngineering module... done\n");
+    Base::Console().log("Loading Reverse Engineering module… done\n");
     PyMOD_Return(mod);
 }
 // clang-format on

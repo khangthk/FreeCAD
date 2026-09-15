@@ -21,17 +21,18 @@
  ***************************************************************************/
 
 
-#ifndef GUI_VIEWPROVIDER_GEOMETRYOBJECT_H
-#define GUI_VIEWPROVIDER_GEOMETRYOBJECT_H
+#pragma once
 
 #include "ViewProviderDragger.h"
 #include <Inventor/lists/SoPickedPointList.h>
 
 class SoPickedPointList;
+class SoPickStyle;
 class SoSwitch;
 class SoSensor;
 class SbVec2s;
 class SoBaseColor;
+class SoNodeSensor;
 
 namespace Gui
 {
@@ -48,6 +49,8 @@ class View3DInventorViewer;
 class GuiExport ViewProviderGeometryObject: public ViewProviderDragger
 {
     PROPERTY_HEADER_WITH_OVERRIDE(Gui::ViewProviderGeometryObject);
+
+    typedef ViewProviderDragger inherited;
 
 public:
     /// constructor.
@@ -78,9 +81,11 @@ public:
      * If \a pickAll is false (the default) only the intersection point closest to the camera will
      * be picked, otherwise all intersection points will be picked.
      */
-    SoPickedPointList getPickedPoints(const SbVec2s& pos,
-                                      const View3DInventorViewer& viewer,
-                                      bool pickAll = false) const;
+    SoPickedPointList getPickedPoints(
+        const SbVec2s& pos,
+        const View3DInventorViewer& viewer,
+        bool pickAll = false
+    ) const;
     /**
      * This method is provided for convenience and does basically the same as getPickedPoints()
      * unless that only the closest point to the camera will be picked. \note It is in the response
@@ -93,6 +98,9 @@ public:
     virtual void showBoundingBox(bool);
     //@}
 
+    void hide() override;
+    void show() override;
+
     /// Get the python wrapper for that ViewProvider
     PyObject* getPyObject() override;
 
@@ -102,10 +110,14 @@ protected:
     void setSelectable(bool Selectable = true);
 
     virtual unsigned long getBoundColor() const;
+    void updateBoundingBox();
+    void addBoundSwitch();
 
-    void handleChangedPropertyName(Base::XMLReader& reader,
-                                   const char* TypeName,
-                                   const char* PropName) override;
+    void handleChangedPropertyName(
+        Base::XMLReader& reader,
+        const char* TypeName,
+        const char* PropName
+    ) override;
     void setCoinAppearance(const App::Material& source);
 
 private:
@@ -116,9 +128,10 @@ protected:
     SoFCBoundingBox* pcBoundingBox {nullptr};
     SoSwitch* pcBoundSwitch {nullptr};
     SoBaseColor* pcBoundColor {nullptr};
+    SoPickStyle* pickStyle {nullptr};
+    SoNodeSensor* pcSwitchSensor {nullptr};
+
+    App::Material materialAppearance;
 };
 
 }  // namespace Gui
-
-
-#endif  // GUI_VIEWPROVIDER_GEOMETRYOBJECT_H

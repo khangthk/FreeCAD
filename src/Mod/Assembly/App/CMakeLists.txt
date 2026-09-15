@@ -1,47 +1,46 @@
-
-include_directories(
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/src/3rdParty/OndselSolver
-    ${CMAKE_BINARY_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${OCC_INCLUDE_DIR}
-    ${PYTHON_INCLUDE_DIRS}
-)
-link_directories(${OCC_LIBRARY_DIR})
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 set(Assembly_LIBS
     Part
     PartDesign
-	Spreadsheet
+    Spreadsheet
     FreeCADApp
-	OndselSolver
+    OndselSolver
 )
 
-generate_from_xml(AssemblyObjectPy)
-generate_from_xml(BomObjectPy)
-generate_from_xml(BomGroupPy)
-generate_from_xml(JointGroupPy)
-generate_from_xml(ViewGroupPy)
+generate_from_py(AssemblyObject)
+generate_from_py(AssemblyLink)
+generate_from_py(BomObject)
+generate_from_py(BomGroup)
+generate_from_py(JointGroup)
+generate_from_py(ViewGroup)
+generate_from_py(SimulationGroup)
+generate_from_py(SnapshotGroup)
+
 
 SET(Python_SRCS
-    AssemblyObjectPy.xml
+    AssemblyObject.pyi
     AssemblyObjectPyImp.cpp
-    BomObjectPy.xml
+    AssemblyLink.pyi
+    AssemblyLinkPyImp.cpp
+    BomObject.pyi
     BomObjectPyImp.cpp
-    BomGroupPy.xml
+    BomGroup.pyi
     BomGroupPyImp.cpp
-    JointGroupPy.xml
+    JointGroup.pyi
     JointGroupPyImp.cpp
-    ViewGroupPy.xml
+    ViewGroup.pyi
     ViewGroupPyImp.cpp
+    SimulationGroup.pyi
+    SimulationGroupPyImp.cpp
+    SnapshotGroup.pyi
+    SnapshotGroupPyImp.cpp
 )
 SOURCE_GROUP("Python" FILES ${Python_SRCS})
 
 SET(Module_SRCS
     AppAssembly.cpp
     AppAssemblyPy.cpp
-    PreCompiled.cpp
     PreCompiled.h
 )
 SOURCE_GROUP("Module" FILES ${Module_SRCS})
@@ -49,31 +48,37 @@ SOURCE_GROUP("Module" FILES ${Module_SRCS})
 SET(Assembly_SRCS
     AssemblyObject.cpp
     AssemblyObject.h
+    AssemblyLink.cpp
+    AssemblyLink.h
+    AssemblyUtils.cpp
+    AssemblyUtils.h
     BomObject.cpp
     BomObject.h
-    BomGroup.cpp
-    BomGroup.h
-    JointGroup.cpp
-    JointGroup.h
-    ViewGroup.cpp
-    ViewGroup.h
+    Groups.cpp
+    Groups.h
     ${Module_SRCS}
     ${Python_SRCS}
 )
 
 add_library(Assembly SHARED ${Assembly_SRCS})
+target_include_directories(
+    Assembly
+    PRIVATE
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_BINARY_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
 target_link_libraries(Assembly ${Assembly_LIBS})
-if (FREECAD_WARN_ERROR)
-    target_compile_warn_error(Assembly)
-endif()
+target_compile_warn_error(Assembly)
 
 if(FREECAD_USE_PCH)
-    add_definitions(-D_PreComp_)
-    GET_MSVC_PRECOMPILED_SOURCE("PreCompiled.cpp" PCH_SRCS ${Assembly_SRCS})
-    ADD_MSVC_PRECOMPILED_HEADER(Assembly PreCompiled.h PreCompiled.cpp PCH_SRCS)
+    target_precompile_headers(Assembly PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_LIST_DIR}/PreCompiled.h">
+    )
 endif(FREECAD_USE_PCH)
 
-SET_BIN_DIR(Assembly AssemblyApp /Mod/Assembly)
+SET_BIN_DIR(Assembly AssemblyApp)
 SET_PYTHON_PREFIX_SUFFIX(Assembly)
 
 INSTALL(TARGETS Assembly DESTINATION ${CMAKE_INSTALL_LIBDIR})

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2008 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
@@ -20,7 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
+#include <limits>
 
 #include "MeshFeature.h"
 // inclusion of the generated files (generated out of MeshFeaturePy.xml)
@@ -73,7 +75,7 @@ PyObject* MeshFeaturePy::harmonizeNormals(PyObject* args)
 PyObject* MeshFeaturePy::smooth(PyObject* args)
 {
     int iter = 1;
-    float d_max = FLOAT_MAX;
+    float d_max = std::numeric_limits<float>::max();
     if (!PyArg_ParseTuple(args, "|if", &iter, &d_max)) {
         return nullptr;
     }
@@ -122,8 +124,10 @@ PyObject* MeshFeaturePy::decimate(PyObject* args)
         Py_Return;
     }
 
-    PyErr_SetString(PyExc_ValueError,
-                    "decimate(tolerance=float, reduction=float) or decimate(targetSize=int)");
+    PyErr_SetString(
+        PyExc_ValueError,
+        "decimate(tolerance=float, reduction=float) or decimate(targetSize=int)"
+    );
     return nullptr;
 }
 

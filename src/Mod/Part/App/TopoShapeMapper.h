@@ -21,6 +21,7 @@
  *                                                                          *
  ***************************************************************************/
 
+#include <limits>
 #include <map>
 #include <unordered_set>
 #include <vector>
@@ -29,6 +30,10 @@
 #include <TopoDS.hxx>
 #include <TopExp_Explorer.hxx>
 #include "TopoShape.h"
+
+#include <Base/Tools.h>
+
+#include <Mod/Part/PartGlobal.h>
 
 class BRepBuilderAPI_MakeShape;
 class BRepTools_History;
@@ -46,7 +51,7 @@ struct ShapeHasher
 #if OCC_VERSION_HEX >= 0x070800
         return std::hash<TopoDS_Shape> {}(s.getShape());
 #else
-        return s.getShape().HashCode(INT_MAX);
+        return s.getShape().HashCode(std::numeric_limits<int>::max());
 #endif
     }
     inline size_t operator()(const TopoDS_Shape& s) const
@@ -54,7 +59,7 @@ struct ShapeHasher
 #if OCC_VERSION_HEX >= 0x070800
         return std::hash<TopoDS_Shape> {}(s);
 #else
-        return s.HashCode(INT_MAX);
+        return s.HashCode(std::numeric_limits<int>::max());
 #endif
     }
     inline bool operator()(const TopoShape& a, const TopoShape& b) const
@@ -65,21 +70,14 @@ struct ShapeHasher
     {
         return a.IsSame(b);
     }
-    template<class T>
-    static inline void hash_combine(std::size_t& seed, const T& v)
-    {
-        // copied from boost::hash_combine
-        std::hash<T> hasher;
-        seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    }
     inline size_t operator()(const std::pair<TopoShape, TopoShape>& s) const
     {
 #if OCC_VERSION_HEX >= 0x070800
         size_t res = std::hash<TopoDS_Shape> {}(s.first.getShape());
-        hash_combine(res, std::hash<TopoDS_Shape> {}(s.second.getShape()));
+        Base::hash_combine(res, std::hash<TopoDS_Shape> {}(s.second.getShape()));
 #else
-        size_t res = s.first.getShape().HashCode(INT_MAX);
-        hash_combine(res, s.second.getShape().HashCode(INT_MAX));
+        size_t res = s.first.getShape().HashCode(std::numeric_limits<int>::max());
+        Base::hash_combine(res, s.second.getShape().HashCode(std::numeric_limits<int>::max()));
 #endif
         return res;
     }
@@ -87,21 +85,25 @@ struct ShapeHasher
     {
 #if OCC_VERSION_HEX >= 0x070800
         size_t res = std::hash<TopoDS_Shape> {}(s.first);
-        hash_combine(res, std::hash<TopoDS_Shape> {}(s.second));
+        Base::hash_combine(res, std::hash<TopoDS_Shape> {}(s.second));
 #else
-        size_t res = s.first.HashCode(INT_MAX);
-        hash_combine(res, s.second.HashCode(INT_MAX));
+        size_t res = s.first.HashCode(std::numeric_limits<int>::max());
+        Base::hash_combine(res, s.second.HashCode(std::numeric_limits<int>::max()));
 #endif
         return res;
     }
-    inline bool operator()(const std::pair<TopoShape, TopoShape>& a,
-                           const std::pair<TopoShape, TopoShape>& b) const
+    inline bool operator()(
+        const std::pair<TopoShape, TopoShape>& a,
+        const std::pair<TopoShape, TopoShape>& b
+    ) const
     {
         return a.first.getShape().IsSame(b.first.getShape())
             && a.second.getShape().IsSame(b.second.getShape());
     }
-    inline bool operator()(const std::pair<TopoDS_Shape, TopoDS_Shape>& a,
-                           const std::pair<TopoDS_Shape, TopoDS_Shape>& b) const
+    inline bool operator()(
+        const std::pair<TopoDS_Shape, TopoDS_Shape>& a,
+        const std::pair<TopoDS_Shape, TopoDS_Shape>& b
+    ) const
     {
         return a.first.IsSame(b.first) && a.second.IsSame(b.second);
     }
@@ -138,9 +140,7 @@ struct PartExport ShapeMapper: TopoShape::Mapper
      * The source will be expanded into sub shapes of faces, edges and vertices
      * before being inserted into the map.
      */
-    void populate(MappingStatus status,
-                  const TopTools_ListOfShape& src,
-                  const TopTools_ListOfShape& dst);
+    void populate(MappingStatus status, const TopTools_ListOfShape& src, const TopTools_ListOfShape& dst);
 
     /** Populate mapping from a source sub shape to a list of shape
      *
@@ -151,9 +151,11 @@ struct PartExport ShapeMapper: TopoShape::Mapper
      * The source will be expanded into sub shapes of faces, edges and vertices
      * before being inserted into the map.
      */
-    void populate(MappingStatus status,
-                  const std::vector<TopoShape>& src,
-                  const std::vector<TopoShape>& dst)
+    void populate(
+        MappingStatus status,
+        const std::vector<TopoShape>& src,
+        const std::vector<TopoShape>& dst
+    )
     {
         for (auto& s : src) {
             populate(status, s, dst);
@@ -179,6 +181,9 @@ struct PartExport ShapeMapper: TopoShape::Mapper
             expand(d.getShape(), dstShapes);
         }
         insert(status, src.getShape(), dstShapes);
+        if (shapeSet.insert(src.getShape()).second) {
+            shapes.push_back(src);
+        }
     }
 
     /** Expand a shape into faces, edges and vertices
@@ -238,9 +243,10 @@ struct PartExport ShapeMapper: TopoShape::Mapper
 
 /** Generic shape mapper from a given source to an output shape
  */
-struct PartExport GenericShapeMapper: ShapeMapper {
+struct PartExport GenericShapeMapper: ShapeMapper
+{
     /// Populate the map with a given source shape to an output shape
-    void init(const TopoShape &src, const TopoDS_Shape &dst);
+    void init(const TopoShape& src, const TopoDS_Shape& dst);
 };
 
 /// Parameters for TopoShape::makeElementFilledFace()

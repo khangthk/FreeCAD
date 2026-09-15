@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /******************************************************************************
  *   Copyright (c) 2012 Jan Rheinländer <jrheinlaender@users.sourceforge.net> *
  *                                                                            *
@@ -21,11 +23,8 @@
  ******************************************************************************/
 
 
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
 #include <QMessageBox>
-#endif
+
 
 #include <App/Document.h>
 #include <App/DocumentObject.h>
@@ -33,8 +32,8 @@
 #include <Base/Console.h>
 #include <Gui/Application.h>
 #include <Gui/Command.h>
-#include <Gui/Selection.h>
-#include <Gui/ViewProviderOrigin.h>
+#include <Gui/Selection/Selection.h>
+#include <Gui/ViewProviderCoordinateSystem.h>
 #include <Mod/PartDesign/App/Body.h>
 #include <Mod/PartDesign/App/FeatureMirrored.h>
 
@@ -48,16 +47,17 @@ using namespace Gui;
 
 /* TRANSLATOR PartDesignGui::TaskMirroredParameters */
 
-TaskMirroredParameters::TaskMirroredParameters(ViewProviderTransformed* TransformedView,
-                                               QWidget* parent)
+TaskMirroredParameters::TaskMirroredParameters(ViewProviderTransformed* TransformedView, QWidget* parent)
     : TaskTransformedParameters(TransformedView, parent)
     , ui(new Ui_TaskMirroredParameters)
 {
     setupUI();
 }
 
-TaskMirroredParameters::TaskMirroredParameters(TaskMultiTransformParameters* parentTask,
-                                               QWidget* parameterWidget)
+TaskMirroredParameters::TaskMirroredParameters(
+    TaskMultiTransformParameters* parentTask,
+    QWidget* parameterWidget
+)
     : TaskTransformedParameters(parentTask)
     , ui(new Ui_TaskMirroredParameters)
 {
@@ -69,12 +69,14 @@ void TaskMirroredParameters::setupParameterUI(QWidget* widget)
     ui->setupUi(widget);
     QMetaObject::connectSlotsByName(this);
 
-    connect(ui->comboPlane,
-            qOverload<int>(&QComboBox::activated),
-            this,
-            &TaskMirroredParameters::onPlaneChanged);
+    connect(
+        ui->comboPlane,
+        qOverload<int>(&QComboBox::activated),
+        this,
+        &TaskMirroredParameters::onPlaneChanged
+    );
 
-    this->planeLinks.setCombo(*(ui->comboPlane));
+    this->planeLinks.setCombo(ui->comboPlane);
     ui->comboPlane->setEnabled(true);
 
     App::DocumentObject* sketch = getSketchObject();
@@ -90,12 +92,13 @@ void TaskMirroredParameters::setupParameterUI(QWidget* widget)
     if (body) {
         try {
             App::Origin* origin = body->getOrigin();
-            auto vpOrigin = static_cast<ViewProviderOrigin*>(
-                Gui::Application::Instance->getViewProvider(origin));
-            vpOrigin->setTemporaryVisibility(false, true);
+            auto vpOrigin = static_cast<ViewProviderCoordinateSystem*>(
+                Gui::Application::Instance->getViewProvider(origin)
+            );
+            vpOrigin->setTemporaryVisibility(Gui::DatumElement::Planes);
         }
         catch (const Base::Exception& ex) {
-            Base::Console().Error("%s\n", ex.what());
+            Base::Console().error("%s\n", ex.what());
         }
     }
 
@@ -114,13 +117,14 @@ void TaskMirroredParameters::updateUI()
     }
     blockUpdate = true;
 
-    auto pcMirrored = static_cast<PartDesign::Mirrored*>(getObject());
+    auto pcMirrored = getObject<PartDesign::Mirrored>();
 
     if (planeLinks.setCurrentLink(pcMirrored->MirrorPlane) == -1) {
         // failed to set current, because the link isn't in the list yet
         planeLinks.addLink(
             pcMirrored->MirrorPlane,
-            getRefStr(pcMirrored->MirrorPlane.getValue(), pcMirrored->MirrorPlane.getSubValues()));
+            getRefStr(pcMirrored->MirrorPlane.getValue(), pcMirrored->MirrorPlane.getSubValues())
+        );
         planeLinks.setCurrentLink(pcMirrored->MirrorPlane);
     }
 
@@ -129,30 +133,32 @@ void TaskMirroredParameters::updateUI()
 
 void TaskMirroredParameters::onSelectionChanged(const Gui::SelectionChanges& msg)
 {
-    if (selectionMode != SelectionMode::None && msg.Type == Gui::SelectionChanges::AddSelection) {
-
-        if (originalSelected(msg)) {
-            exitSelectionMode();
-        }
-        else {
-            auto pcMirrored = static_cast<PartDesign::Mirrored*>(getObject());
-
-            std::vector<std::string> mirrorPlanes;
-            App::DocumentObject* selObj = nullptr;
-            getReferencedSelection(pcMirrored, msg, selObj, mirrorPlanes);
-            if (!selObj) {
-                return;
-            }
-
-            if (selectionMode == SelectionMode::Reference || selObj->isDerivedFrom<App::Plane>()) {
-                setupTransaction();
-                pcMirrored->MirrorPlane.setValue(selObj, mirrorPlanes);
-                recomputeFeature();
-                updateUI();
-            }
-            exitSelectionMode();
-        }
+    // Handle selection ONLY when in reference selection mode
+    if (selectionMode == SelectionMode::None || msg.Type != Gui::SelectionChanges::AddSelection) {
+        return;
     }
+
+    if (originalSelected(msg)) {
+        exitSelectionMode();
+        return;
+    }
+
+    auto pcMirrored = getObject<PartDesign::Mirrored>();
+
+    std::vector<std::string> mirrorPlanes;
+    App::DocumentObject* selObj = nullptr;
+    getReferencedSelection(pcMirrored, msg, selObj, mirrorPlanes);
+    if (!selObj) {
+        return;
+    }
+
+    if (selectionMode == SelectionMode::Reference || selObj->isDerivedFrom<App::Plane>()) {
+        setupTransaction();
+        pcMirrored->MirrorPlane.setValue(selObj, mirrorPlanes);
+        recomputeFeature();
+        updateUI();
+    }
+    exitSelectionMode();
 }
 
 void TaskMirroredParameters::onPlaneChanged(int /*num*/)
@@ -161,7 +167,7 @@ void TaskMirroredParameters::onPlaneChanged(int /*num*/)
         return;
     }
     setupTransaction();
-    auto pcMirrored = static_cast<PartDesign::Mirrored*>(getObject());
+    auto pcMirrored = getObject<PartDesign::Mirrored>();
     try {
         if (!planeLinks.getCurrentLink().getValue()) {
             // enter reference selection mode
@@ -189,7 +195,7 @@ void TaskMirroredParameters::onUpdateView(bool on)
     if (on) {
         setupTransaction();
         // Do the same like in TaskDlgMirroredParameters::accept() but without doCommand
-        auto pcMirrored = static_cast<PartDesign::Mirrored*>(getObject());
+        auto pcMirrored = getObject<PartDesign::Mirrored>();
         std::vector<std::string> mirrorPlanes;
         App::DocumentObject* obj = nullptr;
 
@@ -200,8 +206,7 @@ void TaskMirroredParameters::onUpdateView(bool on)
     }
 }
 
-void TaskMirroredParameters::getMirrorPlane(App::DocumentObject*& obj,
-                                            std::vector<std::string>& sub) const
+void TaskMirroredParameters::getMirrorPlane(App::DocumentObject*& obj, std::vector<std::string>& sub) const
 {
     const App::PropertyLinkSub& lnk = planeLinks.getCurrentLink();
     obj = lnk.getValue();
@@ -225,13 +230,14 @@ TaskMirroredParameters::~TaskMirroredParameters()
         PartDesign::Body* body = PartDesign::Body::findBodyOf(getObject());
         if (body) {
             App::Origin* origin = body->getOrigin();
-            auto vpOrigin = static_cast<ViewProviderOrigin*>(
-                Gui::Application::Instance->getViewProvider(origin));
+            auto vpOrigin = static_cast<ViewProviderCoordinateSystem*>(
+                Gui::Application::Instance->getViewProvider(origin)
+            );
             vpOrigin->resetTemporaryVisibility();
         }
     }
     catch (const Base::Exception& ex) {
-        Base::Console().Error("%s\n", ex.what());
+        Base::Console().error("%s\n", ex.what());
     }
 }
 
@@ -246,6 +252,7 @@ TaskDlgMirroredParameters::TaskDlgMirroredParameters(ViewProviderMirrored* Mirro
     parameter = new TaskMirroredParameters(MirroredView);
 
     Content.push_back(parameter);
+    Content.push_back(preview);
 }
 
 #include "moc_TaskMirroredParameters.cpp"

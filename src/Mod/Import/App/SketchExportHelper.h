@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2024 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-//! a class to assist with exporting sketches to dxf
 
 #include <Mod/Import/ImportGlobal.h>
 
@@ -35,6 +36,9 @@ class DocumentObject;
 namespace Import
 {
 
+/**
+ * A class to assist with exporting sketches to dxf.
+ */
 class ImportExport SketchExportHelper
 {
 public:

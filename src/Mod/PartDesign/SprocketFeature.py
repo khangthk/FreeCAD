@@ -1,23 +1,25 @@
-#***************************************************************************
-#*   Copyright (c) 2020 Adam Spontarelli <adam@vector-space.org>           *
-#*                                                                         *
-#*   This program is free software; you can redistribute it and/or modify  *
-#*   it under the terms of the GNU Lesser General Public License (LGPL)    *
-#*   as published by the Free Software Foundation; either version 2 of     *
-#*   the License, or (at your option) any later version.                   *
-#*   for detail see the LICENCE text file.                                 *
-#*                                                                         *
-#*   This program is distributed in the hope that it will be useful,       *
-#*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-#*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-#*   GNU Library General Public License for more details.                  *
-#*                                                                         *
-#*   You should have received a copy of the GNU Library General Public     *
-#*   License along with this program; if not, write to the Free Software   *
-#*   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-#*   USA                                                                   *
-#*                                                                         *
-#***************************************************************************
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# ***************************************************************************
+# *   Copyright (c) 2020 Adam Spontarelli <adam@vector-space.org>           *
+# *                                                                         *
+# *   This program is free software; you can redistribute it and/or modify  *
+# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
+# *   as published by the Free Software Foundation; either version 2 of     *
+# *   the License, or (at your option) any later version.                   *
+# *   for detail see the LICENCE text file.                                 *
+# *                                                                         *
+# *   This program is distributed in the hope that it will be useful,       *
+# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+# *   GNU Library General Public License for more details.                  *
+# *                                                                         *
+# *   You should have received a copy of the GNU Library General Public     *
+# *   License along with this program; if not, write to the Free Software   *
+# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
+# *   USA                                                                   *
+# *                                                                         *
+# ***************************************************************************
 
 import FreeCAD, Part
 from fcsprocket import fcsprocket
@@ -28,7 +30,7 @@ if FreeCAD.GuiUp:
     from PySide import QtCore, QtGui
     from FreeCADGui import PySideUic as uic
 
-__title__="PartDesign SprocketObject management"
+__title__ = "PartDesign SprocketObject management"
 __author__ = "Adam Spontarelli"
 __url__ = "https://www.freecad.org"
 
@@ -37,31 +39,35 @@ def makeSprocket(name):
     """
     makeSprocket(name): makes a Sprocket
     """
-    obj = FreeCAD.ActiveDocument.addObject("Part::Part2DObjectPython",name)
+    obj = FreeCAD.ActiveDocument.addObject("Part::Part2DObjectPython", name)
     Sprocket(obj)
     if FreeCAD.GuiUp:
         ViewProviderSprocket(obj.ViewObject)
-    #FreeCAD.ActiveDocument.recompute()
+    # FreeCAD.ActiveDocument.recompute()
     if FreeCAD.GuiUp:
-        body=FreeCADGui.ActiveDocument.ActiveView.getActiveObject("pdbody")
-        part=FreeCADGui.ActiveDocument.ActiveView.getActiveObject("part")
+        body = FreeCADGui.ActiveDocument.ActiveView.getActiveObject("pdbody")
+        part = FreeCADGui.ActiveDocument.ActiveView.getActiveObject("part")
         if body:
-            body.Group=body.Group+[obj]
+            body.Group = body.Group + [obj]
         elif part:
-            part.Group=part.Group+[obj]
+            part.Group = part.Group + [obj]
     return obj
 
-class CommandSprocket:
 
+class CommandSprocket:
     """
     the Fem Sprocket command definition
     """
 
     def GetResources(self):
-        return {'Pixmap'  : 'PartDesign_Sprocket',
-                'MenuText': QtCore.QT_TRANSLATE_NOOP("PartDesign_Sprocket","Sprocket..."),
-                'Accel': "",
-                'ToolTip': QtCore.QT_TRANSLATE_NOOP("PartDesign_Sprocket","Creates or edit the sprocket definition.")}
+        return {
+            "Pixmap": "PartDesign_Sprocket",
+            "MenuText": QtCore.QT_TRANSLATE_NOOP("PartDesign_Sprocket", "Sprocket"),
+            "Accel": "",
+            "ToolTip": QtCore.QT_TRANSLATE_NOOP(
+                "PartDesign_Sprocket", "Creates or edits the sprocket definition."
+            ),
+        }
 
     def Activated(self):
 
@@ -103,12 +109,12 @@ class Sprocket:
         13: [3.000, 1.875, 1.738, "ANSI 240"],
         14: [0.500, 0.3125, 0.11, "Bicycle with Derailleur"],
         15: [0.500, 0.3125, 0.084, "Bicycle without Derailleur"],
-        16: [0.375, 5.72 / 25.4, 5.2 / 25.4, "ISO 606 06B"],
-        17: [0.500, 7.75 / 25.4, 7.0 / 25.4, "ISO 606 08B"],
-        18: [0.625, 9.65 / 25.4, 9.1 / 25.4, "ISO 606 10B"],
-        19: [0.750, 11.68 / 25.4, 11.1 / 25.4, "ISO 606 12B"],
-        20: [1.000, 17.02 / 25.4, 16.2 / 25.4, "ISO 606 16B"],
-        21: [1.250, 19.56 / 25.4, 18.5 / 25.4, "ISO 606 20B"],
+        16: [0.375, 6.35 / 25.4, 5.2 / 25.4, "ISO 606 06B"],
+        17: [0.500, 8.51 / 25.4, 7.0 / 25.4, "ISO 606 08B"],
+        18: [0.625, 10.16 / 25.4, 9.1 / 25.4, "ISO 606 10B"],
+        19: [0.750, 12.07 / 25.4, 11.1 / 25.4, "ISO 606 12B"],
+        20: [1.000, 15.88 / 25.4, 16.2 / 25.4, "ISO 606 16B"],
+        21: [1.250, 19.05 / 25.4, 18.5 / 25.4, "ISO 606 20B"],
         22: [1.500, 25.4 / 25.4, 24.1 / 25.4, "ISO 606 24B"],
         23: [0.500, 0.3125, 0.227, "Motorcycle 420"],
         24: [0.500, 0.3125, 0.284, "Motorcycle 425"],
@@ -137,6 +143,7 @@ class Sprocket:
             "SprocketReference",
             "Sprocket",
             "Sprocket Reference",
+            locked=True,
         )
         obj.SprocketReference = list(self.sprockRef)
         obj.Proxy = self
@@ -148,19 +155,15 @@ class Sprocket:
     def _ensure_properties(self, obj, is_restore):
         def ensure_property(type_, name, doc, default):
             if not hasattr(obj, name):
-                obj.addProperty(type_, name, "Sprocket")
+                obj.addProperty(type_, name, "Sprocket", locked=True)
                 if callable(default):
                     setattr(obj, name, default())
                 else:
                     setattr(obj, name, default)
 
-        ensure_property(
-            "App::PropertyInteger", "NumberOfTeeth", "Number of gear teeth", 50
-        )
+        ensure_property("App::PropertyInteger", "NumberOfTeeth", "Number of gear teeth", 50)
         ensure_property("App::PropertyLength", "Pitch", "Chain Pitch", "0.375 in")
-        ensure_property(
-            "App::PropertyLength", "RollerDiameter", "Roller Diameter", "0.20 in"
-        )
+        ensure_property("App::PropertyLength", "RollerDiameter", "Roller Diameter", "0.20 in")
         ensure_property(
             "App::PropertyLength",
             "Thickness",
@@ -170,9 +173,7 @@ class Sprocket:
 
     def execute(self, obj):
         w = fcsprocket.FCWireBuilder()
-        sprocket.CreateSprocket(
-            w, obj.Pitch.Value, obj.NumberOfTeeth, obj.RollerDiameter.Value
-        )
+        sprocket.CreateSprocket(w, obj.Pitch.Value, obj.NumberOfTeeth, obj.RollerDiameter.Value)
 
         sprocketw = Part.Wire([o.toShape() for o in w.wire])
         obj.Shape = sprocketw
@@ -256,7 +257,7 @@ class SprocketTaskPanel:
 
         if mode == 0:  # fresh created
             self.obj.Proxy.execute(self.obj)  # calculate once
-            FreeCAD.Gui.SendMsgToActiveView("ViewFit")
+            FreeCAD.Gui.ActiveDocument.ActiveView.sendMessage("ViewFit")
 
     def transferTo(self):
         """
@@ -281,22 +282,18 @@ class SprocketTaskPanel:
     def pitchChanged(self, value):
         self.obj.Pitch = value
         self.obj.Proxy.execute(self.obj)
-        FreeCAD.Gui.SendMsgToActiveView("ViewFit")
+        FreeCAD.Gui.ActiveDocument.ActiveView.sendMessage("ViewFit")
 
     def sprocketReferenceChanged(self, size):
         self.obj.Pitch = str(Sprocket.SprocketReferenceRollerTable[size][0]) + " in"
-        self.obj.RollerDiameter = (
-            str(Sprocket.SprocketReferenceRollerTable[size][1]) + " in"
-        )
+        self.obj.RollerDiameter = str(Sprocket.SprocketReferenceRollerTable[size][1]) + " in"
         self.obj.Thickness = str(Sprocket.SprocketReferenceRollerTable[size][2]) + " in"
-        self.obj.SprocketReference = self.obj.getEnumerationsOfProperty(
-            "SprocketReference"
-        )[size]
+        self.obj.SprocketReference = self.obj.getEnumerationsOfProperty("SprocketReference")[size]
         self.form.Quantity_Pitch.setText(self.obj.Pitch.UserString)
         self.form.Quantity_RollerDiameter.setText(self.obj.RollerDiameter.UserString)
         self.form.Quantity_Thickness.setText(self.obj.Thickness.UserString)
         self.obj.Proxy.execute(self.obj)
-        FreeCAD.Gui.SendMsgToActiveView("ViewFit")
+        FreeCAD.Gui.ActiveDocument.ActiveView.sendMessage("ViewFit")
 
     def rollerDiameterChanged(self, value):
         self.obj.RollerDiameter = value
@@ -305,14 +302,16 @@ class SprocketTaskPanel:
     def numTeethChanged(self, value):
         self.obj.NumberOfTeeth = value
         self.obj.Proxy.execute(self.obj)
-        FreeCAD.Gui.SendMsgToActiveView("ViewFit")
+        FreeCAD.Gui.ActiveDocument.ActiveView.sendMessage("ViewFit")
 
     def thicknessChanged(self, value):
         self.obj.Thickness = str(value)
         self.obj.Proxy.execute(self.obj)
 
     def getStandardButtons(self):
-        return QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel | QtGui.QDialogButtonBox.Apply
+        return (
+            QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel | QtGui.QDialogButtonBox.Apply
+        )
 
     def clicked(self, button):
         if button == QtGui.QDialogButtonBox.Apply:
@@ -332,7 +331,3 @@ class SprocketTaskPanel:
         FreeCAD.ActiveDocument.recompute()
         FreeCADGui.ActiveDocument.resetEdit()
         FreeCAD.ActiveDocument.abortTransaction()
-
-
-if FreeCAD.GuiUp:
-    FreeCADGui.addCommand('PartDesign_Sprocket', CommandSprocket())

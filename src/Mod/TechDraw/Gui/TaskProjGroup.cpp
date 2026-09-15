@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2014 Joe Dowsett <dowsettjoe[at]yahoo[dot]co[dot]uk>    *
  *   Copyright (c) 2014 Luke Parry <l.parry@warwick.ac.uk>                 *
@@ -21,13 +23,10 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 # include <QMessageBox>
 # include <QGroupBox>
 # include <QLabel>
 # include <QScreen>
-#endif // #ifndef _PreComp_
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -59,6 +58,7 @@
 #include "ViewProviderPage.h"
 #include "ViewProviderDrawingView.h"
 #include "ViewProviderProjGroupItem.h"
+#include "ViewProviderProjGroup.h"
 
 
 using namespace Gui;
@@ -69,11 +69,13 @@ TaskProjGroup::TaskProjGroup(TechDraw::DrawView* featView, bool mode) :
     ui(new Ui_TaskProjGroup),
     view(featView),
     multiView(dynamic_cast<TechDraw::DrawProjGroup*>(view)),
+    m_createMode(mode),
     blockCheckboxes(false)
 {
     ui->setupUi(this);
 
     m_page = view->findParentPage();
+    m_viewName = view->getNameInDocument();
     Gui::Document* activeGui = Gui::Application::Instance->getDocument(m_page->getDocument());
     Gui::ViewProvider* vp = activeGui->getViewProvider(m_page);
     auto* dvp = static_cast<ViewProviderPage*>(vp);
@@ -109,13 +111,9 @@ void TaskProjGroup::connectWidgets()
     connect(ui->sbScaleDen,   qOverload<int>(&QSpinBox::valueChanged), this, &TaskProjGroup::scaleManuallyChanged);
 
     // Slot for Projection Type (layout)
-#if QT_VERSION < QT_VERSION_CHECK(5,15,0)
-    connect(ui->projection, qOverload<const QString&>(&QComboBox::currentIndexChanged), this, &TaskProjGroup::projectionTypeChanged);
-#else
-    connect(ui->projection, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
-        projectionTypeChanged(ui->projection->itemText(index));
+    connect(ui->projection, qOverload<int>(&QComboBox::currentIndexChanged), this, [this]() {
+        projectionTypeChanged(ui->projection->currentIndex());
     });
-#endif
 
     // Spacing
     connect(ui->cbAutoDistribute, &QPushButton::clicked, this, &TaskProjGroup::AutoDistributeClicked);
@@ -187,7 +185,7 @@ void TaskProjGroup::updateUi()
         ui->label_11->show();
     }
     else {
-        setWindowTitle(QObject::tr("Part View"));
+        setWindowTitle(QObject::tr("New View"));
         ui->projection->hide();
         ui->cbAutoDistribute->hide();
         ui->sbXSpacing->hide();
@@ -215,7 +213,7 @@ void TaskProjGroup::saveGroupState()
 
     if (multiView) {
         m_saveSource = multiView->Source.getValues();
-        m_saveProjType = multiView->ProjectionType.getValueAsString();
+        m_saveProjType = multiView->ProjectionType.getValue();
         m_saveAutoDistribute = multiView->AutoDistribute.getValue();
         m_saveSpacingX = multiView->spacingX.getValue();
         m_saveSpacingY = multiView->spacingY.getValue();
@@ -242,7 +240,7 @@ void TaskProjGroup::restoreGroupState()
     view->Scale.setValue(m_saveScale);
 
     if (multiView) {
-        multiView->ProjectionType.setValue(m_saveProjType.c_str());
+        multiView->ProjectionType.setValue(m_saveProjType);
         multiView->AutoDistribute.setValue(m_saveAutoDistribute);
         multiView->spacingX.setValue(m_saveSpacingX);
         multiView->spacingY.setValue(m_saveSpacingY);
@@ -275,6 +273,7 @@ void TaskProjGroup::viewToggled(bool toggle)
         else {
             // If toggle then we remove the view object and create a proj group instead.
             turnViewToProjGroup();
+            changed = true;
         }
     }
 
@@ -292,6 +291,10 @@ void TaskProjGroup::viewToggled(bool toggle)
     }
 
     if (changed) {
+        // necessary to prevent position problems
+        Gui::Document* activeGui = Gui::Application::Instance->getDocument(m_page->getDocument());
+        auto* vppg = static_cast<ViewProviderProjGroup*>(activeGui->getViewProvider(multiView));
+        vppg->regroupSubViews();
         if (view->ScaleType.isValue("Automatic")) {
             double scale = view->getScale();
             setFractionalScale(scale);
@@ -311,7 +314,6 @@ void TaskProjGroup::turnViewToProjGroup()
     Gui::Command::doCommand(Gui::Command::Gui, "App.activeDocument().%s.addView(App.activeDocument().%s)", view->findParentPage()->getNameInDocument(), multiViewName.c_str());
 
     auto* viewPart = static_cast<TechDraw::DrawViewPart*>(view);
-    m_page->removeView(viewPart);
 
     multiView = static_cast<TechDraw::DrawProjGroup*>(doc->getObject(multiViewName.c_str()));
     multiView->Source.setValues(viewPart->Source.getValues());
@@ -321,23 +323,25 @@ void TaskProjGroup::turnViewToProjGroup()
     multiView->Scale.setValue(viewPart->Scale.getValue());
     multiView->ScaleType.setValue(viewPart->ScaleType.getValue());
     multiView->ProjectionType.setValue(Preferences::projectionAngle());
+
+    multiView->addView(viewPart);
+    multiView->Anchor.setValue(viewPart);
+    multiView->Anchor.purgeTouched();
+    multiView->AutoDistribute.setValue(ui->cbAutoDistribute->isChecked());
+
     viewPart->X.setValue(0.0);
     viewPart->Y.setValue(0.0);
     viewPart->ScaleType.setValue("Custom");
     viewPart->ScaleType.setStatus(App::Property::Hidden, true);
     viewPart->Scale.setStatus(App::Property::Hidden, true);
     viewPart->Label.setValue("Front");
-
-    multiView->addView(viewPart);
-    multiView->Anchor.setValue(view);
-    multiView->Anchor.purgeTouched();
-
     viewPart->LockPosition.setValue(true);
     viewPart->LockPosition.setStatus(App::Property::ReadOnly, true); //Front should stay locked.
     viewPart->LockPosition.purgeTouched();
 
     m_page->requestPaint();
     view = multiView;
+    m_page->removeView(viewPart);   // prevent multiple entries in tree
 
     updateUi();
 }
@@ -361,12 +365,13 @@ void TaskProjGroup::turnProjGroupToView()
 
     Gui::Command::doCommand(Gui::Command::Gui, "App.activeDocument().removeObject('%s')", multiView->getNameInDocument());
 
-    Gui::Document* activeGui = Gui::Application::Instance->getDocument(m_page->getDocument());
-    auto* vp = static_cast<ViewProviderProjGroupItem*>(activeGui->getViewProvider(viewPart));
-    if (vp) {
-        vp->updateIcon();
-    }
     viewPart->recomputeFeature();
+    Gui::Document* activeGui = Gui::Application::Instance->getDocument(m_page->getDocument());
+    auto* vpView = static_cast<ViewProviderProjGroupItem*>(activeGui->getViewProvider(viewPart));
+    if (vpView) {
+        vpView->updateIcon();
+        vpView->fixSceneDependencies();
+    }
 
     view = viewPart;
     multiView = nullptr;
@@ -436,12 +441,12 @@ void TaskProjGroup::rotateButtonClicked()
 
         if (multiView) {
             //change Front View Dir by 90
-            if (clicked == ui->butTopRotate) multiView->rotate("Up");
-            else if (clicked == ui->butDownRotate) multiView->rotate("Down");
-            else if (clicked == ui->butRightRotate) multiView->rotate("Right");
-            else if (clicked == ui->butLeftRotate) multiView->rotate("Left");
-            else if (clicked == ui->butCWRotate) multiView->spin("CW");
-            else if (clicked == ui->butCCWRotate) multiView->spin("CCW");
+            if (clicked == ui->butTopRotate) multiView->rotate(RotationMotion::Up);
+            else if (clicked == ui->butDownRotate) multiView->rotate(RotationMotion::Down);
+            else if (clicked == ui->butRightRotate) multiView->rotate(RotationMotion::Right);
+            else if (clicked == ui->butLeftRotate) multiView->rotate(RotationMotion::Left);
+            else if (clicked == ui->butCWRotate) multiView->spin(SpinDirection::CW);
+            else if (clicked == ui->butCCWRotate) multiView->spin(SpinDirection::CCW);
             else if (clicked == ui->butFront) {
                 multiView->getAnchor()->Direction.setValue(Base::Vector3d(0.0, -1.0, 0.0));
                 multiView->getAnchor()->RotationVector.setValue(Base::Vector3d(1.0, 0.0, 0.0));
@@ -458,12 +463,12 @@ void TaskProjGroup::rotateButtonClicked()
         }
         else {
             auto* viewPart = static_cast<TechDraw::DrawViewPart*>(view);
-            if (clicked == ui->butTopRotate) viewPart->rotate("Up");
-            else if (clicked == ui->butDownRotate) viewPart->rotate("Down");
-            else if (clicked == ui->butRightRotate) viewPart->rotate("Right");
-            else if (clicked == ui->butLeftRotate) viewPart->rotate("Left");
-            else if (clicked == ui->butCWRotate) viewPart->spin("CW");
-            else if (clicked == ui->butCCWRotate) viewPart->spin("CCW");
+            if (clicked == ui->butTopRotate) viewPart->rotate(RotationMotion::Up);
+            else if (clicked == ui->butDownRotate) viewPart->rotate(RotationMotion::Down);
+            else if (clicked == ui->butRightRotate) viewPart->rotate(RotationMotion::Right);
+            else if (clicked == ui->butLeftRotate) viewPart->rotate(RotationMotion::Left);
+            else if (clicked == ui->butCWRotate) viewPart->spin(SpinDirection::CW);
+            else if (clicked == ui->butCCWRotate) viewPart->spin(SpinDirection::CCW);
             else if (clicked == ui->butFront) {
                 viewPart->Direction.setValue(Base::Vector3d(0.0,-1.0,0.0));
                 viewPart->XDirection.setValue(Base::Vector3d(1.0, 0.0, 0.0));
@@ -482,20 +487,13 @@ void TaskProjGroup::rotateButtonClicked()
     }
 }
 
-//void TaskProjGroup::projectionTypeChanged(int index)
-void TaskProjGroup::projectionTypeChanged(QString qText)
+void TaskProjGroup::projectionTypeChanged(int index)
 {
     if(blockUpdate || !multiView) {
         return;
     }
 
-    if (qText == QString::fromUtf8("Page")) {
-        multiView->ProjectionType.setValue("Default");
-    }
-    else {
-        std::string text = qText.toStdString();
-        multiView->ProjectionType.setValue(text.c_str());
-    }
+    multiView->ProjectionType.setValue((long)index);
 
     // Update checkboxes so checked state matches the drawing
     blockCheckboxes = true;
@@ -570,10 +568,13 @@ void TaskProjGroup::spacingChanged()
     if (blockUpdate || !multiView) {
         return;
     }
+
     multiView->spacingX.setValue(ui->sbXSpacing->value().getValue());
     multiView->spacingY.setValue(ui->sbYSpacing->value().getValue());
-    multiView->recomputeFeature();
+
+    multiView->autoPositionChildren();
 }
+
 
 void TaskProjGroup::updateTask()
 {
@@ -628,11 +629,11 @@ void TaskProjGroup::changeEvent(QEvent *event)
 
 const char * TaskProjGroup::viewChkIndexToCStr(int index)
 {
-    //   Third Angle:  FTL  T  FTRight
+    //   Third angle:  FTL  T  FTRight
     //                  L   F   Right   Rear
     //                 FBL  B  FBRight
     //
-    //   First Angle:  FBRight  B  FBL
+    //   First angle:  FBRight  B  FBL
     //                  Right   F   L  Rear
     //                 FTRight  T  FTL
 
@@ -682,18 +683,19 @@ bool TaskProjGroup::useThirdAngle()
         return false;
     }
 
-    bool thirdAngle = (bool) Preferences::projectionAngle();
-    if (!multiView) {
-        return thirdAngle;
+   if (!multiView) {
+        return Preferences::projectionAngle();
     }
 
-    if (multiView->usedProjectionType().isValue("Third Angle")) {
-        thirdAngle = true;
-    } else if (multiView->usedProjectionType().isValue("Default") &&
-        page->ProjectionType.isValue("Third Angle")) {
-        thirdAngle = true;
+    if (multiView->ProjectionType.getValue() == (long)DrawProjGroup::ViewProjectionConvention::ThirdAngle) {
+        return true;
     }
-    return thirdAngle;
+
+    if (multiView->ProjectionType.getValue() == (long)DrawProjGroup::ViewProjectionConvention::Page &&
+        page->ProjectionType.getValue() == (long)DrawPage::PageProjectionConvention::ThirdAngle) {
+        return true;
+    }
+    return false;
 }
 
 void TaskProjGroup::setupViewCheckboxes(bool addConnections)
@@ -761,7 +763,7 @@ void TaskProjGroup::setUiPrimary()
 
 QString TaskProjGroup::formatVector(Base::Vector3d vec)
 {
-    QString data = QString::fromLatin1("[%1 %2 %3]")
+    QString data = QStringLiteral("[%1 %2 %3]")
         .arg(QLocale().toString(vec.x, 'f', 2),
              QLocale().toString(vec.y, 'f', 2),
              QLocale().toString(vec.z, 'f', 2));
@@ -769,12 +771,10 @@ QString TaskProjGroup::formatVector(Base::Vector3d vec)
 }
 
 void TaskProjGroup::saveButtons(QPushButton* btnOK,
-                             QPushButton* btnCancel,
-                             QPushButton* btnApply)
+                             QPushButton* btnCancel)
 {
     m_btnOK = btnOK;
     m_btnCancel = btnCancel;
-    m_btnApply = btnApply;
 }
 
 
@@ -790,8 +790,13 @@ bool TaskProjGroup::apply()
 
 bool TaskProjGroup::accept()
 {
-    Gui::Document* doc = Gui::Application::Instance->getDocument(view->getDocument());
+    Gui::Document* doc = Gui::Application::Instance->getDocument(m_page->getDocument());
     if (!doc) {
+        return false;
+    }
+    auto viewCheck = m_page->getDocument()->getObject(m_viewName.c_str());
+    if (!viewCheck) {
+        // view has been deleted while this dialog is open
         return false;
     }
 
@@ -807,8 +812,14 @@ bool TaskProjGroup::accept()
 
 bool TaskProjGroup::reject()
 {
-    Gui::Document* doc = Gui::Application::Instance->getDocument(view->getDocument());
+    Gui::Document* doc = Gui::Application::Instance->getDocument(m_page->getDocument());
     if (!doc) {
+        return false;
+    }
+
+    auto viewCheck = m_page->getDocument()->getObject(m_viewName.c_str());
+    if (!viewCheck) {
+        // view has been deleted while this dialog is open
         return false;
     }
 
@@ -828,8 +839,12 @@ bool TaskProjGroup::reject()
     }
     else {
         //set the DPG and its views back to entry state.
-        if (Gui::Command::hasPendingCommand()) {
-            Gui::Command::abortCommand();
+        if (doc->hasPendingCommand()) {
+            doc->abortCommand();
+        }
+        // Restore views to initial spacing
+        if (multiView) {
+            multiView->autoPositionChildren();
         }
     }
     Gui::Command::runCommand(Gui::Command::Gui, "Gui.ActiveDocument.resetEdit()");
@@ -864,8 +879,7 @@ void TaskDlgProjGroup::modifyStandardButtons(QDialogButtonBox* box)
 {
     QPushButton* btnOK = box->button(QDialogButtonBox::Ok);
     QPushButton* btnCancel = box->button(QDialogButtonBox::Cancel);
-    QPushButton* btnApply = box->button(QDialogButtonBox::Apply);
-    widget->saveButtons(btnOK, btnCancel, btnApply);
+    widget->saveButtons(btnOK, btnCancel);
 }
 
 //==== calls from the TaskView ===============================================================
@@ -873,10 +887,12 @@ void TaskDlgProjGroup::open()
 {
     if (!widget->getCreateMode())  {    //this is an edit session, start a transaction
         if (dynamic_cast<TechDraw::DrawProjGroup*>(view)) {
-            App::GetApplication().setActiveTransaction("Edit Projection Group", true);
+            App::GetApplication().setActiveTransaction(
+                App::TransactionName {.name = "Edit Projection Group", .temporary = false});
         }
         else {
-            App::GetApplication().setActiveTransaction("Edit Part View", true);
+            App::GetApplication().setActiveTransaction(
+                App::TransactionName {.name = "Edit Part View", .temporary = false});
         }
     }
 }
@@ -956,7 +972,7 @@ void DirectionEditDialog::createUI() {
 
     // Create layout and widgets for X
     auto* xLayout = new QHBoxLayout;
-    auto* xLabel = new QLabel(tr("X: "));
+    auto* xLabel = new QLabel(QStringLiteral("X: "));
     xSpinBox = new Gui::QuantitySpinBox;
     xSpinBox->setUnit(Base::Unit::Length);
     xLayout->addWidget(xLabel);
@@ -964,7 +980,7 @@ void DirectionEditDialog::createUI() {
 
     // Create layout and widgets for Y
     auto* yLayout = new QHBoxLayout;
-    auto* yLabel = new QLabel(tr("Y: "));
+    auto* yLabel = new QLabel(QStringLiteral("Y: "));
     ySpinBox = new Gui::QuantitySpinBox;
     ySpinBox->setUnit(Base::Unit::Length);
     yLayout->addWidget(yLabel);
@@ -972,7 +988,7 @@ void DirectionEditDialog::createUI() {
 
     // Create layout and widgets for Z
     auto* zLayout = new QHBoxLayout;
-    auto* zLabel = new QLabel(tr("Z: "));
+    auto* zLabel = new QLabel(QStringLiteral("Z: "));
     zSpinBox = new Gui::QuantitySpinBox;
     zSpinBox->setUnit(Base::Unit::Length);
     zLayout->addWidget(zLabel);

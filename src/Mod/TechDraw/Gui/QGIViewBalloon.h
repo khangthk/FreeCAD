@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Luke Parry <l.parry@warwick.ac.uk>                 *
  *   Copyright (c) 2019 Franck Jullien <franck.jullien@gmail.com>          *
@@ -21,8 +23,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef TECHDRAWGUI_QGIVBALLOON_H
-#define TECHDRAWGUI_QGIVBALLOON_H
+#pragma once
 
 #include <Mod/TechDraw/TechDrawGlobal.h>
 
@@ -36,12 +37,14 @@
 
 #include "QGCustomText.h"
 #include "QGIView.h"
+#include "QGIUserTypes.h"
 
 
 namespace TechDraw
 {
 class DrawViewBalloon;
 class DrawView;
+enum class ArrowType : int;
 }// namespace TechDraw
 
 namespace TechDraw
@@ -64,10 +67,7 @@ public:
     QGIBalloonLabel();
     ~QGIBalloonLabel() override = default;
 
-    enum
-    {
-        Type = QGraphicsItem::UserType + 141
-    };
+    enum {Type = UserType::QGIBalloonLabel};
     int type() const override
     {
         return Type;
@@ -169,10 +169,7 @@ class TechDrawGuiExport QGIViewBalloon: public QGIView
     Q_OBJECT
 
 public:
-    enum
-    {
-        Type = QGraphicsItem::UserType + 140
-    };
+    enum {Type = UserType::QGIViewBalloon};
 
     explicit QGIViewBalloon();
     ~QGIViewBalloon() override = default;
@@ -187,6 +184,8 @@ public:
     void updateView(bool update = false) override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option,
                QWidget* widget = nullptr) override;
+
+    QPainterPath shape() const override;
 
     QString getLabelText();
     void placeBalloon(QPointF pos);
@@ -203,13 +202,18 @@ public:
 
     void setNormalColorAll();
     QColor prefNormalColor();
-    int prefDefaultArrow() const;
+    TechDraw::ArrowType prefDefaultArrow() const;
     bool prefOrthoPyramid() const;
+
+    void updatePositionFromFeatureXY() override;
 
     TechDraw::DrawViewBalloon* getBalloonFeat()
     {
         return dvBalloon;
     }
+
+    // balloons handle their own dragging
+    void dragFinished() override { };
 
 public Q_SLOTS:
     void balloonLabelDragged(bool ctrl);
@@ -233,6 +237,8 @@ protected:
                           bool isDragging,
                           Base::Vector3d& labelPos,
                           Base::Vector3d& arrowPos);
+    void hoverEnterEvent(QGraphicsSceneHoverEvent* event) override;
+    void hoverLeaveEvent(QGraphicsSceneHoverEvent* event) override;
 
 
 private:
@@ -254,5 +260,3 @@ private:
 };
 
 }// namespace TechDrawGui
-
-#endif// TECHDRAWGUI_QGIVBALLOON_H

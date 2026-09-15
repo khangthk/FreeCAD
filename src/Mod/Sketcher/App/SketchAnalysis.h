@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2018 Abdullah Tahiri <abdullah.tahiri.yo@gmail.com>     *
  *   Copyright (c) 2013 Werner Mayer <wmayer[at]users.sourceforge.net>     *
@@ -21,10 +23,8 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef SKETCHER_SKETCHANALYSIS_H
-#define SKETCHER_SKETCHANALYSIS_H
+#pragma once
 
-#include <memory>
 #include <vector>
 
 #include <Precision.hxx>
@@ -40,11 +40,15 @@ namespace Sketcher
 class SketchObject;
 
 
-enum class Solver
+enum class SketchSolveStatus : int8_t
 {
-    RedundantConstraints = -2,
+    Success = 0,
+    Overconstrained = -4,
     ConflictingConstraints = -3,
-    OverConstrained = -4,
+    MalformedConstraints = -5,
+    SolverError = -1,
+    RedundantConstraints = -2,
+    InvalidGeometry = -6,
 };
 
 
@@ -91,10 +95,12 @@ public:
     /// Point on Point constraint simple routine Detect step (see constructor)
     /// Detect detects only coincident constraints, Analyse converts coincident to endpoint
     /// perpendicular/tangent where appropriate
-    int detectMissingPointOnPointConstraints(double precision = Precision::Confusion() * 1000,
-                                             bool includeconstruction = true);
+    int detectMissingPointOnPointConstraints(
+        double precision = Precision::Confusion() * 1000,
+        bool includeconstruction = true
+    );
     /// Point on Point constraint simple routine Analyse step (see constructor)
-    void analyseMissingPointOnPointCoincident(double angleprecision = M_PI / 8);
+    void analyseMissingPointOnPointCoincident(double angleprecision = std::numbers::pi / 8);
     /// Point on Point constraint simple routine Get step (see constructor)
     std::vector<ConstraintIds>& getMissingPointOnPointConstraints()
     {
@@ -113,7 +119,7 @@ public:
     void makeMissingPointOnPointCoincidentOneByOne();
 
     /// Vertical/Horizontal constraints simple routine Detect step (see constructor)
-    int detectMissingVerticalHorizontalConstraints(double angleprecision = M_PI / 8);
+    int detectMissingVerticalHorizontalConstraints(double angleprecision = std::numbers::pi / 8);
     /// Vertical/Horizontal constraints simple routine Get step (see constructor)
     std::vector<ConstraintIds>& getMissingVerticalHorizontalConstraints()
     {
@@ -167,9 +173,11 @@ public:
     /// makes assumptions to avoid redundancies.
     ///
     /// It applies coincidents - vertical/horizontal constraints and equality constraints.
-    int autoconstraint(double precision = Precision::Confusion() * 1000,
-                       double angleprecision = M_PI / 8,
-                       bool includeconstruction = true);
+    int autoconstraint(
+        double precision = Precision::Confusion() * 1000,
+        double angleprecision = std::numbers::pi / 8,
+        bool includeconstruction = true
+    );
 
     // helper functions, which may be used by more complex methods, and/or called directly by user
     // space (python) methods
@@ -177,7 +185,7 @@ public:
     /// solves the sketch and retrieves the error status, and the degrees of freedom.
     /// It enables to solve updating the geometry (so moving the geometry to match the constraints)
     /// or preserving the geometry.
-    void solvesketch(int& status, int& dofs, bool updategeo);
+    void solvesketch(SketchSolveStatus& status, int& dofs, bool updategeo);
 
     // third type of routines
     std::vector<Base::Vector3d> getOpenVertices() const;
@@ -205,5 +213,3 @@ private:
 };
 
 }  // namespace Sketcher
-
-#endif  // SKETCHER_SKETCHANALYSIS_H

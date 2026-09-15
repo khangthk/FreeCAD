@@ -21,9 +21,7 @@
  *                                                                          *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -31,7 +29,7 @@
 #include <QResizeEvent>
 #include <QVBoxLayout>
 #include <QWidget>
-#endif
+
 
 #include "FirstStartWidget.h"
 #include "ThemeSelectorWidget.h"
@@ -58,8 +56,7 @@ FirstStartWidget::FirstStartWidget(QWidget* parent)
 void FirstStartWidget::setupUi()
 {
     auto outerLayout = gsl::owner<QVBoxLayout*>(new QVBoxLayout(this));
-    outerLayout->addStretch();
-    QString application = QString::fromUtf8(App::Application::Config()["ExeName"].c_str());
+    outerLayout->setAlignment(Qt::AlignCenter);
     _welcomeLabel = gsl::owner<QLabel*>(new QLabel);
     outerLayout->addWidget(_welcomeLabel);
     _descriptionLabel = gsl::owner<QLabel*>(new QLabel);
@@ -74,10 +71,9 @@ void FirstStartWidget::setupUi()
     _doneButton = gsl::owner<QPushButton*>(new QPushButton);
     connect(_doneButton, &QPushButton::clicked, this, &FirstStartWidget::dismissed);
     auto buttonBar = gsl::owner<QHBoxLayout*>(new QHBoxLayout);
-    buttonBar->addStretch();
+    buttonBar->setAlignment(Qt::AlignRight);
     buttonBar->addWidget(_doneButton);
     outerLayout->addLayout(buttonBar);
-    outerLayout->addStretch();
 
     retranslateUi();
 }
@@ -93,10 +89,12 @@ bool FirstStartWidget::eventFilter(QObject* object, QEvent* event)
 void FirstStartWidget::retranslateUi()
 {
     _doneButton->setText(tr("Done"));
-    QString application = QString::fromUtf8(App::Application::Config()["ExeName"].c_str());
-    _welcomeLabel->setText(QLatin1String("<h1>") + tr("Welcome to %1").arg(application)
-                           + QLatin1String("</h1>"));
+    QString application = QString::fromStdString(App::Application::getExecutableName());
+    _welcomeLabel->setText(
+        QLatin1String("<h1>") + tr("Welcome to %1").arg(application) + QLatin1String("</h1>")
+    );
     _descriptionLabel->setText(
-        tr("To get started, set your basic configuration options below.") + QLatin1String(" ")
-        + tr("These options (and many more) can be changed later in Preferences."));
+        tr("Set your basic configuration options below.") + QLatin1String(" ")
+        + tr("These options (and many more) can be changed later in the preferences.")
+    );
 }

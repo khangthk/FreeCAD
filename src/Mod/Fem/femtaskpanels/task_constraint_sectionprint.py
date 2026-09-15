@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2020 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -63,7 +65,7 @@ class _TaskPanel(base_femtaskpanel._BaseTaskPanel):
 
         # geometry selection widget
         self.selectionWidget = selection_widgets.GeometryElementsSelection(
-            obj.References, ["Face"], False, False
+            obj.References, ["Edge", "Face"], False, False
         )
 
         # form made from param and selection widget

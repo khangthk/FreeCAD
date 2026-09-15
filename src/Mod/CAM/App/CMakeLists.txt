@@ -1,20 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     add_definitions(-fext-numeric-literals) #fix for gcc and qt5
 endif()
-
-include_directories(
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_BINARY_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${OCC_INCLUDE_DIR}
-    ${EIGEN3_INCLUDE_DIR}
-    ${PYTHON_INCLUDE_DIRS}
-    ${ZLIB_INCLUDE_DIR}
-    ${XercesC_INCLUDE_DIRS}
-)
-link_directories(${OCC_LIBRARY_DIR})
 
 set(Path_LIBS
     Part
@@ -22,41 +10,40 @@ set(Path_LIBS
     FreeCADApp
 )
 
-generate_from_xml(CommandPy)
-generate_from_xml(PathPy)
-generate_from_xml(FeaturePathCompoundPy)
-generate_from_xml(AreaPy)
-generate_from_xml(FeatureAreaPy)
-generate_from_xml(VoronoiPy)
-generate_from_xml(VoronoiCellPy)
-generate_from_xml(VoronoiEdgePy)
-generate_from_xml(VoronoiVertexPy)
+generate_from_py(Command)
+generate_from_py(Path)
+generate_from_py(FeaturePathCompound)
+generate_from_py(Area)
+generate_from_py(FeatureArea)
+generate_from_py(Voronoi)
+generate_from_py(VoronoiCell)
+generate_from_py(VoronoiEdge)
+generate_from_py(VoronoiVertex)
 
 SET(Python_SRCS
-    CommandPy.xml
+    Command.pyi
     CommandPyImp.cpp
-    PathPy.xml
+    Path.pyi
     PathPyImp.cpp
-    FeaturePathCompoundPy.xml
+    FeaturePathCompound.pyi
     FeaturePathCompoundPyImp.cpp
-    AreaPy.xml
+    Area.pyi
     AreaPyImp.cpp
-    FeatureAreaPy.xml
+    FeatureArea.pyi
     FeatureAreaPyImp.cpp
-    VoronoiPy.xml
+    Voronoi.pyi
     VoronoiPyImp.cpp
-    VoronoiCellPy.xml
+    VoronoiCell.pyi
     VoronoiCellPyImp.cpp
-    VoronoiEdgePy.xml
+    VoronoiEdge.pyi
     VoronoiEdgePyImp.cpp
-    VoronoiVertexPy.xml
+    VoronoiVertex.pyi
     VoronoiVertexPyImp.cpp
 )
 
 SET(Mod_SRCS
     AppPath.cpp
     AppPathPy.cpp
-    PreCompiled.cpp
     PreCompiled.h
 )
 
@@ -118,33 +105,67 @@ SOURCE_GROUP("Module" FILES ${Mod_SRCS})
 #endif(WIN32)
 
 add_library(Path SHARED ${Path_SRCS})
+
+target_include_directories(
+    Path
+    PRIVATE
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_BINARY_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+target_include_directories(
+    Path
+    SYSTEM
+    PUBLIC
+    ${OCC_INCLUDE_DIR}
+    ${EIGEN3_INCLUDE_DIR}
+)
 target_link_libraries(Path ${Path_LIBS})
-if (FREECAD_WARN_ERROR)
-    target_compile_warn_error(Path)
-endif()
+target_compile_warn_error(Path)
 
-# Boost >= 1.75.0
-if(NOT ${Boost_VERSION} LESS 107500)
-    set_target_properties(Path PROPERTIES CXX_STANDARD_REQUIRED ON)
-    set_target_properties(Path PROPERTIES CXX_STANDARD 14)
-
-    # Suppress -Wc++17-extensions when using  OCCT 7.5 or newer
-    if (MINGW AND CMAKE_COMPILER_IS_CLANGXX)
-        unset(_flag_found CACHE)
-        check_cxx_compiler_flag("-Wno-c++17-extensions" _flag_found)
-        if (_flag_found)
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++17-extensions")
-        endif()
-    endif()
-endif()
 
 if(FREECAD_USE_PCH)
-    add_definitions(-D_PreComp_)
-    GET_MSVC_PRECOMPILED_SOURCE("PreCompiled.cpp" Path_CPP_SRCS ${Path_SRCS})
-    ADD_MSVC_PRECOMPILED_HEADER(Path PreCompiled.h PreCompiled.cpp Path_CPP_SRCS)
+    target_precompile_headers(Path PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_LIST_DIR}/PreCompiled.h">
+    )
 endif(FREECAD_USE_PCH)
 
-SET_BIN_DIR(Path PathApp /Mod/CAM)
+SET_BIN_DIR(Path PathApp)
 SET_PYTHON_PREFIX_SUFFIX(Path)
 
 INSTALL(TARGETS Path DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+add_library(tsp_solver SHARED tsp_solver_pybind.cpp tsp_solver.cpp)
+target_include_directories(tsp_solver PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${pybind11_INCLUDE_DIR})
+target_link_libraries(tsp_solver PRIVATE pybind11::module Python3::Python)
+target_compile_warn_error(tsp_solver)
+
+SET_BIN_DIR(tsp_solver)
+SET_PYTHON_PREFIX_SUFFIX(tsp_solver)
+
+INSTALL(TARGETS tsp_solver DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+add_library(surface_generator SHARED surface_generator.cpp)
+target_include_directories(surface_generator PRIVATE
+                           ${CMAKE_CURRENT_SOURCE_DIR}
+                           ${pybind11_INCLUDE_DIR}
+                           ${OCC_INCLUDE_DIR}
+                           ${CMAKE_SOURCE_DIR}/src/Mod/Part/App
+                           )
+target_link_libraries(surface_generator PRIVATE
+                      pybind11::module
+                      Python3::Python
+                      ${OCC_LIBRARIES}
+                      Part
+                      )
+add_dependencies(surface_generator Part)
+if (FREECAD_WARN_ERROR)
+target_compile_warn_error(surface_generator)
+endif()
+
+SET_BIN_DIR(surface_generator)
+SET_PYTHON_PREFIX_SUFFIX(surface_generator)
+
+INSTALL(TARGETS surface_generator DESTINATION ${CMAKE_INSTALL_LIBDIR})

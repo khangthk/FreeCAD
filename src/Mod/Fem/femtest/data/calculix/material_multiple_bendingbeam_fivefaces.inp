@@ -2493,8 +2493,8 @@ Efaces
 
 ***********************************************************
 ** constraints fixed node sets
-** ConstraintFixed
-*NSET,NSET=ConstraintFixed
+** Fixed
+*NSET,NSET=Fixed
 1,
 2,
 11,
@@ -2529,24 +2529,30 @@ Efaces
 *MATERIAL, NAME=FemMaterial1
 *ELASTIC
 32000,0.17
+*EXPANSION, ZERO=0
+0
 ** FreeCAD material name: PLA
 ** FemMaterial2
 *MATERIAL, NAME=FemMaterial2
 *ELASTIC
 3640,0.36
+*EXPANSION, ZERO=0
+0
 ** FreeCAD material name: Steel-Generic
 ** FemMaterial3
 *MATERIAL, NAME=FemMaterial3
 *ELASTIC
 200000,0.3
+*EXPANSION, ZERO=0
+0
 
 ***********************************************************
 ** Sections
-*SHELL SECTION, ELSET=FemMaterial1ShellThickness, MATERIAL=FemMaterial1
+*SHELL SECTION, ELSET=FemMaterial1ShellThickness, MATERIAL=FemMaterial1, OFFSET=0
 10
-*SHELL SECTION, ELSET=FemMaterial2ShellThickness, MATERIAL=FemMaterial2
+*SHELL SECTION, ELSET=FemMaterial2ShellThickness, MATERIAL=FemMaterial2, OFFSET=0
 10
-*SHELL SECTION, ELSET=FemMaterial3ShellThickness, MATERIAL=FemMaterial3
+*SHELL SECTION, ELSET=FemMaterial3ShellThickness, MATERIAL=FemMaterial3, OFFSET=0
 10
 
 ***********************************************************
@@ -2557,20 +2563,20 @@ Efaces
 
 ***********************************************************
 ** Fixed Constraints
-** ConstraintFixed
+** Fixed
 *BOUNDARY
-ConstraintFixed,1
-ConstraintFixed,2
-ConstraintFixed,3
-ConstraintFixed,4
-ConstraintFixed,5
-ConstraintFixed,6
+Fixed,1
+Fixed,2
+Fixed,3
+Fixed,4
+Fixed,5
+Fixed,6
 
 
 ***********************************************************
 ** constraints force node loads
+** Force
 *CLOAD
-** ConstraintForce
 ** node loads on shape: Face1:Edge4
 9,2,-33.33333333333
 11,2,-33.33333333333
@@ -2696,7 +2702,7 @@ U
 S, E
 ** outputs --> dat file
 ** reaction forces for Constraint fixed
-*NODE PRINT, NSET=ConstraintFixed, TOTALS=ONLY
+*NODE PRINT, NSET=Fixed, TOTALS=ONLY
 RF
 
 *OUTPUT, FREQUENCY=1

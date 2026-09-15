@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Authors: Preslav Aleksandrov <preslav.aleksandrov@protonmail.com>     *
@@ -21,8 +23,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef GUI_TASKVIEW_TaskFemConstraintSpring_H
-#define GUI_TASKVIEW_TaskFemConstraintSpring_H
+#pragma once
 
 #include <QObject>
 #include <memory>
@@ -40,12 +41,14 @@ class TaskFemConstraintSpring: public TaskFemConstraintOnBoundary
     Q_OBJECT
 
 public:
-    explicit TaskFemConstraintSpring(ViewProviderFemConstraintSpring* ConstraintView,
-                                     QWidget* parent = nullptr);
+    explicit TaskFemConstraintSpring(
+        ViewProviderFemConstraintSpring* ConstraintView,
+        QWidget* parent = nullptr
+    );
     ~TaskFemConstraintSpring() override;
     const std::string getReferences() const override;
-    std::string get_normalStiffness() const;
-    std::string get_tangentialStiffness() const;
+    std::string getNormalStiffness() const;
+    std::string getTangentialStiffness() const;
     std::string getElmerStiffness() const;
 
 private Q_SLOTS:
@@ -72,5 +75,3 @@ public:
 };
 
 }  // namespace FemGui
-
-#endif  // GUI_TASKVIEW_TaskFemConstraintSpring_H

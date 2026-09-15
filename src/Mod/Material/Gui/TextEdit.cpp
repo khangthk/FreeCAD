@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Carter <dcarter@david.carter.ca>             *
  *                                                                         *
@@ -19,11 +21,9 @@
  *                                                                         *
  **************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <QMenu>
 #include <QMessageBox>
-#endif
+
 
 #include <Gui/MainWindow.h>
 
@@ -54,14 +54,14 @@ TextEdit::TextEdit(const QString& propertyName,
         _property = material->getAppearanceProperty(propertyName);
     }
     else {
-        Base::Console().Log("Property '%s' not found\n", propertyName.toStdString().c_str());
+        Base::Console().log("Property '%s' not found\n", propertyName.toStdString().c_str());
         _property = nullptr;
     }
     if (_property) {
         _value = _property->getString();
     }
     else {
-        Base::Console().Log("No value loaded\n");
+        Base::Console().log("No value loaded\n");
         _value = QString();
     }
 

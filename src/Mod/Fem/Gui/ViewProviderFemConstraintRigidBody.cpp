@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2022 Ajinkya Dahale <dahale.a.p@gmail.com>              *
  *                                                                         *
@@ -20,11 +22,9 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <Inventor/nodes/SoTransform.h>
-#endif
+
 
 #include "Gui/Control.h"
 #include <Mod/Fem/App/FemConstraintRigidBody.h>
@@ -35,14 +35,13 @@
 
 using namespace FemGui;
 
-PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintRigidBody,
-                FemGui::ViewProviderFemConstraintOnBoundary)
+PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintRigidBody, FemGui::ViewProviderFemConstraintOnBoundary)
 
 
 ViewProviderFemConstraintRigidBody::ViewProviderFemConstraintRigidBody()
 {
     sPixmap = "FEM_ConstraintRigidBody";
-    loadSymbol((resourceSymbolDir + "ConstraintRigidBody.iv").c_str());
+    loadSymbol(resourceSymbolDir / "ConstraintRigidBody.iv");
     ShapeAppearance.setDiffuseColor(0.0f, 0.5f, 0.0f);
 }
 
@@ -65,7 +64,7 @@ bool ViewProviderFemConstraintRigidBody::setEdit(int ModNum)
 
 void ViewProviderFemConstraintRigidBody::updateData(const App::Property* prop)
 {
-    auto obj = static_cast<Fem::ConstraintRigidBody*>(this->getObject());
+    auto obj = this->getObject<Fem::ConstraintRigidBody>();
 
     if (prop == &obj->ReferenceNode) {
         updateSymbol();
@@ -78,7 +77,7 @@ void ViewProviderFemConstraintRigidBody::transformExtraSymbol() const
 {
     SoTransform* symTrans = getExtraSymbolTransform();
     if (symTrans) {
-        auto obj = static_cast<const Fem::ConstraintRigidBody*>(this->getObject());
+        auto obj = this->getObject<const Fem::ConstraintRigidBody>();
         float s = obj->getScaleFactor();
         const Base::Vector3d& refNode = obj->ReferenceNode.getValue();
         SbVec3f tra(refNode.x, refNode.y, refNode.z);

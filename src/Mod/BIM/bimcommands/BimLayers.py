@@ -1,41 +1,44 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2019 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 """Layers manager for FreeCAD"""
 
-import os
+import ast
+
 import FreeCAD
 import FreeCADGui
 
 QT_TRANSLATE_NOOP = FreeCAD.Qt.QT_TRANSLATE_NOOP
 translate = FreeCAD.Qt.translate
+
 PARAMS = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM")
 
 
 def getColorIcon(color):
-
     "returns a QtGui.QIcon from a color 3-float tuple"
 
-    from PySide import QtCore, QtGui
+    from PySide import QtGui
 
     c = QtGui.QColor(int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
     im = QtGui.QImage(48, 48, QtGui.QImage.Format_ARGB32)
@@ -45,16 +48,15 @@ def getColorIcon(color):
 
 
 class BIM_Layers:
-
     "The BIM_Layers FreeCAD command"
 
     def GetResources(self):
 
         return {
             "Pixmap": "BIM_Layers",
-            "MenuText": QT_TRANSLATE_NOOP("BIM_Layers", "Manage layers..."),
+            "MenuText": QT_TRANSLATE_NOOP("BIM_Layers", "Manage Layers"),
             "ToolTip": QT_TRANSLATE_NOOP(
-                "BIM_Layers", "Set/modify the different layers of your BIM project"
+                "BIM_Layers", "Sets/modifies the different layers of your BIM project"
             ),
         }
 
@@ -64,7 +66,12 @@ class BIM_Layers:
 
     def Activated(self):
 
-        from PySide import QtCore, QtGui
+        # only raise the dialog if it is already open
+        if getattr(self, "dialog", None):
+            self.dialog.raise_()
+            return
+
+        from PySide import QtGui
 
         # store changes to be committed
         self.deleteList = []
@@ -84,7 +91,7 @@ class BIM_Layers:
         self.dialog.buttonDelete.setIcon(QtGui.QIcon(":/icons/delete.svg"))
         self.dialog.buttonSelectAll.setIcon(QtGui.QIcon(":/icons/edit-select-all.svg"))
         self.dialog.buttonToggle.setIcon(QtGui.QIcon(":/icons/dagViewVisible.svg"))
-        self.dialog.buttonIsolate.setIcon(QtGui.QIcon(":/icons/view-refresh.svg"))
+        self.dialog.buttonIsolate.setIcon(QtGui.QIcon(":/icons/Std_ShowSelection.svg"))
         self.dialog.buttonCancel.setIcon(QtGui.QIcon(":/icons/edit_Cancel.svg"))
         self.dialog.buttonOK.setIcon(QtGui.QIcon(":/icons/edit_OK.svg"))
         self.dialog.buttonAssign.setIcon(QtGui.QIcon(":/icons/button_right.svg"))
@@ -98,9 +105,7 @@ class BIM_Layers:
         # center the dialog over FreeCAD window
         mw = FreeCADGui.getMainWindow()
         self.dialog.move(
-            mw.frameGeometry().topLeft()
-            + mw.rect().center()
-            - self.dialog.rect().center()
+            mw.frameGeometry().topLeft() + mw.rect().center() - self.dialog.rect().center()
         )
 
         # connect signals/slots
@@ -124,7 +129,7 @@ class BIM_Layers:
         self.dialog.tree.setRootIsDecorated(False)  # removes spacing in first column
         self.dialog.tree.setSelectionMode(
             QtGui.QTreeView.ExtendedSelection
-        )  # allow to select many
+        )  # allow one to select many
 
         # fill the tree view
         self.update()
@@ -137,18 +142,19 @@ class BIM_Layers:
 
         import Draft
 
+        doc = FreeCAD.ActiveDocument
         changed = False
 
         # delete layers
         for name in self.deleteList:
             if not changed:
-                FreeCAD.ActiveDocument.openTransaction("Layers change")
+                doc.openTransaction("Layers change")
                 changed = True
-            FreeCAD.ActiveDocument.removeObject(name)
+            doc.removeObject(name)
 
         # assign
         for target, objs in self.assignList.items():
-            target_obj = FreeCAD.ActiveDocument.getObject(target)
+            target_obj = doc.getObject(target)
             if target_obj:
                 for obj in objs:
                     target_obj.Proxy.addObject(target_obj, obj)
@@ -159,31 +165,31 @@ class BIM_Layers:
             name = self.model.item(row, 1).toolTip()
             obj = None
             if name:
-                obj = FreeCAD.ActiveDocument.getObject(name)
+                obj = doc.getObject(name)
             if not obj:
                 if not changed:
-                    FreeCAD.ActiveDocument.openTransaction("Layers change")
+                    doc.openTransaction("Layers change")
                     changed = True
                 if self.model.item(row, 1).icon().isNull():
                     obj = Draft.make_layer(self.model.item(row, 1).text())
                     # By default BIM layers should not swallow their children otherwise
                     # they will disappear from the tree root
-                    obj.ViewObject.addProperty("App::PropertyBool", "HideChildren", "Layer")
+                    obj.ViewObject.addProperty(
+                        "App::PropertyBool", "HideChildren", "Layer", locked=True
+                    )
                     obj.ViewObject.HideChildren = True
                 else:
                     from nativeifc import ifc_tools
                     import FreeCADGui
 
-                    active = FreeCADGui.ActiveDocument.ActiveView.getActiveObject(
-                        "NativeIFC"
-                    )
+                    active = FreeCADGui.ActiveDocument.ActiveView.getActiveObject("NativeIFC")
                     project = None
                     if active:
                         project = ifc_tools.get_project(active)
                     else:
                         projects = [
                             o
-                            for o in FreeCAD.ActiveDocument.Objects
+                            for o in doc.Objects
                             if hasattr(o, "Proxy") and hasattr(o.Proxy, "ifcfile")
                         ]
                         if projects:
@@ -200,102 +206,85 @@ class BIM_Layers:
                                 )
                         else:
                             FreeCAD.Console.PrintError(
-                                translate(
-                                    "BIM", "There is no IFC project in this document"
-                                )
-                                + "\n"
+                                translate("BIM", "There is no IFC project in this document") + "\n"
                             )
                     if project:
-                        obj = ifc_tools.create_layer(
-                            self.model.item(row, 1).text(), project
-                        )
+                        obj = ifc_tools.create_layer(self.model.item(row, 1).text(), project)
+            vobj = obj.ViewObject
 
             # visibility
-            checked = (
-                True
-                if self.model.item(row, 0).checkState() == QtCore.Qt.Checked
-                else False
-            )
-            if checked != obj.ViewObject.Visibility:
+            checked = self.model.item(row, 0).checkState() == QtCore.Qt.Checked
+            if checked != vobj.Visibility:
                 if not changed:
-                    FreeCAD.ActiveDocument.openTransaction("Layers change")
+                    doc.openTransaction("Layers change")
                     changed = True
-                obj.ViewObject.Visibility = checked
+                vobj.Visibility = checked
 
             # label
             label = self.model.item(row, 1).text()
-            if label:
-                if obj.Label != label:
-                    if not changed:
-                        FreeCAD.ActiveDocument.openTransaction("Layers change")
-                        changed = True
-                    obj.Label = label
+            # Setting Label="" is possible in the Property editor but we avoid it here:
+            if label and obj.Label != label:
+                if not changed:
+                    doc.openTransaction("Layers change")
+                    changed = True
+                obj.Label = label
 
             # line width
             width = self.model.item(row, 2).data(QtCore.Qt.DisplayRole)
-            if width:
-                if obj.ViewObject.LineWidth != width:
-                    if not changed:
-                        FreeCAD.ActiveDocument.openTransaction("Layers change")
-                        changed = True
-                    obj.ViewObject.LineWidth = width
+            # Setting LineWidth=0 is possible in the Property editor but we avoid it here:
+            if width and vobj.LineWidth != width:
+                if not changed:
+                    doc.openTransaction("Layers change")
+                    changed = True
+                vobj.LineWidth = width
 
             # draw style
             style = self.model.item(row, 3).text()
-            if style:
-                if obj.ViewObject.DrawStyle != style:
-                    if not changed:
-                        FreeCAD.ActiveDocument.openTransaction("Layers change")
-                        changed = True
-                    obj.ViewObject.DrawStyle = style
+            if style is not None and vobj.DrawStyle != style:
+                if not changed:
+                    doc.openTransaction("Layers change")
+                    changed = True
+                vobj.DrawStyle = style
 
             # line color
             color = self.model.item(row, 4).data(QtCore.Qt.UserRole)
-            if color:
-                if obj.ViewObject.LineColor[3:] != color:
-                    if not changed:
-                        FreeCAD.ActiveDocument.openTransaction("Layers change")
-                        changed = True
-                    obj.ViewObject.LineColor = color
+            if color is not None and vobj.LineColor[3:] != color:
+                if not changed:
+                    doc.openTransaction("Layers change")
+                    changed = True
+                vobj.LineColor = color
 
             # shape color
             color = self.model.item(row, 5).data(QtCore.Qt.UserRole)
-            if color:
-                if obj.ViewObject.ShapeColor[3:] != color:
-                    if not changed:
-                        FreeCAD.ActiveDocument.openTransaction("Layers change")
-                        changed = True
-                    obj.ViewObject.ShapeColor = color
+            if color is not None and vobj.ShapeColor[3:] != color:
+                if not changed:
+                    doc.openTransaction("Layers change")
+                    changed = True
+                vobj.ShapeColor = color
 
             # transparency
             transparency = self.model.item(row, 6).data(QtCore.Qt.DisplayRole)
-            if transparency:
-                if obj.ViewObject.Transparency != transparency:
-                    if not changed:
-                        FreeCAD.ActiveDocument.openTransaction("Layers change")
-                        changed = True
-                    obj.ViewObject.Transparency = transparency
+            if transparency is not None and vobj.Transparency != transparency:
+                if not changed:
+                    doc.openTransaction("Layers change")
+                    changed = True
+                vobj.Transparency = transparency
 
             # line print color
             color = self.model.item(row, 7).data(QtCore.Qt.UserRole)
-            if color:
-                if not "LinePrintColor" in obj.ViewObject.PropertiesList:
-                    if hasattr(obj.ViewObject.Proxy, "set_properties"):
-                        obj.ViewObject.Proxy.set_properties(obj.ViewObject)
-                if "LinePrintColor" in obj.ViewObject.PropertiesList:
-                    if obj.ViewObject.LinePrintColor[3:] != color:
-                        if not changed:
-                            FreeCAD.ActiveDocument.openTransaction("Layers change")
-                            changed = True
-                        obj.ViewObject.LinePrintColor = color
+            if color is not None and vobj.LinePrintColor[3:] != color:
+                if not changed:
+                    doc.openTransaction("Layers change")
+                    changed = True
+                vobj.LinePrintColor = color
 
         # recompute
         if changed:
-            FreeCAD.ActiveDocument.commitTransaction()
-            FreeCAD.ActiveDocument.recompute()
+            doc.commitTransaction()
+            doc.recompute()
 
         # exit
-        self.dialog.reject()
+        return self.dialog.reject()
 
     def reject(self):
         "when Cancel button is pressed or dialog is closed"
@@ -304,6 +293,9 @@ class BIM_Layers:
         pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM")
         pref.SetInt("LayersManagerWidth", self.dialog.width())
         pref.SetInt("LayersManagerHeight", self.dialog.height())
+
+        # wipe to let FreeCAD know the dialog has been closed
+        del self.dialog
 
         return True
 
@@ -332,11 +324,7 @@ class BIM_Layers:
         self.dialog.tree.setColumnWidth(1, 128)  # name column
 
         # populate
-        objs = [
-            obj
-            for obj in FreeCAD.ActiveDocument.Objects
-            if Draft.getType(obj) == "Layer"
-        ]
+        objs = [obj for obj in FreeCAD.ActiveDocument.Objects if Draft.getType(obj) == "Layer"]
         objs.sort(key=lambda o: o.Label)
         for obj in objs:
             self.addItem(obj)
@@ -357,19 +345,13 @@ class BIM_Layers:
         )
         styleItem = QtGui.QStandardItem("Solid")
         lineColorItem = QtGui.QStandardItem()
-        lineColorItem.setData(
-            self.getPref("DefaultShapeLineColor", 421075455), QtCore.Qt.UserRole
-        )
+        lineColorItem.setData(self.getPref("DefaultShapeLineColor", 421075455), QtCore.Qt.UserRole)
         shapeColorItem = QtGui.QStandardItem()
-        shapeColorItem.setData(
-            self.getPref("DefaultShapeColor", 3435973887), QtCore.Qt.UserRole
-        )
+        shapeColorItem.setData(self.getPref("DefaultShapeColor", 3435973887), QtCore.Qt.UserRole)
         transparencyItem = QtGui.QStandardItem()
         transparencyItem.setData(0, QtCore.Qt.DisplayRole)
         linePrintColorItem = QtGui.QStandardItem()
-        linePrintColorItem.setData(
-            self.getPref("DefaultPrintColor", 0), QtCore.Qt.UserRole
-        )
+        linePrintColorItem.setData(self.getPref("DefaultPrintColor", 0), QtCore.Qt.UserRole)
         if FreeCADGui.ActiveDocument.ActiveView.getActiveObject("NativeIFC"):
             nameItem.setIcon(self.ifcicon)
 
@@ -388,14 +370,10 @@ class BIM_Layers:
             shapeColorItem.setData(obj.ViewObject.ShapeColor[:3], QtCore.Qt.UserRole)
             transparencyItem.setData(obj.ViewObject.Transparency, QtCore.Qt.DisplayRole)
             if hasattr(obj.ViewObject, "LinePrintColor"):
-                linePrintColorItem.setData(
-                    obj.ViewObject.LinePrintColor[:3], QtCore.Qt.UserRole
-                )
+                linePrintColorItem.setData(obj.ViewObject.LinePrintColor[:3], QtCore.Qt.UserRole)
         lineColorItem.setIcon(getColorIcon(lineColorItem.data(QtCore.Qt.UserRole)))
         shapeColorItem.setIcon(getColorIcon(shapeColorItem.data(QtCore.Qt.UserRole)))
-        linePrintColorItem.setIcon(
-            getColorIcon(linePrintColorItem.data(QtCore.Qt.UserRole))
-        )
+        linePrintColorItem.setIcon(getColorIcon(linePrintColorItem.data(QtCore.Qt.UserRole)))
 
         # append row
         self.model.appendRow(
@@ -452,17 +430,14 @@ class BIM_Layers:
     def onToggle(self):
         "toggle selected layers on/off"
 
-        from PySide import QtCore, QtGui
+        from PySide import QtCore
 
         state = None
         for index in self.dialog.tree.selectedIndexes():
             if index.column() == 0:
                 # get state from first selected row
                 if state is None:
-                    if (
-                        self.model.itemFromIndex(index).checkState()
-                        == QtCore.Qt.Checked
-                    ):
+                    if self.model.itemFromIndex(index).checkState() == QtCore.Qt.Checked:
                         state = QtCore.Qt.Unchecked
                     else:
                         state = QtCore.Qt.Checked
@@ -471,7 +446,7 @@ class BIM_Layers:
     def onIsolate(self):
         "isolates the selected layers (turns all the others off"
 
-        from PySide import QtCore, QtGui
+        from PySide import QtCore
 
         onrows = []
         for index in self.dialog.tree.selectedIndexes():
@@ -484,7 +459,7 @@ class BIM_Layers:
     def onIFC(self):
         "attributes this layer to an IFC project"
 
-        from PySide import QtCore, QtGui
+        from PySide import QtGui
 
         for index in self.dialog.tree.selectedIndexes():
             if index.column() == 1:
@@ -562,9 +537,7 @@ if FreeCAD.GuiUp:
             elif index.column() == 2:  # Line width
                 editor.setValue(index.data())
             elif index.column() == 3:  # Line style
-                editor.setCurrentIndex(
-                    ["Solid", "Dashed", "Dotted", "Dashdot"].index(index.data())
-                )
+                editor.setCurrentIndex(["Solid", "Dashed", "Dotted", "Dashdot"].index(index.data()))
             elif index.column() == 4:  # Line color
                 editor.setText(str(index.data(QtCore.Qt.UserRole)))
                 if self.first:
@@ -608,16 +581,16 @@ if FreeCAD.GuiUp:
                     ["Solid", "Dashed", "Dotted", "Dashdot"][editor.currentIndex()],
                 )
             elif index.column() == 4:  # Line color
-                model.setData(index, eval(editor.text()), QtCore.Qt.UserRole)
-                model.itemFromIndex(index).setIcon(getColorIcon(eval(editor.text())))
+                model.setData(index, ast.literal_eval(editor.text()), QtCore.Qt.UserRole)
+                model.itemFromIndex(index).setIcon(getColorIcon(ast.literal_eval(editor.text())))
             elif index.column() == 5:  # Shape color
-                model.setData(index, eval(editor.text()), QtCore.Qt.UserRole)
-                model.itemFromIndex(index).setIcon(getColorIcon(eval(editor.text())))
+                model.setData(index, ast.literal_eval(editor.text()), QtCore.Qt.UserRole)
+                model.itemFromIndex(index).setIcon(getColorIcon(ast.literal_eval(editor.text())))
             elif index.column() == 6:  # Transparency
                 model.setData(index, editor.value())
             elif index.column() == 7:  # Line prin color
-                model.setData(index, eval(editor.text()), QtCore.Qt.UserRole)
-                model.itemFromIndex(index).setIcon(getColorIcon(eval(editor.text())))
+                model.setData(index, ast.literal_eval(editor.text()), QtCore.Qt.UserRole)
+                model.itemFromIndex(index).setIcon(getColorIcon(ast.literal_eval(editor.text())))
 
 
 FreeCADGui.addCommand("BIM_Layers", BIM_Layers())

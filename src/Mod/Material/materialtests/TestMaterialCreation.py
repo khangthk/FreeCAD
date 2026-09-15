@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 #**************************************************************************
 #   Copyright (c) 2023 David Carter <dcarter@davidcarter.ca>              *
 #                                                                         *
@@ -67,6 +69,12 @@ class MaterialCreationTestCases(unittest.TestCase):
         self.assertEqual(len(material.Parent), 0)
         self.assertEqual(len(material.Tags), 0)
 
+    def getQuantity(self, value):
+        quantity = parseQuantity(value)
+        quantity.Format = { "NumberFormat" : "g",
+                            "Precision" : 6 }
+        return quantity
+
     def testCreateMaterial(self):
         """ Create a material with properties """
         material = Materials.Material()
@@ -124,8 +132,17 @@ class MaterialCreationTestCases(unittest.TestCase):
         self.assertTrue(material.hasPhysicalModel(self.uuids.Density))
 
         # Quantity properties require units
+        with self.assertRaises(ValueError):
+            # Units of mass not  density
+            material.setPhysicalValue("Density", "99.9 kg")
+
+        material.setPhysicalValue("Density", "99.9")
+        self.assertEqual(material.getPhysicalValue("Density").Format["NumberFormat"], "g")
+        self.assertEqual(material.getPhysicalValue("Density").UserString, self.getQuantity("99.90 kg/m^3").UserString)
+
         material.setPhysicalValue("Density", "99.9 kg/m^3")
-        self.assertEqual(material.getPhysicalValue("Density").UserString, parseQuantity("99.90 kg/m^3").UserString)
+        self.assertEqual(material.getPhysicalValue("Density").Format["NumberFormat"], "g")
+        self.assertEqual(material.getPhysicalValue("Density").UserString, self.getQuantity("99.90 kg/m^3").UserString)
 
         # MaterialManager is unaware of the material until it is saved
         #

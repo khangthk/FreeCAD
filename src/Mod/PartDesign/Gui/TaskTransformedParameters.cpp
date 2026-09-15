@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /******************************************************************************
  *   Copyright (c) 2012 Jan Rheinländer <jrheinlaender@users.sourceforge.net> *
  *                                                                            *
@@ -20,23 +22,23 @@
  *                                                                            *
  ******************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <QAction>
 #include <QListWidget>
-#endif
+
 
 #include <App/Application.h>
 #include <App/Document.h>
 #include <App/DocumentObject.h>
+#include <App/Transactions.h>
 #include <App/Origin.h>
 #include <Base/Console.h>
 #include <Gui/Document.h>
 #include <Gui/BitmapFactory.h>
 #include <Gui/ViewProvider.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 #include <Gui/Command.h>
+#include <Gui/Tools.h>
 #include <Mod/PartDesign/App/Body.h>
 #include <Mod/PartDesign/App/FeatureAddSub.h>
 #include <Mod/PartDesign/App/FeatureTransformed.h>
@@ -54,20 +56,21 @@ using namespace Gui;
 
 /* TRANSLATOR PartDesignGui::TaskTransformedParameters */
 
-TaskTransformedParameters::TaskTransformedParameters(ViewProviderTransformed* TransformedView,
-                                                     QWidget* parent)
-    : TaskBox(Gui::BitmapFactory().pixmap(TransformedView->featureIcon().c_str()),
-              TransformedView->menuName,
-              true,
-              parent)
+TaskTransformedParameters::TaskTransformedParameters(
+    ViewProviderTransformed* TransformedView,
+    QWidget* parent
+)
+    : TaskBox(
+          Gui::BitmapFactory().pixmap(TransformedView->featureIcon().c_str()),
+          TransformedView->menuName,
+          true,
+          parent
+      )
     , TransformedView(TransformedView)
     , ui(new Ui_TaskTransformedParameters)
 {
     Gui::Document* doc = TransformedView->getDocument();
     this->attachDocument(doc);
-
-    // remember initial transaction ID
-    App::GetApplication().getActiveTransaction(&transactionID);
 }
 
 TaskTransformedParameters::TaskTransformedParameters(TaskMultiTransformParameters* parentTask)
@@ -91,66 +94,53 @@ void TaskTransformedParameters::setupUI()
     ui->setupUi(proxy);
     QMetaObject::connectSlotsByName(this);
 
-    connect(ui->buttonAddFeature,
-            &QToolButton::toggled,
-            this,
-            &TaskTransformedParameters::onButtonAddFeature);
-    connect(ui->buttonRemoveFeature,
-            &QToolButton::toggled,
-            this,
-            &TaskTransformedParameters::onButtonRemoveFeature);
+    connect(
+        ui->buttonAddFeature,
+        &QToolButton::toggled,
+        this,
+        &TaskTransformedParameters::onButtonAddFeature
+    );
+    connect(
+        ui->buttonRemoveFeature,
+        &QToolButton::toggled,
+        this,
+        &TaskTransformedParameters::onButtonRemoveFeature
+    );
 
     // Create context menu
     auto action = new QAction(tr("Remove"), this);
-    {
-        auto& rcCmdMgr = Gui::Application::Instance->commandManager();
-        auto shortcut = rcCmdMgr.getCommandByName("Std_Delete")->getShortcut();
-        action->setShortcut(QKeySequence(shortcut));
-    }
+    action->setShortcut(Gui::QtTools::deleteKeySequence());
+
     // display shortcut behind the context menu entry
     action->setShortcutVisibleInContextMenu(true);
     ui->listWidgetFeatures->addAction(action);
     connect(action, &QAction::triggered, this, &TaskTransformedParameters::onFeatureDeleted);
     ui->listWidgetFeatures->setContextMenuPolicy(Qt::ActionsContextMenu);
-    connect(ui->listWidgetFeatures->model(),
-            &QAbstractListModel::rowsMoved,
-            this,
-            &TaskTransformedParameters::indexesMoved);
 
-    connect(ui->checkBoxUpdateView,
-            &QCheckBox::toggled,
-            this,
-            &TaskTransformedParameters::onUpdateView);
+    connect(ui->checkBoxUpdateView, &QCheckBox::toggled, this, &TaskTransformedParameters::onUpdateView);
 
     // Get the feature data
-    auto pcTransformed = static_cast<PartDesign::Transformed*>(getObject());
+    auto pcTransformed = getObject<PartDesign::Transformed>();
 
     using Mode = PartDesign::Transformed::Mode;
 
-    ui->buttonGroupMode->setId(ui->radioTransformBody, static_cast<int>(Mode::TransformBody));
-    ui->buttonGroupMode->setId(ui->radioTransformToolShapes, static_cast<int>(Mode::TransformToolShapes));
+    ui->buttonGroupMode->setId(ui->radioTransformBody, static_cast<int>(Mode::WholeShape));
+    ui->buttonGroupMode->setId(ui->radioTransformToolShapes, static_cast<int>(Mode::Features));
 
-    connect(ui->buttonGroupMode,
-#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-            qOverload<int>(&QButtonGroup::buttonClicked),
-#else
-            &QButtonGroup::idClicked,
-#endif
-            this,
-            &TaskTransformedParameters::onModeChanged);
+    connect(ui->buttonGroupMode, &QButtonGroup::idClicked, this, &TaskTransformedParameters::onModeChanged);
 
     auto const mode = static_cast<Mode>(pcTransformed->TransformMode.getValue());
-    ui->groupFeatureList->setEnabled(mode == Mode::TransformToolShapes);
+    ui->groupFeatureList->setEnabled(mode == Mode::Features);
     switch (mode) {
-        case Mode::TransformBody:
+        case Mode::WholeShape:
             ui->radioTransformBody->setChecked(true);
             break;
-        case Mode::TransformToolShapes:
+        case Mode::Features:
             ui->radioTransformToolShapes->setChecked(true);
             break;
     }
 
-    std::vector<App::DocumentObject*> originals = pcTransformed->Originals.getValues();
+    std::vector<App::DocumentObject*> originals = pcTransformed->getSortedOriginals();
     // Fill data into dialog elements
     for (auto obj : originals) {
         if (obj) {
@@ -232,13 +222,12 @@ bool TaskTransformedParameters::originalSelected(const Gui::SelectionChanges& ms
         }
 
         PartDesign::Transformed* pcTransformed = getObject();
-        App::DocumentObject* selectedObject =
-            pcTransformed->getDocument()->getObject(msg.pObjectName);
+        App::DocumentObject* selectedObject = pcTransformed->getDocument()->getObject(msg.pObjectName);
         if (selectedObject->isDerivedFrom<PartDesign::FeatureAddSub>()) {
 
             // Do the same like in TaskDlgTransformedParameters::accept() but without doCommand
-            std::vector<App::DocumentObject*> originals = pcTransformed->Originals.getValues();
-            auto or_iter = std::find(originals.begin(), originals.end(), selectedObject);
+            std::vector<App::DocumentObject*> originals = pcTransformed->getSortedOriginals();
+            const auto or_iter = std::ranges::find(originals, selectedObject);
             if (selectionMode == SelectionMode::AddFeature) {
                 if (or_iter == originals.end()) {
                     originals.push_back(selectedObject);
@@ -279,16 +268,16 @@ void TaskTransformedParameters::setupTransaction()
         return;
     }
 
-    int tid = 0;
-    App::GetApplication().getActiveTransaction(&tid);
-    if (tid != 0 && tid == transactionID) {
+    int tid = obj->getDocument()->getBookedTransactionID();
+    if (tid != App::NullTransaction) {
         return;
     }
 
     // open a transaction if none is active
+    // where is this transaction committed - theo-vt?
     std::string name("Edit ");
     name += obj->Label.getValue();
-    transactionID = App::GetApplication().setActiveTransaction(name.c_str());
+    transactionID = obj->getDocument()->openTransaction(name.c_str());
 }
 
 void TaskTransformedParameters::setEnabledTransaction(bool on)
@@ -307,14 +296,14 @@ void TaskTransformedParameters::onModeChanged(int mode_id)
         return;
     }
 
-    auto pcTransformed = static_cast<PartDesign::Transformed*>(getObject());
+    auto pcTransformed = getObject<PartDesign::Transformed>();
     pcTransformed->TransformMode.setValue(mode_id);
 
     using Mode = PartDesign::Transformed::Mode;
     Mode const mode = static_cast<Mode>(mode_id);
 
-    ui->groupFeatureList->setEnabled(mode == Mode::TransformToolShapes);
-    if (mode == Mode::TransformBody) {
+    ui->groupFeatureList->setEnabled(mode == Mode::Features);
+    if (mode == Mode::WholeShape) {
         ui->listWidgetFeatures->clear();
     }
     setupTransaction();
@@ -375,10 +364,10 @@ void TaskTransformedParameters::onButtonRemoveFeature(bool checked)
 void TaskTransformedParameters::onFeatureDeleted()
 {
     PartDesign::Transformed* pcTransformed = getObject();
-    std::vector<App::DocumentObject*> originals = pcTransformed->Originals.getValues();
+    std::vector<App::DocumentObject*> originals = pcTransformed->getSortedOriginals();
     int currentRow = ui->listWidgetFeatures->currentRow();
     if (currentRow < 0) {
-        Base::Console().Error("PartDesign Pattern: No feature selected for removing.\n");
+        Base::Console().error("PartDesign Pattern: No feature selected for removing.\n");
         return;  // no current row selected
     }
     originals.erase(originals.begin() + currentRow);
@@ -388,8 +377,7 @@ void TaskTransformedParameters::onFeatureDeleted()
     recomputeFeature();
 }
 
-void TaskTransformedParameters::removeItemFromListWidget(QListWidget* widget,
-                                                         const QString& itemstr)
+void TaskTransformedParameters::removeItemFromListWidget(QListWidget* widget, const QString& itemstr)
 {
     QList<QListWidgetItem*> items = widget->findItems(itemstr, Qt::MatchExactly);
     if (!items.empty()) {
@@ -399,15 +387,15 @@ void TaskTransformedParameters::removeItemFromListWidget(QListWidget* widget,
     }
 }
 
-void TaskTransformedParameters::fillAxisCombo(ComboLinks& combolinks, Part::Part2DObject* sketch)
+void TaskTransformedParameters::fillAxisCombo(Gui::ComboLinks& combolinks, Part::Part2DObject* sketch)
 {
     combolinks.clear();
 
     // add sketch axes
     if (sketch) {
-        combolinks.addLink(sketch, "N_Axis", tr("Normal sketch axis"));
-        combolinks.addLink(sketch, "V_Axis", tr("Vertical sketch axis"));
         combolinks.addLink(sketch, "H_Axis", tr("Horizontal sketch axis"));
+        combolinks.addLink(sketch, "V_Axis", tr("Vertical sketch axis"));
+        combolinks.addLink(sketch, "N_Axis", tr("Normal sketch axis"));
         for (int i = 0; i < sketch->getAxisCount(); i++) {
             QString itemText = tr("Construction line %1").arg(i + 1);
             std::stringstream sub;
@@ -423,20 +411,20 @@ void TaskTransformedParameters::fillAxisCombo(ComboLinks& combolinks, Part::Part
     if (body) {
         try {
             App::Origin* orig = body->getOrigin();
-            combolinks.addLink(orig->getX(), "", tr("Base X axis"));
-            combolinks.addLink(orig->getY(), "", tr("Base Y axis"));
-            combolinks.addLink(orig->getZ(), "", tr("Base Z axis"));
+            combolinks.addLink(orig->getX(), "", tr("Base X-axis"));
+            combolinks.addLink(orig->getY(), "", tr("Base Y-axis"));
+            combolinks.addLink(orig->getZ(), "", tr("Base Z-axis"));
         }
         catch (const Base::Exception& ex) {
-            Base::Console().Error("%s\n", ex.what());
+            Base::Console().error("%s\n", ex.what());
         }
     }
 
     // add "Select reference"
-    combolinks.addLink(nullptr, std::string(), tr("Select reference..."));
+    combolinks.addLink(nullptr, std::string(), tr("Select reference…"));
 }
 
-void TaskTransformedParameters::fillPlanesCombo(ComboLinks& combolinks, Part::Part2DObject* sketch)
+void TaskTransformedParameters::fillPlanesCombo(Gui::ComboLinks& combolinks, Part::Part2DObject* sketch)
 {
     combolinks.clear();
 
@@ -459,17 +447,17 @@ void TaskTransformedParameters::fillPlanesCombo(ComboLinks& combolinks, Part::Pa
     if (body) {
         try {
             App::Origin* orig = body->getOrigin();
-            combolinks.addLink(orig->getXY(), "", tr("Base XY plane"));
-            combolinks.addLink(orig->getYZ(), "", tr("Base YZ plane"));
-            combolinks.addLink(orig->getXZ(), "", tr("Base XZ plane"));
+            combolinks.addLink(orig->getXY(), "", tr("Base XY-plane"));
+            combolinks.addLink(orig->getYZ(), "", tr("Base YZ-plane"));
+            combolinks.addLink(orig->getXZ(), "", tr("Base XZ-plane"));
         }
         catch (const Base::Exception& ex) {
-            Base::Console().Error("%s\n", ex.what());
+            Base::Console().error("%s\n", ex.what());
         }
     }
 
     // add "Select reference"
-    combolinks.addLink(nullptr, std::string(), tr("Select reference..."));
+    combolinks.addLink(nullptr, std::string(), tr("Select reference…"));
 }
 
 void TaskTransformedParameters::recomputeFeature()
@@ -500,7 +488,7 @@ PartDesign::Transformed* TaskTransformedParameters::getObject() const
         return parentTask->getSubFeature();
     }
     if (TransformedView) {
-        return static_cast<PartDesign::Transformed*>(TransformedView->getObject());
+        return TransformedView->getObject<PartDesign::Transformed>();
     }
     return nullptr;
 }
@@ -535,7 +523,7 @@ void TaskTransformedParameters::hideObject()
         FCMD_OBJ_HIDE(getTopTransformedObject());
     }
     catch (const Base::Exception& e) {
-        e.ReportException();
+        e.reportException();
     }
 }
 
@@ -545,7 +533,7 @@ void TaskTransformedParameters::showObject()
         FCMD_OBJ_SHOW(getTopTransformedObject());
     }
     catch (const Base::Exception& e) {
-        e.ReportException();
+        e.reportException();
     }
 }
 
@@ -555,7 +543,7 @@ void TaskTransformedParameters::hideBase()
         FCMD_OBJ_HIDE(getBaseObject());
     }
     catch (const Base::Exception& e) {
-        e.ReportException();
+        e.reportException();
     }
 }
 
@@ -565,7 +553,7 @@ void TaskTransformedParameters::showBase()
         FCMD_OBJ_SHOW(getBaseObject());
     }
     catch (const Base::Exception& e) {
-        e.ReportException();
+        e.reportException();
     }
 }
 
@@ -575,43 +563,21 @@ void TaskTransformedParameters::exitSelectionMode()
         clearButtons();
         selectionMode = SelectionMode::None;
         Gui::Selection().rmvSelectionGate();
-        showObject();
     }
     catch (Base::Exception& exc) {
-        exc.ReportException();
+        exc.reportException();
     }
 }
 
 void TaskTransformedParameters::addReferenceSelectionGate(AllowSelectionFlags allow)
 {
     std::unique_ptr<Gui::SelectionFilterGate> gateRefPtr(
-        new ReferenceSelection(getBaseObject(), allow));
+        new ReferenceSelection(getBaseObject(), allow)
+    );
     std::unique_ptr<Gui::SelectionFilterGate> gateDepPtr(
-        new NoDependentsSelection(getTopTransformedObject()));
+        new NoDependentsSelection(getTopTransformedObject())
+    );
     Gui::Selection().addSelectionGate(new CombineSelectionFilterGates(gateRefPtr, gateDepPtr));
-}
-
-void TaskTransformedParameters::indexesMoved()
-{
-    auto model = qobject_cast<QAbstractItemModel*>(sender());
-    if (!model) {
-        return;
-    }
-
-    PartDesign::Transformed* pcTransformed = getObject();
-    std::vector<App::DocumentObject*> originals = pcTransformed->Originals.getValues();
-
-    QByteArray name;
-    int rows = model->rowCount();
-    for (int i = 0; i < rows; i++) {
-        QModelIndex index = model->index(i, 0);
-        name = index.data(Qt::UserRole).toByteArray().constData();
-        originals[i] = pcTransformed->getDocument()->getObject(name.constData());
-    }
-
-    setupTransaction();
-    pcTransformed->Originals.setValues(originals);
-    recomputeFeature();
 }
 
 //**************************************************************************
@@ -621,10 +587,7 @@ void TaskTransformedParameters::indexesMoved()
 
 TaskDlgTransformedParameters::TaskDlgTransformedParameters(ViewProviderTransformed* viewProvider)
     : TaskDlgFeatureParameters(viewProvider)
-{
-    message = new TaskTransformedMessages(viewProvider);
-    Content.push_back(message);
-}
+{}
 
 //==== calls from the TaskView ===============================================================
 
@@ -643,86 +606,4 @@ bool TaskDlgTransformedParameters::reject()
     return TaskDlgFeatureParameters::reject();
 }
 
-
 #include "moc_TaskTransformedParameters.cpp"
-
-
-ComboLinks::ComboLinks(QComboBox& combo)
-    : _combo(&combo)
-{
-    _combo->clear();
-}
-
-int ComboLinks::addLink(const App::PropertyLinkSub& lnk, QString const& itemText)
-{
-    if (!_combo) {
-        return 0;
-    }
-    _combo->addItem(itemText);
-    this->linksInList.push_back(new App::PropertyLinkSub());
-    App::PropertyLinkSub& newitem = *(linksInList[linksInList.size() - 1]);
-    newitem.Paste(lnk);
-    if (newitem.getValue() && !this->doc) {
-        this->doc = newitem.getValue()->getDocument();
-    }
-    return linksInList.size() - 1;
-}
-
-int ComboLinks::addLink(App::DocumentObject* linkObj,
-                        std::string const& linkSubname,
-                        QString const& itemText)
-{
-    if (!_combo) {
-        return 0;
-    }
-    _combo->addItem(itemText);
-    this->linksInList.push_back(new App::PropertyLinkSub());
-    App::PropertyLinkSub& newitem = *(linksInList[linksInList.size() - 1]);
-    newitem.setValue(linkObj, std::vector<std::string>(1, linkSubname));
-    if (newitem.getValue() && !this->doc) {
-        this->doc = newitem.getValue()->getDocument();
-    }
-    return linksInList.size() - 1;
-}
-
-void ComboLinks::clear()
-{
-    for (size_t i = 0; i < this->linksInList.size(); i++) {
-        delete linksInList[i];
-    }
-    if (this->_combo) {
-        _combo->clear();
-    }
-}
-
-App::PropertyLinkSub& ComboLinks::getLink(int index) const
-{
-    if (index < 0 || index > static_cast<int>(linksInList.size()) - 1) {
-        throw Base::IndexError("ComboLinks::getLink:Index out of range");
-    }
-    if (linksInList[index]->getValue() && doc && !(doc->isIn(linksInList[index]->getValue()))) {
-        throw Base::ValueError("Linked object is not in the document; it may have been deleted");
-    }
-    return *(linksInList[index]);
-}
-
-App::PropertyLinkSub& ComboLinks::getCurrentLink() const
-{
-    assert(_combo);
-    return getLink(_combo->currentIndex());
-}
-
-int ComboLinks::setCurrentLink(const App::PropertyLinkSub& lnk)
-{
-    for (size_t i = 0; i < linksInList.size(); i++) {
-        App::PropertyLinkSub& it = *(linksInList[i]);
-        if (lnk.getValue() == it.getValue() && lnk.getSubValues() == it.getSubValues()) {
-            bool wasBlocked = _combo->signalsBlocked();
-            _combo->blockSignals(true);
-            _combo->setCurrentIndex(i);
-            _combo->blockSignals(wasBlocked);
-            return i;
-        }
-    }
-    return -1;
-}

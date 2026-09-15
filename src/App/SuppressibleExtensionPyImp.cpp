@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2024 Florian Foinant-Willig <ffw@2f2v.fr>               *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include "DocumentObject.h"
 
@@ -38,7 +39,7 @@ std::string SuppressibleExtensionPy::representation() const
     return {"<suppressible extension object>"};
 }
 
-PyObject *SuppressibleExtensionPy::getCustomAttributes(const char* /*attr*/) const
+PyObject* SuppressibleExtensionPy::getCustomAttributes(const char* /*attr*/) const
 {
     return nullptr;
 }

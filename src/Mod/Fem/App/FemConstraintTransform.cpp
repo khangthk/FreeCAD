@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jan Rheinländer                                    *
  *                                   <jrheinlaender@users.sourceforge.net> *
@@ -21,8 +23,8 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
+#include <Base/Tools.h>
 #include <Mod/Part/App/PartFeature.h>
 
 #include "FemConstraintTransform.h"
@@ -36,40 +38,52 @@ static const char* TransformTypes[] = {"Cylindrical", "Rectangular", nullptr};
 
 ConstraintTransform::ConstraintTransform()
 {
-    ADD_PROPERTY_TYPE(Rotation,
-                      (Base::Rotation(0.0, 0.0, 0.0, 1.0)),
-                      "ConstraintTransform",
-                      App::Prop_Output,
-                      "Rectangular system transform");
-    ADD_PROPERTY_TYPE(TransformType,
-                      (1),
-                      "ConstraintTransform",
-                      (App::PropertyType)(App::Prop_None),
-                      "Type of transform, rectangular or cylindrical");
+    ADD_PROPERTY_TYPE(
+        Rotation,
+        (Base::Rotation(0.0, 0.0, 0.0, 1.0)),
+        "ConstraintTransform",
+        App::Prop_Output,
+        "Rectangular system transform"
+    );
+    ADD_PROPERTY_TYPE(
+        TransformType,
+        (1),
+        "ConstraintTransform",
+        (App::PropertyType)(App::Prop_None),
+        "Type of transform, rectangular or cylindrical"
+    );
     TransformType.setEnums(TransformTypes);
-    ADD_PROPERTY_TYPE(RefDispl,
-                      (nullptr, nullptr),
-                      "ConstraintTransform",
-                      (App::PropertyType)(App::Prop_None),
-                      "Elements where the constraint is applied");
+    ADD_PROPERTY_TYPE(
+        RefDispl,
+        (nullptr, nullptr),
+        "ConstraintTransform",
+        (App::PropertyType)(App::Prop_None),
+        "Elements where the constraint is applied"
+    );
     // RefDispl must get a global scope, see
     // https://forum.freecad.org/viewtopic.php?p=671402#p671402
     RefDispl.setScope(App::LinkScope::Global);
-    ADD_PROPERTY_TYPE(NameDispl,
-                      (nullptr),
-                      "ConstraintTransform",
-                      (App::PropertyType)(App::Prop_None),
-                      "Elements where the constraint is applied");
-    ADD_PROPERTY_TYPE(BasePoint,
-                      (Base::Vector3d(0, 0, 0)),
-                      "ConstraintTransform",
-                      App::PropertyType(App::Prop_ReadOnly | App::Prop_Output),
-                      "Base point of cylindrical surface");
-    ADD_PROPERTY_TYPE(Axis,
-                      (Base::Vector3d(0, 1, 0)),
-                      "ConstraintTransform",
-                      App::PropertyType(App::Prop_ReadOnly | App::Prop_Output),
-                      "Axis of cylindrical surface");
+    ADD_PROPERTY_TYPE(
+        NameDispl,
+        (nullptr),
+        "ConstraintTransform",
+        (App::PropertyType)(App::Prop_None),
+        "Elements where the constraint is applied"
+    );
+    ADD_PROPERTY_TYPE(
+        BasePoint,
+        (Base::Vector3d(0, 0, 0)),
+        "ConstraintTransform",
+        App::PropertyType(App::Prop_ReadOnly | App::Prop_Output),
+        "Base point of cylindrical surface"
+    );
+    ADD_PROPERTY_TYPE(
+        Axis,
+        (Base::Vector3d(0, 1, 0)),
+        "ConstraintTransform",
+        App::PropertyType(App::Prop_ReadOnly | App::Prop_Output),
+        "Axis of cylindrical surface"
+    );
 }
 
 App::DocumentObjectExecReturn* ConstraintTransform::execute()
@@ -119,9 +133,9 @@ Base::Rotation anglesToRotation(double xAngle, double yAngle, double zAngle)
     static Base::Vector3d a(1, 0, 0);
     static Base::Vector3d b(0, 1, 0);
     static int count = 0;
-    double xRad = xAngle * D_PI / 180.0;
-    double yRad = yAngle * D_PI / 180.0;
-    double zRad = zAngle * D_PI / 180.0;
+    double xRad = Base::toRadians(xAngle);
+    double yRad = Base::toRadians(yAngle);
+    double zRad = Base::toRadians(zAngle);
     if (xAngle != 0) {
         a[1] = 0;
         a[2] = 0;
@@ -170,9 +184,11 @@ Base::Rotation anglesToRotation(double xAngle, double yAngle, double zAngle)
 }  // namespace
 
 
-void ConstraintTransform::handleChangedPropertyName(Base::XMLReader& reader,
-                                                    const char* typeName,
-                                                    const char* propName)
+void ConstraintTransform::handleChangedPropertyName(
+    Base::XMLReader& reader,
+    const char* typeName,
+    const char* propName
+)
 {
     if (strcmp(propName, "X_rot") == 0) {
         double xAngle {};

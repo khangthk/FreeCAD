@@ -4,13 +4,17 @@
   <context>
     <name>CmdInspectAppearance</name>
     <message>
-      <location filename="../../Command.cpp" line="147"/>
-      <source>Inspect Appearance...</source>
-      <translation>Перевірка зовнішнього вигляду...</translation>
+      <location filename="../../Command.cpp" line="146"/>
+      <source>Inspect Appearance</source>
+      <translation>Перевірити вигляд</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="148"/>
-      <location filename="../../Command.cpp" line="150"/>
+      <location filename="../../Command.cpp" line="147"/>
+      <source>Inspects the appearance properties of the selected object</source>
+      <translation>Перевіряє властивості вигляду вибраного об'єкта</translation>
+    </message>
+    <message>
+      <location filename="../../Command.cpp" line="149"/>
       <source>Inspect the appearance properties of the selected object</source>
       <translation>Перевірити властивості зовнішнього вигляду вибраного об'єкта</translation>
     </message>
@@ -18,33 +22,19 @@
   <context>
     <name>CmdInspectMaterial</name>
     <message>
-      <location filename="../../Command.cpp" line="174"/>
-      <source>Inspect Material...</source>
-      <translation>Перевірка матеріалу...</translation>
+      <location filename="../../Command.cpp" line="173"/>
+      <source>Inspect Material</source>
+      <translation>Перевірити матеріал</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="175"/>
-      <location filename="../../Command.cpp" line="177"/>
+      <location filename="../../Command.cpp" line="174"/>
+      <source>Inspects the material properties of the selected object</source>
+      <translation>Перевіряє властивості матеріалу вибраного об'єкта</translation>
+    </message>
+    <message>
+      <location filename="../../Command.cpp" line="176"/>
       <source>Inspect the material properties of the selected object</source>
       <translation>Перевірити властивості матеріалу вибраного об'єкта</translation>
-    </message>
-  </context>
-  <context>
-    <name>CmdMaterialsEdit</name>
-    <message>
-      <location filename="../../Command.cpp" line="52"/>
-      <source>Material</source>
-      <translation>Матеріал</translation>
-    </message>
-    <message>
-      <location filename="../../Command.cpp" line="53"/>
-      <source>Edit...</source>
-      <translation>Редагувати...</translation>
-    </message>
-    <message>
-      <location filename="../../Command.cpp" line="54"/>
-      <source>Edit material properties</source>
-      <translation>Змінити властивості матеріалу</translation>
     </message>
   </context>
   <context>
@@ -55,13 +45,13 @@
       <translation>Масив 2D</translation>
     </message>
     <message>
-      <location filename="../../Array2D.cpp" line="78"/>
-      <source>Delete row</source>
+      <location filename="../../Array2D.cpp" line="79"/>
+      <source>Delete Row</source>
       <translation>Видалити рядок</translation>
     </message>
     <message>
-      <location filename="../../Array2D.cpp" line="140"/>
-      <source>Context menu</source>
+      <location filename="../../Array2D.cpp" line="138"/>
+      <source>Context Menu</source>
       <translation>Контекстне меню</translation>
     </message>
   </context>
@@ -75,13 +65,13 @@
     <message>
       <location filename="../../Array3D.cpp" line="77"/>
       <location filename="../../Array3D.cpp" line="81"/>
-      <source>Delete row</source>
+      <source>Delete Row</source>
       <translation>Видалити рядок</translation>
     </message>
     <message>
       <location filename="../../Array3D.cpp" line="231"/>
       <location filename="../../Array3D.cpp" line="302"/>
-      <source>Context menu</source>
+      <source>Context Menu</source>
       <translation>Контекстне меню</translation>
     </message>
     <message>
@@ -93,8 +83,8 @@
     <message>
       <location filename="../../Array3D.cpp" line="265"/>
       <location filename="../../Array3D.cpp" line="337"/>
-      <source>Are you sure you want to delete the row?</source>
-      <translation>Ви дійсно бажаєте видалити цей рядок?</translation>
+      <source>Delete the row?</source>
+      <translation>Видалити рядок?</translation>
     </message>
     <message>
       <location filename="../../Array3D.cpp" line="267"/>
@@ -105,12 +95,12 @@
   <context>
     <name>MatGui::ArrayDelegate</name>
     <message>
-      <location filename="../../ArrayDelegate.cpp" line="153"/>
+      <location filename="../../ArrayDelegate.cpp" line="148"/>
       <source>False</source>
       <translation>Ні</translation>
     </message>
     <message>
-      <location filename="../../ArrayDelegate.cpp" line="154"/>
+      <location filename="../../ArrayDelegate.cpp" line="149"/>
       <source>True</source>
       <translation>Так</translation>
     </message>
@@ -118,12 +108,12 @@
   <context>
     <name>MatGui::BaseDelegate</name>
     <message>
-      <location filename="../../BaseDelegate.cpp" line="441"/>
+      <location filename="../../BaseDelegate.cpp" line="430"/>
       <source>False</source>
       <translation>Ні</translation>
     </message>
     <message>
-      <location filename="../../BaseDelegate.cpp" line="442"/>
+      <location filename="../../BaseDelegate.cpp" line="431"/>
       <source>True</source>
       <translation>Так</translation>
     </message>
@@ -132,91 +122,73 @@
     <name>MatGui::DlgDisplayProperties</name>
     <message>
       <location filename="../../DlgDisplayProperties.ui" line="14"/>
-      <source>Display properties</source>
-      <translation>Показати властивості</translation>
+      <source>Display Properties</source>
+      <translation>Властивості відображення</translation>
     </message>
     <message>
       <location filename="../../DlgDisplayProperties.ui" line="20"/>
-      <source>Viewing mode</source>
+      <source>Viewing Mode</source>
       <translation>Режим перегляду</translation>
     </message>
     <message>
       <location filename="../../DlgDisplayProperties.ui" line="55"/>
-      <source>Document window:</source>
-      <translation>Вікно документа:</translation>
+      <source>Document window</source>
+      <translation>Вікно документа</translation>
     </message>
     <message>
       <location filename="../../DlgDisplayProperties.ui" line="87"/>
-      <source>Plot mode:</source>
-      <translation>Режим друку:</translation>
+      <source>Plot mode</source>
+      <translation>Режим графіка</translation>
     </message>
     <message>
       <location filename="../../DlgDisplayProperties.ui" line="106"/>
       <source>Display</source>
-      <translation>Показ</translation>
+      <translation>Відображення</translation>
     </message>
     <message>
       <location filename="../../DlgDisplayProperties.ui" line="144"/>
-      <source>Point size:</source>
-      <translation>Розмір пункту:</translation>
+      <source>Point size</source>
+      <translation>Розмір точки</translation>
     </message>
     <message>
       <location filename="../../DlgDisplayProperties.ui" line="199"/>
-      <source>Line width:</source>
-      <translation>Ширина лінії:</translation>
+      <source>Line width</source>
+      <translation>Ширина лінії</translation>
     </message>
     <message>
       <location filename="../../DlgDisplayProperties.ui" line="237"/>
-      <source>Transparency:</source>
-      <translation>Прозорість:</translation>
+      <source>Transparency</source>
+      <translation>Прозорість</translation>
     </message>
     <message>
       <location filename="../../DlgDisplayProperties.ui" line="289"/>
-      <source>Line transparency:</source>
-      <translation>Прозорість лінії:</translation>
+      <source>Line transparency</source>
+      <translation>Прозорість лінії</translation>
+    </message>
+    <message>
+      <location filename="../../DlgDisplayProperties.ui" line="365"/>
+      <source>Color plot</source>
+      <translation>Кольоровий графік</translation>
+    </message>
+    <message>
+      <location filename="../../DlgDisplayProperties.ui" line="372"/>
+      <source>Custom appearance</source>
+      <translation>Користувацький вигляд</translation>
+    </message>
+    <message>
+      <location filename="../../DlgDisplayProperties.ui" line="382"/>
+      <source>Point color</source>
+      <translation>Колір точки</translation>
+    </message>
+    <message>
+      <location filename="../../DlgDisplayProperties.ui" line="389"/>
+      <source>Line color</source>
+      <translation>Колір лінії</translation>
     </message>
     <message>
       <location filename="../../DlgDisplayProperties.ui" line="338"/>
       <source>Material</source>
       <translation>Матеріал</translation>
-    </message>
-    <message>
-      <location filename="../../DlgDisplayProperties.ui" line="365"/>
-      <source>Color plot:</source>
-      <translation>Кольорова ділянка:</translation>
-    </message>
-    <message>
-      <location filename="../../DlgDisplayProperties.ui" line="372"/>
-      <source>Custom appearance:</source>
-      <translation>Користувацький зовнішній вигляд:</translation>
-    </message>
-    <message>
-      <location filename="../../DlgDisplayProperties.ui" line="382"/>
-      <source>Point color:</source>
-      <translation>Колір точки:</translation>
-    </message>
-    <message>
-      <location filename="../../DlgDisplayProperties.ui" line="389"/>
-      <source>Line color:</source>
-      <translation>Колір лінії:</translation>
-    </message>
-  </context>
-  <context>
-    <name>MatGui::DlgDisplayPropertiesImp</name>
-    <message>
-      <location filename="../../DlgDisplayPropertiesImp.cpp" line="214"/>
-      <source>Basic Appearance</source>
-      <translation>Основний зовнішній вигляд</translation>
-    </message>
-    <message>
-      <location filename="../../DlgDisplayPropertiesImp.cpp" line="219"/>
-      <source>Texture Appearance</source>
-      <translation>Зовнішній вигляд текстури</translation>
-    </message>
-    <message>
-      <location filename="../../DlgDisplayPropertiesImp.cpp" line="224"/>
-      <source>All Materials</source>
-      <translation>Усі матеріали</translation>
     </message>
   </context>
   <context>
@@ -232,19 +204,19 @@
       <translation>Документ</translation>
     </message>
     <message>
-      <location filename="../../DlgInspectAppearance.ui" line="50"/>
-      <source>Document Name</source>
-      <translation>Назва документа</translation>
-    </message>
-    <message>
       <location filename="../../DlgInspectAppearance.ui" line="57"/>
       <source>Name of the active document</source>
       <translation>Назва активного документа</translation>
     </message>
     <message>
+      <location filename="../../DlgInspectAppearance.ui" line="50"/>
+      <source>Document name</source>
+      <translation>Назва документа</translation>
+    </message>
+    <message>
       <location filename="../../DlgInspectAppearance.ui" line="64"/>
-      <source>Label / Internal Name</source>
-      <translation>Позначка / Внутрішня назва</translation>
+      <source>Label / internal name</source>
+      <translation>Мітка / внутрішня назва</translation>
     </message>
     <message>
       <location filename="../../DlgInspectAppearance.ui" line="74"/>
@@ -273,33 +245,63 @@
     </message>
     <message>
       <location filename="../../DlgInspectAppearance.cpp" line="202"/>
-      <source>Diffuse Color</source>
-      <translation>Дифузійний колір</translation>
+      <source>Diffuse color</source>
+      <translation>Розсіяний колір</translation>
     </message>
     <message>
-      <location filename="../../DlgInspectAppearance.cpp" line="211"/>
-      <source>Ambient Color</source>
-      <translation>Колір середовища</translation>
+      <location filename="../../DlgInspectAppearance.cpp" line="204"/>
+      <source>Defines the base color of a surface when illuminated by light. It represents how the object scatters light evenly in all directions, independent of the viewer’s angle. This property will influence the material color the most.</source>
+      <translation type="unfinished">Defines the base color of a surface when illuminated by light. It represents how the object scatters light evenly in all directions, independent of the viewer’s angle. This property will influence the material color the most.</translation>
     </message>
     <message>
-      <location filename="../../DlgInspectAppearance.cpp" line="220"/>
-      <source>Emissive Color</source>
+      <location filename="../../DlgInspectAppearance.cpp" line="215"/>
+      <source>Ambient color</source>
+      <translation>Навколишній колір</translation>
+    </message>
+    <message>
+      <location filename="../../DlgInspectAppearance.cpp" line="217"/>
+      <source>Defines the color of a surface under indirect, uniform lighting, representing how it appears when illuminated only by ambient light in a scene, without directional light, shading, or highlights</source>
+      <translation type="unfinished">Defines the color of a surface under indirect, uniform lighting, representing how it appears when illuminated only by ambient light in a scene, without directional light, shading, or highlights</translation>
+    </message>
+    <message>
+      <location filename="../../DlgInspectAppearance.cpp" line="228"/>
+      <source>Emissive color</source>
       <translation>Колір випромінювання</translation>
     </message>
     <message>
-      <location filename="../../DlgInspectAppearance.cpp" line="229"/>
-      <source>Specular Color</source>
-      <translation>Спектральний колір</translation>
+      <location filename="../../DlgInspectAppearance.cpp" line="230"/>
+      <source>Defines the color of a surface that appears to emit as if it were a light source, independent of external lighting, making the object look self-illuminated. Set to black to have no emissive color.</source>
+      <translation type="unfinished">Defines the color of a surface that appears to emit as if it were a light source, independent of external lighting, making the object look self-illuminated. Set to black to have no emissive color.</translation>
     </message>
     <message>
-      <location filename="../../DlgInspectAppearance.cpp" line="238"/>
+      <location filename="../../DlgInspectAppearance.cpp" line="241"/>
+      <source>Specular color</source>
+      <translation>Дзеркальний колір</translation>
+    </message>
+    <message>
+      <location filename="../../DlgInspectAppearance.cpp" line="243"/>
+      <source>Defines the color and intensity of the bright, mirror-like highlights that appear on shiny or reflective surfaces when light hits them directly. Set to bright colors for shiny objects.</source>
+      <translation type="unfinished">Defines the color and intensity of the bright, mirror-like highlights that appear on shiny or reflective surfaces when light hits them directly. Set to bright colors for shiny objects.</translation>
+    </message>
+    <message>
+      <location filename="../../DlgInspectAppearance.cpp" line="254"/>
       <source>Shininess</source>
       <translation>Блиск</translation>
     </message>
     <message>
-      <location filename="../../DlgInspectAppearance.cpp" line="248"/>
+      <location filename="../../DlgInspectAppearance.cpp" line="256"/>
+      <source>Defines the size and sharpness of specular highlights on a surface. Higher values produce small, sharp highlights, while lower values create broad, soft highlights. Note that the highlight intensity is defined by specular color.</source>
+      <translation type="unfinished">Defines the size and sharpness of specular highlights on a surface. Higher values produce small, sharp highlights, while lower values create broad, soft highlights. Note that the highlight intensity is defined by specular color.</translation>
+    </message>
+    <message>
+      <location filename="../../DlgInspectAppearance.cpp" line="268"/>
       <source>Transparency</source>
       <translation>Прозорість</translation>
+    </message>
+    <message>
+      <location filename="../../DlgInspectAppearance.cpp" line="269"/>
+      <source>Defines how much light passes through an object, making it partially or fully see-through</source>
+      <translation>Визначає, скільки світла проходить крізь об'єкт, роблячи його частково або повністю прозорим</translation>
     </message>
   </context>
   <context>
@@ -315,19 +317,19 @@
       <translation>Документ</translation>
     </message>
     <message>
-      <location filename="../../DlgInspectMaterial.ui" line="50"/>
-      <source>Document Name</source>
-      <translation>Назва документа</translation>
-    </message>
-    <message>
       <location filename="../../DlgInspectMaterial.ui" line="57"/>
       <source>Name of the active document</source>
       <translation>Назва активного документа</translation>
     </message>
     <message>
+      <location filename="../../DlgInspectMaterial.ui" line="50"/>
+      <source>Document name</source>
+      <translation>Назва документа</translation>
+    </message>
+    <message>
       <location filename="../../DlgInspectMaterial.ui" line="64"/>
-      <source>Label / Internal Name</source>
-      <translation>Позначка / Внутрішня назва</translation>
+      <source>Label / internal name</source>
+      <translation>Мітка / внутрішня назва</translation>
     </message>
     <message>
       <location filename="../../DlgInspectMaterial.ui" line="74"/>
@@ -346,8 +348,8 @@
     </message>
     <message>
       <location filename="../../DlgInspectMaterial.ui" line="128"/>
-      <source>Copy to clipboard</source>
-      <translation>Копіювати до буферу обміну</translation>
+      <source>Copy to Clipboard</source>
+      <translation>Копіювати до буфера обміну</translation>
     </message>
     <message>
       <location filename="../../DlgInspectMaterial.cpp" line="151"/>
@@ -361,7 +363,7 @@
     </message>
     <message>
       <location filename="../../DlgInspectMaterial.cpp" line="172"/>
-      <source>Internal Name: </source>
+      <source>Internal name: </source>
       <translation>Внутрішня назва: </translation>
     </message>
     <message>
@@ -400,21 +402,45 @@
     </message>
     <message>
       <location filename="../../DlgInspectMaterial.cpp" line="269"/>
-      <location filename="../../DlgInspectMaterial.cpp" line="343"/>
+      <location filename="../../DlgInspectMaterial.cpp" line="344"/>
       <source>Library: </source>
       <translation>Бібліотека: </translation>
     </message>
     <message>
       <location filename="../../DlgInspectMaterial.cpp" line="273"/>
       <location filename="../../DlgInspectMaterial.cpp" line="346"/>
-      <source>Library Directory: </source>
-      <translation>Каталог бібліотеки: </translation>
+      <source>Library directory: </source>
+      <translation>Директорія бібліотеки: </translation>
     </message>
     <message>
       <location filename="../../DlgInspectMaterial.cpp" line="276"/>
+      <source>Subdirectory: </source>
+      <translation>Підтека: </translation>
+    </message>
+    <message>
       <location filename="../../DlgInspectMaterial.cpp" line="348"/>
-      <source>Sub Directory: </source>
-      <translation>Підкаталоги: </translation>
+      <source>Sub directory: </source>
+      <translation>Підтека: </translation>
+    </message>
+    <message>
+      <location filename="../../DlgInspectMaterial.cpp" line="365"/>
+      <source>Appearance models:</source>
+      <translation>Моделі вигляду:</translation>
+    </message>
+    <message>
+      <location filename="../../DlgInspectMaterial.cpp" line="371"/>
+      <source>Physical models:</source>
+      <translation>Фізичні моделі:</translation>
+    </message>
+    <message>
+      <location filename="../../DlgInspectMaterial.cpp" line="377"/>
+      <source>Appearance properties:</source>
+      <translation>Властивості вигляду:</translation>
+    </message>
+    <message>
+      <location filename="../../DlgInspectMaterial.cpp" line="383"/>
+      <source>Physical properties:</source>
+      <translation>Фізичні властивості:</translation>
     </message>
     <message>
       <location filename="../../DlgInspectMaterial.cpp" line="279"/>
@@ -442,26 +468,6 @@
       <source>Yes</source>
       <translation>Так</translation>
     </message>
-    <message>
-      <location filename="../../DlgInspectMaterial.cpp" line="365"/>
-      <source>Appearance Models:</source>
-      <translation>Моделі зовнішнього вигляду:</translation>
-    </message>
-    <message>
-      <location filename="../../DlgInspectMaterial.cpp" line="371"/>
-      <source>Physical Models:</source>
-      <translation>Фізичні моделі:</translation>
-    </message>
-    <message>
-      <location filename="../../DlgInspectMaterial.cpp" line="377"/>
-      <source>Appearance Properties:</source>
-      <translation>Властивості зовнішнього вигляду:</translation>
-    </message>
-    <message>
-      <location filename="../../DlgInspectMaterial.cpp" line="383"/>
-      <source>Physical Properties:</source>
-      <translation>Фізичні властивості:</translation>
-    </message>
   </context>
   <context>
     <name>MatGui::DlgMaterial</name>
@@ -477,10 +483,10 @@
       <location filename="../../DlgSettingsDefaultMaterial.ui" line="14"/>
       <location filename="../../DlgSettingsDefaultMaterial.ui" line="20"/>
       <source>Default Material</source>
-      <translation>Матеріал за замовчуванням</translation>
+      <translation>Типовий Матеріал</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsDefaultMaterial.cpp" line="51"/>
+      <location filename="../../DlgSettingsDefaultMaterial.cpp" line="52"/>
       <source>Physical</source>
       <translation>Фізичний</translation>
     </message>
@@ -493,24 +499,9 @@
       <translation>Загальні</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="23"/>
-      <source>Card resources</source>
-      <translation>Ресурси картки</translation>
-    </message>
-    <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="31"/>
-      <source>The cards built-in to FreeCAD will be listed as available.</source>
-      <translation>Картки, що вбудовані в FreeCAD, будуть показані як доступні.</translation>
-    </message>
-    <message>
       <location filename="../../DlgSettingsMaterial.ui" line="34"/>
       <source>Use built-in materials</source>
       <translation>Використовувати вбудовані матеріали</translation>
-    </message>
-    <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="50"/>
-      <source>Use materials added by external workbenches.</source>
-      <translation>Використовувати матеріали із зовнішніх робочих просторів.</translation>
     </message>
     <message>
       <location filename="../../DlgSettingsMaterial.ui" line="53"/>
@@ -518,96 +509,109 @@
       <translation>Використовувати матеріали із зовнішніх робочих просторів</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="69"/>
-      <source>Also cards from FreeCAD&apos;s preferences directory will be listed as available.</source>
-      <translation>Також картки з каталогу налаштувань FreeCAD&apos;будуть перераховані як доступні.</translation>
-    </message>
-    <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="72"/>
-      <source>Use materials from Materials directory in user&apos;s FreeCAD preference directory</source>
-      <translation>Використовувати матеріали з каталогу матеріалів в каталозі користувача&apos;з каталогу налаштувань FreeCAD</translation>
-    </message>
-    <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="88"/>
-      <source>Also material cards also from the specified directory
-will be listed as available.</source>
-      <translation>Також картки матеріалів із зазначеного каталогу
-будуть показані як доступні.</translation>
-    </message>
-    <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="92"/>
-      <source>Use materials from user defined directory</source>
-      <translation>Використовувати матеріали з визначеного користувачем каталогу</translation>
-    </message>
-    <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="119"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="118"/>
       <source>User directory</source>
       <translation>Каталог користувача</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="155"/>
-      <source>Card sorting and duplicates</source>
-      <translation>Сортування карток і дублікати</translation>
+      <location filename="../../DlgSettingsMaterial.ui" line="23"/>
+      <source>Card Resources</source>
+      <translation>Ресурси карток</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="161"/>
-      <source>Duplicate cards will be deleted from the displayed material card list.</source>
-      <translation>Дублікати карток будуть видалені з відображеного списку карток матеріалів.</translation>
+      <location filename="../../DlgSettingsMaterial.ui" line="31"/>
+      <source>The cards built-in to FreeCAD will be listed as available</source>
+      <translation>Вбудовані картки FreeCAD будуть перераховані як доступні</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="164"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="50"/>
+      <source>Use materials added by external workbenches</source>
+      <translation>Використовувати матеріали, додані зовнішніми верстатами</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsMaterial.ui" line="69"/>
+      <source>Cards from FreeCAD’s preferences directory are also listed as available</source>
+      <translation>Картки з директорії налаштувань FreeCAD також перелічені як доступні</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsMaterial.ui" line="72"/>
+      <source>Use materials from the Materials preference directory</source>
+      <translation>Використовувати матеріали з директорії налаштувань матеріалів</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsMaterial.ui" line="88"/>
+      <source>Material cards from the specified directory will also be listed as available</source>
+      <translation>Картки матеріалів із вказаної директорії також будуть доступні</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsMaterial.ui" line="91"/>
+      <source>Use materials from user-defined directory</source>
+      <translation>Використовувати матеріали з директорії, вказаної користувачем</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsMaterial.ui" line="154"/>
+      <source>Card Sorting and Duplicates</source>
+      <translation>Сортування карток та дублікати</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsMaterial.ui" line="160"/>
+      <source>Duplicate cards will be deleted from the displayed material card list</source>
+      <translation>Дублікати карток будуть видалені зі списку карток матеріалів</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsMaterial.ui" line="163"/>
       <source>Delete card duplicates</source>
       <translation>Видалити дублікати карток</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="180"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="179"/>
       <source>Material cards appear sorted by their resources (locations).
 If unchecked, they will be sorted by their name.</source>
       <translation>Карти матеріалів будуть сортовані за їх ресурсами (розташуванням).
 Якщо прапорець не встановлений, сортуватимуться за назвою.</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="184"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="183"/>
       <source>Sort by resources</source>
       <translation>Сортування за ресурсами</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="203"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="202"/>
       <source>Material Selector</source>
       <translation>Меню вибору матеріалу</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="209"/>
-      <location filename="../../DlgSettingsMaterial.ui" line="292"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="208"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="291"/>
       <source>Show favorites</source>
       <translation>Показати вибрані</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="225"/>
-      <location filename="../../DlgSettingsMaterial.ui" line="308"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="224"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="307"/>
       <source>Show recent</source>
       <translation>Показати недавні</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="241"/>
-      <location filename="../../DlgSettingsMaterial.ui" line="324"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="240"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="323"/>
       <source>Show empty libraries</source>
       <translation>Показати порожні бібліотеки</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="257"/>
-      <location filename="../../DlgSettingsMaterial.ui" line="340"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="256"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="339"/>
       <source>Show empty folders</source>
       <translation>Показати порожні папки</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="270"/>
-      <location filename="../../DlgSettingsMaterial.ui" line="353"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="269"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="352"/>
       <source>Show legacy files</source>
       <translation>Показати застарілі файли</translation>
     </message>
     <message>
-      <location filename="../../DlgSettingsMaterial.ui" line="286"/>
+      <location filename="../../DlgSettingsMaterial.ui" line="285"/>
       <source>Material Editor</source>
       <translation>Редактор матеріалів</translation>
     </message>
@@ -626,8 +630,8 @@ If unchecked, they will be sorted by their name.</source>
     </message>
     <message>
       <location filename="../../ImageEdit.ui" line="95"/>
-      <source>File...</source>
-      <translation>Файл...</translation>
+      <source>File</source>
+      <translation>Файл</translation>
     </message>
     <message>
       <location filename="../../ImageEdit.ui" line="104"/>
@@ -645,14 +649,16 @@ If unchecked, they will be sorted by their name.</source>
       <translation>Обрати зображення</translation>
     </message>
     <message>
-      <location filename="../../ImageEdit.cpp" line="206"/>
-      <source>Image files (*.jpg *.jpeg *.png *.bmp);;All files (*)</source>
-      <translation>Файли зображень (*.jpg *.jpeg *.png *.bmp);;Всі файли (*)</translation>
+      <location filename="../../ImageEdit.cpp" line="207"/>
+      <location filename="../../ImageEdit.cpp" line="223"/>
+      <source>Image files</source>
+      <translation>Файли зображень</translation>
     </message>
     <message>
-      <location filename="../../ImageEdit.cpp" line="218"/>
-      <source>Image files (*.svg);;All files (*)</source>
-      <translation>Файли зображень (*.svg);;Всі файли (*)</translation>
+      <location filename="../../ImageEdit.cpp" line="208"/>
+      <location filename="../../ImageEdit.cpp" line="224"/>
+      <source>All files</source>
+      <translation>Всі файли</translation>
     </message>
   </context>
   <context>
@@ -671,12 +677,12 @@ If unchecked, they will be sorted by their name.</source>
   <context>
     <name>MatGui::MaterialDelegate</name>
     <message>
-      <location filename="../../MaterialDelegate.cpp" line="449"/>
+      <location filename="../../MaterialDelegate.cpp" line="474"/>
       <source>False</source>
       <translation>Ні</translation>
     </message>
     <message>
-      <location filename="../../MaterialDelegate.cpp" line="450"/>
+      <location filename="../../MaterialDelegate.cpp" line="475"/>
       <source>True</source>
       <translation>Так</translation>
     </message>
@@ -690,103 +696,107 @@ If unchecked, they will be sorted by their name.</source>
     </message>
     <message>
       <location filename="../../MaterialSave.ui" line="22"/>
-      <source>Library:</source>
-      <translation>Бібліотека:</translation>
+      <source>Library</source>
+      <translation>Бібліотека</translation>
+    </message>
+    <message>
+      <location filename="../../MaterialSave.ui" line="70"/>
+      <source>Filename</source>
+      <translation>Ім'я файлу</translation>
+    </message>
+    <message>
+      <location filename="../../MaterialSave.ui" line="104"/>
+      <source>Save as inherited</source>
+      <translation>Зберегти як успадкований</translation>
     </message>
     <message>
       <location filename="../../MaterialSave.ui" line="59"/>
-      <location filename="../../MaterialSave.cpp" line="482"/>
-      <location filename="../../MaterialSave.cpp" line="492"/>
       <source>New Folder</source>
       <translation>Нова папка</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.ui" line="70"/>
-      <source>Filename:</source>
-      <translation>Назва файлу:</translation>
-    </message>
-    <message>
-      <location filename="../../MaterialSave.ui" line="104"/>
-      <source>Save as Inherited</source>
-      <translation>Зберегти як успадкований</translation>
-    </message>
-    <message>
-      <location filename="../../MaterialSave.cpp" line="91"/>
+      <location filename="../../MaterialSave.cpp" line="97"/>
       <source>Delete</source>
       <translation>Видалити</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="190"/>
-      <source>Are you sure you want to save over &apos;%1&apos;?</source>
-      <translation>Ви впевнені, що хочете зберегти &apos;%1&apos;?</translation>
-    </message>
-    <message>
-      <location filename="../../MaterialSave.cpp" line="193"/>
+      <location filename="../../MaterialSave.cpp" line="199"/>
       <source>Saving over the original file may cause other documents to break. This is not recommended.</source>
       <translation>Збереження замість оригінального файлу може призвести до пошкодження інших документів. Ми не рекомендуємо цього робити.</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="215"/>
-      <source>Confirm Save As New Material</source>
-      <translation>Підтвердити "Зберегти як новий матеріал"</translation>
-    </message>
-    <message>
-      <location filename="../../MaterialSave.cpp" line="217"/>
+      <location filename="../../MaterialSave.cpp" line="223"/>
       <source>Save as new material</source>
       <translation>Зберегти як новий матеріал</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="220"/>
-      <source>This material already exists in this library. Would you like to save as a new material?</source>
-      <translation>В цій бібліотеці такий матеріал вже існує. Ви бажаєте зберегти його як новий матеріал?</translation>
+      <location filename="../../MaterialSave.cpp" line="196"/>
+      <source>Save over &apos;%1&apos;?</source>
+      <translation type="unfinished">Save over &apos;%1&apos;?</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="242"/>
-      <source>Confirm Save As Copy</source>
-      <translation>Підтвердити "Зберегти як копію"</translation>
+      <location filename="../../MaterialSave.cpp" line="221"/>
+      <source>Confirm Save as New Material</source>
+      <translation>Підтвердити збереження як нового матеріалу</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="244"/>
-      <source>Save as Copy</source>
-      <translation>Зберегти як копію</translation>
+      <location filename="../../MaterialSave.cpp" line="226"/>
+      <source>This material already exists in this library. Save as a new material?</source>
+      <translation>Цей матеріал вже існує в цій бібліотеці. Зберегти як новий матеріал?</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="247"/>
-      <source>Saving a copy is not recommended as it can break other documents. We recommend you save as a new material.</source>
-      <translation>Не рекомендується зберігати копію, оскільки це може пошкодити інші документи. Ми рекомендуємо зберігати як новий матеріал.</translation>
+      <location filename="../../MaterialSave.cpp" line="248"/>
+      <source>Confirm Save as Copy</source>
+      <translation>Підтвердити збереження як копії</translation>
     </message>
     <message>
       <location filename="../../MaterialSave.cpp" line="250"/>
+      <source>Save as copy</source>
+      <translation>Зберегти як копію</translation>
+    </message>
+    <message>
+      <location filename="../../MaterialSave.cpp" line="253"/>
+      <source>Saving a copy is not recommended as it can break other documents. It is recommended to save as a new material.</source>
+      <translation>Збереження копії не рекомендується, оскільки це може порушити інші документи. Рекомендується зберегти як новий матеріал.</translation>
+    </message>
+    <message>
+      <location filename="../../MaterialSave.cpp" line="256"/>
       <source>Save Copy</source>
       <translation>Зберегти копію</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="251"/>
+      <location filename="../../MaterialSave.cpp" line="257"/>
       <source>Save As New</source>
       <translation>Зберегти як новий</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="532"/>
-      <source>Context menu</source>
+      <location filename="../../MaterialSave.cpp" line="489"/>
+      <location filename="../../MaterialSave.cpp" line="499"/>
+      <source>New folder</source>
+      <translation>Нова тека</translation>
+    </message>
+    <message>
+      <location filename="../../MaterialSave.cpp" line="539"/>
+      <source>Context Menu</source>
       <translation>Контекстне меню</translation>
     </message>
   </context>
   <context>
     <name>MatGui::MaterialTreeWidget</name>
     <message>
-      <location filename="../../MaterialTreeWidget.cpp" line="142"/>
-      <source>Launch editor</source>
+      <location filename="../../MaterialTreeWidget.cpp" line="139"/>
+      <source>Launch Editor</source>
       <translation>Запустити редактор</translation>
     </message>
     <message>
-      <location filename="../../MaterialTreeWidget.cpp" line="315"/>
-      <location filename="../../MaterialTreeWidget.cpp" line="546"/>
+      <location filename="../../MaterialTreeWidget.cpp" line="312"/>
+      <location filename="../../MaterialTreeWidget.cpp" line="533"/>
       <source>Favorites</source>
       <translation>Обране</translation>
     </message>
     <message>
-      <location filename="../../MaterialTreeWidget.cpp" line="315"/>
-      <location filename="../../MaterialTreeWidget.cpp" line="553"/>
+      <location filename="../../MaterialTreeWidget.cpp" line="312"/>
+      <location filename="../../MaterialTreeWidget.cpp" line="540"/>
       <source>Recent</source>
       <translation>Недавні</translation>
     </message>
@@ -835,8 +845,18 @@ If unchecked, they will be sorted by their name.</source>
     </message>
     <message>
       <location filename="../../MaterialsEditor.ui" line="151"/>
-      <source>Source Reference</source>
+      <source>Source reference</source>
       <translation>Посилання на джерело</translation>
+    </message>
+    <message>
+      <location filename="../../MaterialsEditor.ui" line="202"/>
+      <source>Adds or removes to/from favorites</source>
+      <translation>Додає або видаляє з вибраного</translation>
+    </message>
+    <message>
+      <location filename="../../MaterialsEditor.ui" line="205"/>
+      <source>Toggle Favorite</source>
+      <translation>Перемкнути вибране</translation>
     </message>
     <message>
       <location filename="../../MaterialsEditor.ui" line="164"/>
@@ -852,11 +872,6 @@ If unchecked, they will be sorted by their name.</source>
       <location filename="../../MaterialsEditor.ui" line="195"/>
       <source>Inherit New</source>
       <translation>Успадковувати нове</translation>
-    </message>
-    <message>
-      <location filename="../../MaterialsEditor.ui" line="202"/>
-      <source>Add to favorites</source>
-      <translation>Додати до обраного</translation>
     </message>
     <message>
       <location filename="../../MaterialsEditor.ui" line="215"/>
@@ -889,78 +904,78 @@ If unchecked, they will be sorted by their name.</source>
       <translation>Видалити модель зовнішнього вигляду</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="481"/>
+      <location filename="../../MaterialsEditor.cpp" line="484"/>
       <source>Unnamed</source>
       <translation>Без назви</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="603"/>
+      <location filename="../../MaterialsEditor.cpp" line="606"/>
       <source>Old Format Material</source>
       <translation>Старий формат матеріалу</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="605"/>
+      <location filename="../../MaterialsEditor.cpp" line="608"/>
       <source>This file is in the old material card format.</source>
       <translation>Цей файл у старому форматі карток матеріалів.</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="687"/>
+      <location filename="../../MaterialsEditor.cpp" line="694"/>
       <source>This card uses the old format and must be saved before use</source>
       <translation>Ця картка використовує старий формат і повинна бути збережена перед використанням</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="745"/>
-      <location filename="../../MaterialsEditor.cpp" line="777"/>
-      <location filename="../../MaterialsEditor.cpp" line="1051"/>
-      <location filename="../../MaterialsEditor.cpp" line="1113"/>
+      <location filename="../../MaterialsEditor.cpp" line="754"/>
+      <location filename="../../MaterialsEditor.cpp" line="786"/>
+      <location filename="../../MaterialsEditor.cpp" line="1086"/>
+      <location filename="../../MaterialsEditor.cpp" line="1148"/>
       <source>Property</source>
       <translation>Властивість</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="746"/>
-      <location filename="../../MaterialsEditor.cpp" line="778"/>
-      <location filename="../../MaterialsEditor.cpp" line="1052"/>
-      <location filename="../../MaterialsEditor.cpp" line="1114"/>
+      <location filename="../../MaterialsEditor.cpp" line="755"/>
+      <location filename="../../MaterialsEditor.cpp" line="787"/>
+      <location filename="../../MaterialsEditor.cpp" line="1087"/>
+      <location filename="../../MaterialsEditor.cpp" line="1149"/>
       <source>Value</source>
       <translation>Значення</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="747"/>
-      <location filename="../../MaterialsEditor.cpp" line="779"/>
-      <location filename="../../MaterialsEditor.cpp" line="1053"/>
-      <location filename="../../MaterialsEditor.cpp" line="1115"/>
+      <location filename="../../MaterialsEditor.cpp" line="756"/>
+      <location filename="../../MaterialsEditor.cpp" line="788"/>
+      <location filename="../../MaterialsEditor.cpp" line="1088"/>
+      <location filename="../../MaterialsEditor.cpp" line="1150"/>
       <source>Type</source>
       <translation>Тип</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="843"/>
+      <location filename="../../MaterialsEditor.cpp" line="879"/>
       <source>Favorites</source>
       <translation>Обране</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="850"/>
+      <location filename="../../MaterialsEditor.cpp" line="886"/>
       <source>Recent</source>
       <translation>Недавні</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="1116"/>
+      <location filename="../../MaterialsEditor.cpp" line="1151"/>
       <source>Units</source>
       <translation>Одиниці</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="1283"/>
-      <source>Context menu</source>
+      <location filename="../../MaterialsEditor.cpp" line="1318"/>
+      <source>Context Menu</source>
       <translation>Контекстне меню</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="1285"/>
-      <source>Inherit from</source>
-      <translation>Успадковувати від</translation>
+      <location filename="../../MaterialsEditor.cpp" line="1320"/>
+      <source>Inherit From</source>
+      <translation>Успадкувати від</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="1289"/>
-      <source>Inherit new material</source>
-      <translation>Успадковувати новий матеріал</translation>
+      <location filename="../../MaterialsEditor.cpp" line="1324"/>
+      <source>Inherit New Material</source>
+      <translation>Успадкувати новий матеріал</translation>
     </message>
   </context>
   <context>
@@ -977,13 +992,13 @@ If unchecked, they will be sorted by their name.</source>
     </message>
     <message>
       <location filename="../../ModelSelect.ui" line="49"/>
-      <location filename="../../ModelSelect.cpp" line="360"/>
+      <location filename="../../ModelSelect.cpp" line="365"/>
       <source>URL</source>
       <translation>URL</translation>
     </message>
     <message>
       <location filename="../../ModelSelect.ui" line="56"/>
-      <location filename="../../ModelSelect.cpp" line="359"/>
+      <location filename="../../ModelSelect.cpp" line="364"/>
       <source>Description</source>
       <translation>Опис</translation>
     </message>
@@ -999,43 +1014,48 @@ If unchecked, they will be sorted by their name.</source>
     </message>
     <message>
       <location filename="../../ModelSelect.ui" line="159"/>
-      <source>Add to favorites</source>
-      <translation>Додати до обраного</translation>
+      <source>Adds or removes to/from favorites</source>
+      <translation>Додає або видаляє з вибраного</translation>
+    </message>
+    <message>
+      <location filename="../../ModelSelect.ui" line="162"/>
+      <source>Toggle Favorites</source>
+      <translation>Перемкнути вибране</translation>
     </message>
     <message>
       <location filename="../../ModelSelect.ui" line="172"/>
-      <location filename="../../ModelSelect.cpp" line="438"/>
-      <location filename="../../ModelSelect.cpp" line="454"/>
+      <location filename="../../ModelSelect.cpp" line="443"/>
+      <location filename="../../ModelSelect.cpp" line="459"/>
       <source>Properties</source>
       <translation>Властивості</translation>
     </message>
     <message>
-      <location filename="../../ModelSelect.cpp" line="332"/>
+      <location filename="../../ModelSelect.cpp" line="337"/>
       <source>Favorites</source>
       <translation>Обране</translation>
     </message>
     <message>
-      <location filename="../../ModelSelect.cpp" line="337"/>
+      <location filename="../../ModelSelect.cpp" line="342"/>
       <source>Recent</source>
       <translation>Недавні</translation>
     </message>
     <message>
-      <location filename="../../ModelSelect.cpp" line="356"/>
+      <location filename="../../ModelSelect.cpp" line="361"/>
       <source>Inherited</source>
       <translation>Успадковані</translation>
     </message>
     <message>
-      <location filename="../../ModelSelect.cpp" line="357"/>
+      <location filename="../../ModelSelect.cpp" line="362"/>
       <source>Property</source>
       <translation>Властивість</translation>
     </message>
     <message>
-      <location filename="../../ModelSelect.cpp" line="358"/>
+      <location filename="../../ModelSelect.cpp" line="363"/>
       <source>Units</source>
       <translation>Одиниці</translation>
     </message>
     <message>
-      <location filename="../../ModelSelect.cpp" line="441"/>
+      <location filename="../../ModelSelect.cpp" line="446"/>
       <source>Appearance</source>
       <translation>Зовнішній вигляд</translation>
     </message>
@@ -1057,7 +1077,7 @@ If unchecked, they will be sorted by their name.</source>
     </message>
     <message>
       <location filename="../ui/materials-editor.ui" line="22"/>
-      <source>Material card</source>
+      <source>Material Card</source>
       <translation>Картка матеріалу</translation>
     </message>
     <message>
@@ -1077,47 +1097,42 @@ If unchecked, they will be sorted by their name.</source>
     </message>
     <message>
       <location filename="../ui/materials-editor.ui" line="70"/>
-      <source>Open...</source>
-      <translation>Відкрити...</translation>
+      <source>Open…</source>
+      <translation>Відкрити…</translation>
+    </message>
+    <message>
+      <location filename="../ui/materials-editor.ui" line="80"/>
+      <source>Save As…</source>
+      <translation>Зберегти як…</translation>
+    </message>
+    <message>
+      <location filename="../ui/materials-editor.ui" line="96"/>
+      <source>Material Parameter</source>
+      <translation>Параметр матеріалу</translation>
+    </message>
+    <message>
+      <location filename="../ui/materials-editor.ui" line="115"/>
+      <source>Add/Remove Parameter</source>
+      <translation>Додати/Видалити параметр</translation>
+    </message>
+    <message>
+      <location filename="../ui/materials-editor.ui" line="126"/>
+      <source>Add Property</source>
+      <translation>Додати властивість</translation>
+    </message>
+    <message>
+      <location filename="../ui/materials-editor.ui" line="133"/>
+      <source>Delete Property</source>
+      <translation>Видалити властивість</translation>
     </message>
     <message>
       <location filename="../ui/materials-editor.ui" line="77"/>
       <source>Saves this material as a card</source>
       <translation>Зберегти цей матеріал як картку</translation>
     </message>
-    <message>
-      <location filename="../ui/materials-editor.ui" line="80"/>
-      <source>Save as...</source>
-      <translation>Зберегти як...</translation>
-    </message>
-    <message>
-      <location filename="../ui/materials-editor.ui" line="96"/>
-      <source>Material parameter</source>
-      <translation>Параметр матеріалу</translation>
-    </message>
-    <message>
-      <location filename="../ui/materials-editor.ui" line="115"/>
-      <source>Add / remove parameter</source>
-      <translation>Додати / видалити параметр</translation>
-    </message>
-    <message>
-      <location filename="../ui/materials-editor.ui" line="126"/>
-      <source>Add property</source>
-      <translation>Додати властивість</translation>
-    </message>
-    <message>
-      <location filename="../ui/materials-editor.ui" line="133"/>
-      <source>Delete property</source>
-      <translation>Видалити властивість</translation>
-    </message>
   </context>
   <context>
     <name>QDockWidget</name>
-    <message>
-      <location filename="../../DlgDisplayPropertiesImp.cpp" line="54"/>
-      <source>Display properties</source>
-      <translation>Відображення властивостей</translation>
-    </message>
     <message>
       <location filename="../../DlgMaterialImp.cpp" line="57"/>
       <source>Material</source>
@@ -1127,81 +1142,82 @@ If unchecked, they will be sorted by their name.</source>
   <context>
     <name>QObject</name>
     <message>
-      <location filename="../../AppMatGui.cpp" line="106"/>
-      <source>Material workbench</source>
-      <translation>Робочий простір матеріалів</translation>
+      <location filename="../../AppMatGui.cpp" line="108"/>
+      <source>Material Workbench</source>
+      <translation>Верстат матеріалів</translation>
     </message>
     <message>
-      <location filename="../../AppMatGui.cpp" line="108"/>
       <location filename="../../AppMatGui.cpp" line="110"/>
+      <location filename="../../AppMatGui.cpp" line="112"/>
+      <location filename="../../AppMatGui.cpp" line="115"/>
       <source>Material</source>
       <translation>Матеріал</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="187"/>
+      <location filename="../../MaterialSave.cpp" line="193"/>
       <source>Confirm Overwrite</source>
       <translation>Підтвердити перезапис</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="376"/>
-      <location filename="../../MaterialSave.cpp" line="377"/>
+      <location filename="../../MaterialSave.cpp" line="383"/>
+      <location filename="../../MaterialSave.cpp" line="384"/>
       <source>No writeable library</source>
       <translation>Немає бібліотеки для запису</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="564"/>
-      <source>Are you sure you want to delete &apos;%1&apos;?</source>
-      <translation>Ви впевнені, що хочете видалити &apos;%1&apos;?</translation>
+      <location filename="../../MaterialSave.cpp" line="571"/>
+      <source>Delete &apos;%1&apos;?</source>
+      <translation type="unfinished">Delete &apos;%1&apos;?</translation>
     </message>
     <message>
-      <location filename="../../MaterialSave.cpp" line="568"/>
+      <location filename="../../MaterialSave.cpp" line="575"/>
       <source>Removing this will also remove all contents.</source>
       <translation>Видалення призведе до видалення всього вмісту.</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="606"/>
-      <source>You must save the material before using it.</source>
-      <translation>Ви повинні зберегти матеріал, перш ніж використовувати його.</translation>
+      <location filename="../../MaterialsEditor.cpp" line="609"/>
+      <source>Save the material before using it.</source>
+      <translation>Збережіть матеріал перед використанням.</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="1310"/>
+      <location filename="../../MaterialsEditor.cpp" line="1345"/>
       <source>Unsaved Material</source>
       <translation>Незбережений матеріал</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="1311"/>
-      <source>Do you want to save your changes to the material before closing?</source>
-      <translation>Бажаєте зберегти зміни до матеріалу перед закриттям?</translation>
+      <location filename="../../MaterialsEditor.cpp" line="1346"/>
+      <source>Save changes to the material before closing?</source>
+      <translation>Зберегти зміни матеріалу перед закриттям?</translation>
     </message>
     <message>
-      <location filename="../../MaterialsEditor.cpp" line="1313"/>
-      <source>If you don&apos;t save, your changes will be lost.</source>
-      <translation>Якщо ви не збережете&apos; зміни, вони будуть втрачені.</translation>
+      <location filename="../../MaterialsEditor.cpp" line="1347"/>
+      <source>Otherwise, all changes will be lost.</source>
+      <translation>Інакше всі зміни будуть втрачені.</translation>
     </message>
     <message>
-      <location filename="../../Array2D.cpp" line="172"/>
       <location filename="../../ListEdit.cpp" line="142"/>
-      <location filename="../../MaterialSave.cpp" line="561"/>
+      <location filename="../../Array2D.cpp" line="170"/>
+      <location filename="../../MaterialSave.cpp" line="568"/>
       <source>Confirm Delete</source>
       <translation>Підтвердити видалення</translation>
     </message>
     <message>
-      <location filename="../../Array2D.cpp" line="174"/>
       <location filename="../../ListEdit.cpp" line="144"/>
-      <source>Are you sure you want to delete the row?</source>
-      <translation>Ви дійсно бажаєте видалити цей рядок?</translation>
+      <location filename="../../Array2D.cpp" line="172"/>
+      <source>Delete the row?</source>
+      <translation>Видалити рядок?</translation>
     </message>
   </context>
   <context>
     <name>StdCmdSetAppearance</name>
     <message>
-      <location filename="../../Command.cpp" line="89"/>
-      <source>Appearance...</source>
-      <translation>Зовнішній вигляд...</translation>
+      <location filename="../../Command.cpp" line="88"/>
+      <source>&amp;Appearance</source>
+      <translation>&amp;Вигляд</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="90"/>
-      <location filename="../../Command.cpp" line="92"/>
+      <location filename="../../Command.cpp" line="89"/>
+      <location filename="../../Command.cpp" line="91"/>
       <source>Sets the display properties of the selected object</source>
       <translation>Встановлює властивості відображення вибраного об'єкта</translation>
     </message>
@@ -1209,13 +1225,13 @@ If unchecked, they will be sorted by their name.</source>
   <context>
     <name>StdCmdSetMaterial</name>
     <message>
-      <location filename="../../Command.cpp" line="118"/>
-      <source>Material...</source>
-      <translation>Матеріал...</translation>
+      <location filename="../../Command.cpp" line="117"/>
+      <source>&amp;Material</source>
+      <translation>&amp;Матеріал</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="119"/>
-      <location filename="../../Command.cpp" line="121"/>
+      <location filename="../../Command.cpp" line="118"/>
+      <location filename="../../Command.cpp" line="120"/>
       <source>Sets the material of the selected object</source>
       <translation>Встановлює матеріал вибраного об'єкта</translation>
     </message>
@@ -1223,14 +1239,212 @@ If unchecked, they will be sorted by their name.</source>
   <context>
     <name>Workbench</name>
     <message>
-      <location filename="../../Workbench.cpp" line="34"/>
+      <location filename="../../Workbench.cpp" line="35"/>
       <source>&amp;Materials</source>
       <translation>&amp;Матеріали</translation>
     </message>
     <message>
-      <location filename="../../Workbench.cpp" line="35"/>
+      <location filename="../../Workbench.cpp" line="36"/>
       <source>Materials</source>
       <translation>Матеріали</translation>
+    </message>
+  </context>
+  <context>
+    <name>MatGui::TaskMigrateExternal</name>
+    <message>
+      <location filename="../../TaskMigrateExternal.ui" line="14"/>
+      <source>Materials Migration</source>
+      <translation>Міграція матеріалів</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.ui" line="27"/>
+      <source>Select material libraries to migrate. Existing materials will not be overwritten.</source>
+      <translation>Виберіть бібліотеки матеріалів для міграції. Наявні матеріали не будуть перезаписані.</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.ui" line="20"/>
+      <source>Select material libraries</source>
+      <translation>Вибрати бібліотеки матеріалів</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.ui" line="34"/>
+      <source>Select model libraries</source>
+      <translation>Вибрати бібліотеки моделей</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.ui" line="41"/>
+      <source>Select model libraries to migrate. Existing models will not be overwritten.</source>
+      <translation>Виберіть бібліотеки моделей для міграції. Наявні моделі не будуть перезаписані.</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.ui" line="48"/>
+      <source>Status</source>
+      <translation>Статус</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.cpp" line="178"/>
+      <source>&amp;Migrate</source>
+      <translation>&amp;Мігрувати</translation>
+    </message>
+  </context>
+  <context>
+    <name>MatGui::DlgSettingsExternal</name>
+    <message>
+      <location filename="../../DlgSettingsExternal.ui" line="14"/>
+      <source>External Interface</source>
+      <translation>Зовнішній інтерфейс</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsExternal.ui" line="20"/>
+      <source>Use External Interface</source>
+      <translation>Використовувати зовнішній інтерфейс</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsExternal.ui" line="29"/>
+      <source>External interface</source>
+      <translation>Зовнішній інтерфейс</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsExternal.ui" line="65"/>
+      <source>Cache</source>
+      <translation>Кеш</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsExternal.ui" line="91"/>
+      <source>Model cache size</source>
+      <translation>Розмір кешу моделей</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsExternal.ui" line="98"/>
+      <location filename="../../DlgSettingsExternal.ui" line="124"/>
+      <source>Hit rate</source>
+      <translation>Частота влучень</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsExternal.ui" line="134"/>
+      <source>Material cache size</source>
+      <translation>Розмір кешу матеріалів</translation>
+    </message>
+    <message>
+      <location filename="../../DlgSettingsExternal.cpp" line="95"/>
+      <source>None</source>
+      <translation>Немає</translation>
+    </message>
+  </context>
+  <context>
+    <name>MatGui::DlgMigrateExternal</name>
+    <message>
+      <location filename="../../TaskMigrateExternal.cpp" line="75"/>
+      <source>Migrating models…</source>
+      <translation>Міграція моделей…</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.cpp" line="81"/>
+      <location filename="../../TaskMigrateExternal.cpp" line="93"/>
+      <location filename="../../TaskMigrateExternal.cpp" line="105"/>
+      <location filename="../../TaskMigrateExternal.cpp" line="117"/>
+      <source>  Library: </source>
+      <translation>  Бібліотека: </translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.cpp" line="85"/>
+      <location filename="../../TaskMigrateExternal.cpp" line="97"/>
+      <location filename="../../TaskMigrateExternal.cpp" line="109"/>
+      <location filename="../../TaskMigrateExternal.cpp" line="121"/>
+      <source>done</source>
+      <translation>готово</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.cpp" line="87"/>
+      <source>Validating models…</source>
+      <translation>Перевірка моделей…</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.cpp" line="99"/>
+      <source>Migrating materials…</source>
+      <translation>Міграція матеріалів…</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.cpp" line="111"/>
+      <source>Validating materials…</source>
+      <translation>Перевірка матеріалів…</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.cpp" line="145"/>
+      <location filename="../../TaskMigrateExternal.cpp" line="148"/>
+      <source>Unknown exception - aborted</source>
+      <translation>Невідоме виключення — перервано</translation>
+    </message>
+    <message>
+      <location filename="../../TaskMigrateExternal.cpp" line="125"/>
+      <location filename="../../TaskMigrateExternal.cpp" line="129"/>
+      <location filename="../../TaskMigrateExternal.cpp" line="133"/>
+      <location filename="../../TaskMigrateExternal.cpp" line="137"/>
+      <location filename="../../TaskMigrateExternal.cpp" line="141"/>
+      <source>Aborted</source>
+      <translation>Перервано</translation>
+    </message>
+  </context>
+  <context>
+    <name>CmdMaterialEdit</name>
+    <message>
+      <location filename="../../Command.cpp" line="53"/>
+      <source>Material</source>
+      <translation>Матеріал</translation>
+    </message>
+    <message>
+      <location filename="../../Command.cpp" line="54"/>
+      <source>Edit</source>
+      <translation>Редагувати</translation>
+    </message>
+    <message>
+      <location filename="../../Command.cpp" line="55"/>
+      <source>Edits material properties</source>
+      <translation>Редагує властивості матеріалу</translation>
+    </message>
+  </context>
+  <context>
+    <name>CmdMigrateToExternal</name>
+    <message>
+      <location filename="../../Command.cpp" line="202"/>
+      <source>Migrate</source>
+      <translation>Мігрувати</translation>
+    </message>
+    <message>
+      <location filename="../../Command.cpp" line="203"/>
+      <source>Migrates the materials to the external materials manager</source>
+      <translation>Мігрує матеріали до зовнішнього менеджера матеріалів</translation>
+    </message>
+    <message>
+      <location filename="../../Command.cpp" line="205"/>
+      <source>Migrate existing materials to the external materials manager</source>
+      <translation>Мігрувати наявні матеріали до зовнішнього менеджера матеріалів</translation>
+    </message>
+  </context>
+  <context>
+    <name>MatGui::DlgDisplayPropertiesImp</name>
+    <message>
+      <location filename="../../DlgDisplayPropertiesImp.cpp" line="180"/>
+      <source>Basic appearance</source>
+      <translation>Основний вигляд</translation>
+    </message>
+    <message>
+      <location filename="../../DlgDisplayPropertiesImp.cpp" line="185"/>
+      <source>Texture appearance</source>
+      <translation>Текстурний вигляд</translation>
+    </message>
+    <message>
+      <location filename="../../DlgDisplayPropertiesImp.cpp" line="190"/>
+      <source>All materials</source>
+      <translation>Усі матеріали</translation>
+    </message>
+  </context>
+  <context>
+    <name>Command</name>
+    <message>
+      <location filename="../../DlgMaterialImp.cpp" line="263"/>
+      <source>Set Material</source>
+      <translation>Встановити матеріал</translation>
     </message>
   </context>
 </TS>

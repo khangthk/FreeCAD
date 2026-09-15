@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2021 Abdullah Tahiri <abdullah.tahiri.yo@gmail.com>     *
  *                                                                         *
@@ -20,8 +22,8 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
+#include <FCConfig.h>
+
 #include <memory>
 
 #include <Inventor/SbVec3f.h>
@@ -31,7 +33,6 @@
 #include <Inventor/nodes/SoMarkerSet.h>
 #include <Inventor/nodes/SoMaterial.h>
 #include <Inventor/nodes/SoSeparator.h>
-#endif  // #ifndef _PreComp_
 
 #include <Gui/Inventor/MarkerBitmaps.h>
 #include <Gui/Inventor/SmSwitchboard.h>
@@ -40,6 +41,7 @@
 #include <Mod/Sketcher/App/GeoList.h>
 #include <Mod/Sketcher/App/GeometryFacade.h>
 #include <Mod/Sketcher/App/SolverGeometryExtension.h>
+#include <Mod/Sketcher/App/SketchObject.h>
 
 #include "EditModeGeometryCoinConverter.h"
 #include "EditModeGeometryCoinManager.h"
@@ -58,7 +60,8 @@ EditModeGeometryCoinManager::EditModeGeometryCoinManager(
     GeometryLayerParameters& geometryLayerParams,
     AnalysisResults& analysisResultStruct,
     EditModeScenegraphNodes& editModeScenegraph,
-    CoinMapping& coinMap)
+    CoinMapping& coinMap
+)
     : viewProvider(vp)
     , drawingParameters(drawingParams)
     , geometryLayerParameters(geometryLayerParams)
@@ -75,7 +78,8 @@ void EditModeGeometryCoinManager::processGeometry(const GeoListFacade& geolistfa
     // enable all layers
     editModeScenegraphNodes.PointsGroup->enable.setNum(geometryLayerParameters.getCoinLayerCount());
     editModeScenegraphNodes.CurvesGroup->enable.setNum(
-        geometryLayerParameters.getCoinLayerCount() * geometryLayerParameters.getSubLayerCount());
+        geometryLayerParameters.getCoinLayerCount() * geometryLayerParameters.getSubLayerCount()
+    );
     SbBool* swsp = editModeScenegraphNodes.PointsGroup->enable.startEditing();
     SbBool* swsc = editModeScenegraphNodes.CurvesGroup->enable.startEditing();
 
@@ -95,49 +99,68 @@ void EditModeGeometryCoinManager::processGeometry(const GeoListFacade& geolistfa
     editModeScenegraphNodes.CurvesGroup->enable.finishEditing();
 
     // Define the coin nodes that will be filled in with the geometry layers
-    GeometryLayerNodes geometrylayernodes {editModeScenegraphNodes.PointsMaterials,
-                                           editModeScenegraphNodes.PointsCoordinate,
-                                           editModeScenegraphNodes.CurvesMaterials,
-                                           editModeScenegraphNodes.CurvesCoordinate,
-                                           editModeScenegraphNodes.CurveSet};
+    GeometryLayerNodes geometrylayernodes {
+        editModeScenegraphNodes.PointsMaterials,
+        editModeScenegraphNodes.PointsCoordinate,
+        editModeScenegraphNodes.CurvesMaterials,
+        editModeScenegraphNodes.CurvesCoordinate,
+        editModeScenegraphNodes.CurveSet
+    };
 
     // process geometry layers
-    EditModeGeometryCoinConverter gcconv(viewProvider,
-                                         geometrylayernodes,
-                                         drawingParameters,
-                                         geometryLayerParameters,
-                                         coinMapping);
+    EditModeGeometryCoinConverter gcconv(
+        viewProvider,
+        geometrylayernodes,
+        drawingParameters,
+        geometryLayerParameters,
+        coinMapping
+    );
 
     gcconv.convert(geolistfacade);
 
     // set cross coordinates
-    editModeScenegraphNodes.RootCrossSet->numVertices.set1Value(0, 2);
-    editModeScenegraphNodes.RootCrossSet->numVertices.set1Value(1, 2);
+    editModeScenegraphNodes.RootCrossHSet->numVertices.set1Value(0, 2);
+    editModeScenegraphNodes.RootCrossVSet->numVertices.set1Value(0, 2);
 
     analysisResults.combRepresentationScale = gcconv.getCombRepresentationScale();
-    analysisResults.boundingBoxMagnitudeOrder =
-        exp(ceil(log(std::abs(gcconv.getBoundingBoxMaxMagnitude()))));
+    analysisResults.boundingBoxMagnitudeOrder = exp(
+        ceil(log(std::abs(gcconv.getBoundingBoxMaxMagnitude())))
+    );
     analysisResults.bsplineGeoIds = gcconv.getBSplineGeoIds();
     analysisResults.arcGeoIds = gcconv.getArcGeoIds();
 }
 
-void EditModeGeometryCoinManager::updateGeometryColor(const GeoListFacade& geolistfacade,
-                                                      bool issketchinvalid)
+void EditModeGeometryCoinManager::updateGeometryColor(
+    const GeoListFacade& geolistfacade,
+    bool issketchinvalid
+)
 {
     // Lambdas for convenience retrieval of geometry information
     auto isDefinedGeomPoint = [&geolistfacade](int GeoId, Sketcher::PointPos PosId) {
         auto geom = geolistfacade.getGeometryFacadeFromGeoId(GeoId);
         if (geom) {
-            bool isStartOrEnd =
-                PosId == Sketcher::PointPos::start || PosId == Sketcher::PointPos::end;
+            bool isStartOrEnd = PosId == Sketcher::PointPos::start
+                || PosId == Sketcher::PointPos::end;
             return isStartOrEnd && !geom->getConstruction();
         }
         return false;
     };
 
+    auto isExternalDefiningGeomPoint = [&geolistfacade](int GeoId) {
+        auto geom = geolistfacade.getGeometryFacadeFromGeoId(GeoId);
+        if (geom) {
+            std::unique_ptr<Part::Geometry> geomCopy(geom->clone());
+            // The ExternalGeometryFacade is not the owner of the geometry
+            auto egf = ExternalGeometryFacade::getFacade(geomCopy.get());
+            auto ref = egf->getRef();
+            return egf->testFlag(ExternalGeometryExtension::Defining);
+        }
+        return false;
+    };
+
     auto isCoincident = [&](int GeoId, Sketcher::PointPos PosId) {
-        const std::vector<Sketcher::Constraint*>& constraints =
-            ViewProviderSketchCoinAttorney::getConstraints(viewProvider);
+        const std::vector<Sketcher::Constraint*>& constraints
+            = ViewProviderSketchCoinAttorney::getConstraints(viewProvider);
         for (auto& constr : constraints) {
             if (constr->Type == Coincident
                 || (constr->Type == Tangent && constr->FirstPos != Sketcher::PointPos::none)
@@ -167,23 +190,42 @@ void EditModeGeometryCoinManager::updateGeometryColor(const GeoListFacade& geoli
             if (geom->hasExtension(Sketcher::SolverGeometryExtension::getClassTypeId())) {
 
                 auto solvext = std::static_pointer_cast<const Sketcher::SolverGeometryExtension>(
-                    geom->getExtension(Sketcher::SolverGeometryExtension::getClassTypeId()).lock());
+                    geom->getExtension(Sketcher::SolverGeometryExtension::getClassTypeId()).lock()
+                );
 
-                return (solvext->getGeometry()
-                        == Sketcher::SolverGeometryExtension::FullyConstraint);
+                return (solvext->getGeometry() == Sketcher::SolverGeometryExtension::FullyConstraint);
             }
         }
         return false;
     };
 
-    bool sketchFullyConstrained =
-        ViewProviderSketchCoinAttorney::isSketchFullyConstrained(viewProvider);
+    bool sketchFullyConstrained = ViewProviderSketchCoinAttorney::isSketchFullyConstrained(
+        viewProvider
+    );
 
     // Update Colors
 
-    SbColor* crosscolor = editModeScenegraphNodes.RootCrossMaterials->diffuseColor.startEditing();
-    auto viewOrientationFactor =
-        ViewProviderSketchCoinAttorney::getViewOrientationFactor(viewProvider);
+    SbColor* crosscolorH = editModeScenegraphNodes.RootCrossHMaterials->diffuseColor.startEditing();
+    SbColor* crosscolorV = editModeScenegraphNodes.RootCrossVMaterials->diffuseColor.startEditing();
+    auto viewOrientationFactor = ViewProviderSketchCoinAttorney::getViewOrientationFactor(viewProvider);
+
+    // Origin point
+    auto preselectcross = ViewProviderSketchCoinAttorney::getPreselectCross(viewProvider);
+    if (preselectcross == 0) {  // 0 means the RootPoint is preselected
+        editModeScenegraphNodes.OriginPointMaterial->diffuseColor = drawingParameters.PreselectColor;
+    }
+    else {
+        editModeScenegraphNodes.OriginPointMaterial->diffuseColor
+            = drawingParameters.FullyConstraintElementColor;
+    }
+    editModeScenegraphNodes.OriginPointCoordinate->point.set1Value(
+        0,
+        SbVec3f(0, 0, viewOrientationFactor * drawingParameters.zRootPoint)
+    );
+    editModeScenegraphNodes.OriginPointCoordinateOccluded->point.set1Value(
+        0,
+        SbVec3f(0, 0, viewOrientationFactor * drawingParameters.zRootPoint)
+    );
 
     for (auto l = 0; l < geometryLayerParameters.getCoinLayerCount(); l++) {
         float x, y, z;
@@ -193,6 +235,10 @@ void EditModeGeometryCoinManager::updateGeometryColor(const GeoListFacade& geoli
 
         // colors of the point set
         for (int i = 0; i < PtNum; i++) {
+            if (!coinMapping.isValidPointId(i, l)) {
+                continue;
+            }
+
             int GeoId = coinMapping.getPointGeoId(i, l);
             Sketcher::PointPos PosId = coinMapping.getPointPosId(i, l);
             bool isExternal = GeoId < -1;
@@ -202,13 +248,15 @@ void EditModeGeometryCoinManager::updateGeometryColor(const GeoListFacade& geoli
                     pcolor[i] = drawingParameters.ConstrIcoColor;
                 }
                 else {
-                    pcolor[i] = drawingParameters.CurveExternalColor;
+                    pcolor[i] = isExternalDefiningGeomPoint(GeoId)
+                        ? drawingParameters.CurveExternalDefiningColor
+                        : drawingParameters.CurveExternalColor;
                 }
             }
             else if (issketchinvalid) {
                 pcolor[i] = drawingParameters.InvalidSketchColor;
             }
-            else if (!(i == 0 && l == 0) && sketchFullyConstrained) {
+            else if (sketchFullyConstrained) {
                 // root point is not coloured nor external
                 pcolor[i] = drawingParameters.FullyConstrainedColor;
             }
@@ -261,10 +309,12 @@ void EditModeGeometryCoinManager::updateGeometryColor(const GeoListFacade& geoli
 
         // update rendering height of points
 
-        auto getRenderHeight = [this](DrawingParameters::GeometryRendering renderingtype,
-                                      float toprendering,
-                                      float midrendering,
-                                      float lowrendering) {
+        auto getRenderHeight = [this](
+                                   DrawingParameters::GeometryRendering renderingtype,
+                                   float toprendering,
+                                   float midrendering,
+                                   float lowrendering
+                               ) {
             if (drawingParameters.topRenderingGeometry == renderingtype) {
                 return toprendering;
             }
@@ -276,43 +326,46 @@ void EditModeGeometryCoinManager::updateGeometryColor(const GeoListFacade& geoli
             }
         };
 
-        float zNormPoint = getRenderHeight(DrawingParameters::GeometryRendering::NormalGeometry,
-                                           drawingParameters.zHighPoints,
-                                           drawingParameters.zMidPoints,
-                                           drawingParameters.zMidPoints);
+        float zNormPoint = getRenderHeight(
+            DrawingParameters::GeometryRendering::NormalGeometry,
+            drawingParameters.zHighPoints,
+            drawingParameters.zMidPoints,
+            drawingParameters.zMidPoints
+        );
 
-        float zConstrPoint = getRenderHeight(DrawingParameters::GeometryRendering::Construction,
-                                             drawingParameters.zHighPoints,
-                                             drawingParameters.zMidPoints,
-                                             drawingParameters.zMidPoints);
+        float zConstrPoint = getRenderHeight(
+            DrawingParameters::GeometryRendering::Construction,
+            drawingParameters.zHighPoints,
+            drawingParameters.zMidPoints,
+            drawingParameters.zMidPoints
+        );
 
-        for (int i = 0; i < PtNum; i++) {  // 0 is the origin
-            if (i == 0 && l == 0) {        // reset root point to lowest
-                pverts[i].setValue(0, 0, viewOrientationFactor * drawingParameters.zRootPoint);
+        for (int i = 0; i < PtNum; i++) {
+            if (!coinMapping.isValidPointId(i, l)) {
+                continue;
             }
-            else {
-                int GeoId = coinMapping.getPointGeoId(i, l);
-                Sketcher::PointPos PosId = coinMapping.getPointPosId(i, l);
-                pverts[i].getValue(x, y, z);
-                auto geom = geolistfacade.getGeometryFacadeFromGeoId(GeoId);
-                bool isExternal = GeoId < -1;
 
-                if (geom) {
-                    z = viewOrientationFactor * zNormPoint;
+            int GeoId = coinMapping.getPointGeoId(i, l);
+            Sketcher::PointPos PosId = coinMapping.getPointPosId(i, l);
+            pverts[i].getValue(x, y, z);
+            auto geom = geolistfacade.getGeometryFacadeFromGeoId(GeoId);
+            bool isExternal = GeoId < -1;
 
-                    if (isCoincident(GeoId, PosId)) {
-                        z = viewOrientationFactor * drawingParameters.zLowPoints;
-                    }
-                    else {
-                        if (isExternal || isInternalAlignedGeom(GeoId)) {
-                            z = viewOrientationFactor * drawingParameters.zRootPoint;
-                        }
-                        else if (geom->getConstruction()) {
-                            z = viewOrientationFactor * zConstrPoint;
-                        }
-                    }
-                    pverts[i].setValue(x, y, z);
+            if (geom) {
+                z = viewOrientationFactor * zNormPoint;
+
+                if (isCoincident(GeoId, PosId)) {
+                    z = viewOrientationFactor * drawingParameters.zLowPoints;
                 }
+                else {
+                    if (isExternal || isInternalAlignedGeom(GeoId)) {
+                        z = viewOrientationFactor * drawingParameters.zRootPoint;
+                    }
+                    else if (geom->getConstruction()) {
+                        z = viewOrientationFactor * zConstrPoint;
+                    }
+                }
+                pverts[i].setValue(x, y, z);
             }
         }
 
@@ -329,9 +382,7 @@ void EditModeGeometryCoinManager::updateGeometryColor(const GeoListFacade& geoli
         MultiFieldId preselectpointmfid;
 
         if (preselectcross == 0) {
-            if (l == 0) {  // cross only in layer 0
-                pcolor[0] = drawingParameters.PreselectColor;
-            }
+            editModeScenegraphNodes.OriginPointMaterial->diffuseColor = drawingParameters.PreselectColor;
         }
         else if (preselectpoint != -1) {
             preselectpointmfid = coinMapping.getIndexLayer(preselectpoint);
@@ -340,14 +391,17 @@ void EditModeGeometryCoinManager::updateGeometryColor(const GeoListFacade& geoli
 
                 pcolor[preselectpointmfid.fieldIndex] = drawingParameters.PreselectColor;
 
-                raisePoint(pverts[preselectpointmfid.fieldIndex],
-                           viewOrientationFactor * drawingParameters.zHighlight);
+                raisePoint(
+                    pverts[preselectpointmfid.fieldIndex],
+                    viewOrientationFactor * drawingParameters.zHighlight
+                );
             }
         }
 
         ViewProviderSketchCoinAttorney::executeOnSelectionPointSet(
             viewProvider,
-            [pcolor,
+            [this,
+             pcolor,
              pverts,
              PtNum,
              preselectpointmfid,
@@ -357,51 +411,80 @@ void EditModeGeometryCoinManager::updateGeometryColor(const GeoListFacade& geoli
              raisePoint,
              viewOrientationFactor](const int i) {
                 auto pointindex = coinMapping.getIndexLayer(i);
+
+                if (pointindex.fieldIndex == -1) {  // It's the origin
+                    editModeScenegraphNodes.OriginPointMaterial->diffuseColor
+                        = drawingParameters.SelectColor;
+                    return;
+                }
+
                 if (layerId == pointindex.layerId && pointindex.fieldIndex >= 0
                     && pointindex.fieldIndex < PtNum) {
                     pcolor[pointindex.fieldIndex] = (preselectpointmfid == pointindex)
                         ? drawingParameters.PreselectSelectedColor
                         : drawingParameters.SelectColor;
 
-                    raisePoint(pverts[pointindex.fieldIndex],
-                               viewOrientationFactor * drawingParameters.zHighlight);
+                    raisePoint(
+                        pverts[pointindex.fieldIndex],
+                        viewOrientationFactor * drawingParameters.zHighlight
+                    );
                 }
-            });
+            }
+        );
 
         // update colors and rendering height of the curves
 
-        float zNormLine = getRenderHeight(DrawingParameters::GeometryRendering::NormalGeometry,
-                                          drawingParameters.zHighLines,
-                                          drawingParameters.zMidLines,
-                                          drawingParameters.zLowLines);
+        float zNormLine = getRenderHeight(
+            DrawingParameters::GeometryRendering::NormalGeometry,
+            drawingParameters.zHighLines,
+            drawingParameters.zMidLines,
+            drawingParameters.zLowLines
+        );
 
-        float zConstrLine = getRenderHeight(DrawingParameters::GeometryRendering::Construction,
-                                            drawingParameters.zHighLines,
-                                            drawingParameters.zMidLines,
-                                            drawingParameters.zLowLines);
+        float zConstrLine = getRenderHeight(
+            DrawingParameters::GeometryRendering::Construction,
+            drawingParameters.zHighLines,
+            drawingParameters.zMidLines,
+            drawingParameters.zLowLines
+        );
 
-        float zExtLine = getRenderHeight(DrawingParameters::GeometryRendering::ExternalGeometry,
-                                         drawingParameters.zHighLines,
-                                         drawingParameters.zMidLines,
-                                         drawingParameters.zLowLines);
+        float zExtLine = getRenderHeight(
+            DrawingParameters::GeometryRendering::ExternalGeometry,
+            drawingParameters.zHighLines,
+            drawingParameters.zMidLines,
+            drawingParameters.zLowLines
+        );
 
         for (auto t = 0; t < geometryLayerParameters.getSubLayerCount(); t++) {
             int CurvNum = editModeScenegraphNodes.CurvesMaterials[l][t]->diffuseColor.getNum();
-            SbColor* color =
-                editModeScenegraphNodes.CurvesMaterials[l][t]->diffuseColor.startEditing();
+            SbColor* color = editModeScenegraphNodes.CurvesMaterials[l][t]->diffuseColor.startEditing();
             SbVec3f* verts = editModeScenegraphNodes.CurvesCoordinate[l][t]->point.startEditing();
 
             int j = 0;  // vertexindex
             for (int i = 0; i < CurvNum; i++) {
+                if (!coinMapping.isValidCurveId(i, l, t)) {
+                    continue;
+                }
+
                 int GeoId = coinMapping.getCurveGeoId(i, l, t);
                 // CurvId has several vertices associated to 1 material
                 // edit->CurveSet->numVertices => [i] indicates number of vertex for line i.
                 int indexes = (editModeScenegraphNodes.CurveSet[l][t]->numVertices[i]);
 
-                bool selected =
-                    ViewProviderSketchCoinAttorney::isCurveSelected(viewProvider, GeoId);
                 bool preselected = (preselectcurve == GeoId);
+
+                auto* obj = viewProvider.getSketchObject();
+                bool isGroupMember = GeoId >= 0 && obj->isInGroup(GeoId, false);
+                if (isGroupMember) {
+                    // We use the same color as group handle.
+                    GeoId = obj->getGroupHandleIfInGroup(GeoId);
+                }
+
+                bool selected = ViewProviderSketchCoinAttorney::isCurveSelected(viewProvider, GeoId);
+                // if a grouped edge is preselected we still want it to be shown
+                preselected = preselected ? true : (preselectcurve == GeoId);
                 bool constrainedElement = isFullyConstraintElement(GeoId);
+                bool isExternal = GeoId < -1;
 
                 if (selected || preselected) {
                     color[i] = selected ? (preselected ? drawingParameters.PreselectSelectedColor
@@ -410,19 +493,22 @@ void EditModeGeometryCoinManager::updateGeometryColor(const GeoListFacade& geoli
 
                     for (int k = j; j < k + indexes; j++) {
                         verts[j].getValue(x, y, z);
-                        verts[j] =
-                            SbVec3f(x, y, viewOrientationFactor * drawingParameters.zHighLine);
+                        verts[j] = SbVec3f(x, y, viewOrientationFactor * drawingParameters.zHighLine);
                     }
                 }
-                else if (geometryLayerParameters.isExternalSubLayer(t)) {
+                else if (isExternal) {
                     auto geom = geolistfacade.getGeometryFacadeFromGeoId(GeoId);
-                    auto egf = ExternalGeometryFacade::getFacade(geom->clone());
+                    std::unique_ptr<Part::Geometry> geomCopy(geom->clone());
+                    // The ExternalGeometryFacade is not the owner of the geometry
+                    auto egf = ExternalGeometryFacade::getFacade(geomCopy.get());
                     auto ref = egf->getRef();
                     if (egf->testFlag(ExternalGeometryExtension::Missing)) {
                         color[i] = drawingParameters.InvalidSketchColor;
                     }
                     else {
-                        color[i] = drawingParameters.CurveExternalColor;
+                        color[i] = egf->testFlag(ExternalGeometryExtension::Defining)
+                            ? drawingParameters.CurveExternalDefiningColor
+                            : drawingParameters.CurveExternalColor;
                     }
                     for (int k = j; j < k + indexes; j++) {
                         verts[j].getValue(x, y, z);
@@ -490,33 +576,44 @@ void EditModeGeometryCoinManager::updateGeometryColor(const GeoListFacade& geoli
 
         // colors of the cross
         if (l == 0) {  // only in layer 0
-            if (ViewProviderSketchCoinAttorney::isCurveSelected(viewProvider,
-                                                                Sketcher::GeoEnum::HAxis)) {
-                crosscolor[0] = drawingParameters.SelectColor;
+            if (ViewProviderSketchCoinAttorney::isCurveSelected(viewProvider, Sketcher::GeoEnum::HAxis)) {
+                crosscolorH[0] = drawingParameters.SelectColor;
             }
             else if (preselectcross == 1) {  // cross only in layer 0
-                crosscolor[0] = drawingParameters.PreselectColor;
+                crosscolorH[0] = drawingParameters.PreselectColor;
             }
             else {
-                crosscolor[0] = drawingParameters.CrossColorH;
+                crosscolorH[0] = drawingParameters.CrossColorH;
             }
 
-            if (ViewProviderSketchCoinAttorney::isCurveSelected(viewProvider,
-                                                                Sketcher::GeoEnum::VAxis)) {
-                crosscolor[1] = drawingParameters.SelectColor;
+            if (ViewProviderSketchCoinAttorney::isCurveSelected(viewProvider, Sketcher::GeoEnum::VAxis)) {
+                crosscolorV[0] = drawingParameters.SelectColor;
             }
             else if (preselectcross == 2) {
-                crosscolor[1] = drawingParameters.PreselectColor;
+                crosscolorV[0] = drawingParameters.PreselectColor;
             }
             else {
-                crosscolor[1] = drawingParameters.CrossColorV;
+                crosscolorV[0] = drawingParameters.CrossColorV;
             }
         }
 
         editModeScenegraphNodes.PointsMaterials[l]->diffuseColor.finishEditing();
+        editModeScenegraphNodes.PointsCoordinate[l]->point.finishEditing();
     }
 
-    editModeScenegraphNodes.RootCrossMaterials->diffuseColor.finishEditing();
+    editModeScenegraphNodes.RootCrossHMaterials->diffuseColor.finishEditing();
+    editModeScenegraphNodes.RootCrossVMaterials->diffuseColor.finishEditing();
+
+    // set color in the hidden pass
+    editModeScenegraphNodes.RootCrossMaterialsOccludedH->diffuseColor.setValue(
+        editModeScenegraphNodes.RootCrossHMaterials->diffuseColor[0]
+    );
+    editModeScenegraphNodes.RootCrossMaterialsOccludedV->diffuseColor.setValue(
+        editModeScenegraphNodes.RootCrossVMaterials->diffuseColor[0]
+    );
+    editModeScenegraphNodes.OriginPointMaterialOccluded->diffuseColor.setValue(
+        editModeScenegraphNodes.OriginPointMaterial->diffuseColor[0]
+    );
 }
 
 void EditModeGeometryCoinManager::updateGeometryLayersConfiguration()
@@ -591,16 +688,17 @@ void EditModeGeometryCoinManager::createEditModePointInventorNodes()
         auto drawstyle = new SoDrawStyle;
         editModeScenegraphNodes.PointsDrawStyle.push_back(drawstyle);
         editModeScenegraphNodes.PointsDrawStyle[i]->setName(concat("PointsDrawStyle", i).c_str());
-        editModeScenegraphNodes.PointsDrawStyle[i]->pointSize =
-            8 * drawingParameters.pixelScalingFactor;
+        editModeScenegraphNodes.PointsDrawStyle[i]->pointSize = 8
+            * drawingParameters.pixelScalingFactor;
         sep->addChild(editModeScenegraphNodes.PointsDrawStyle[i]);
 
         auto pointset = new SoMarkerSet;
         editModeScenegraphNodes.PointSet.push_back(pointset);
         editModeScenegraphNodes.PointSet[i]->setName(concat("PointSet", i).c_str());
-        editModeScenegraphNodes.PointSet[i]->markerIndex =
-            Gui::Inventor::MarkerBitmaps::getMarkerIndex("CIRCLE_FILLED",
-                                                         drawingParameters.markerSize);
+        editModeScenegraphNodes.PointSet[i]->markerIndex = Gui::Inventor::MarkerBitmaps::getMarkerIndex(
+            "CIRCLE_FILLED",
+            drawingParameters.markerSize
+        );
         sep->addChild(editModeScenegraphNodes.PointSet[i]);
 
         editModeScenegraphNodes.PointsGroup->addChild(sep);
@@ -612,34 +710,40 @@ void EditModeGeometryCoinManager::createEditModeCurveInventorNodes()
 {
     editModeScenegraphNodes.CurvesDrawStyle = new SoDrawStyle;
     editModeScenegraphNodes.CurvesDrawStyle->setName("CurvesDrawStyle");
-    editModeScenegraphNodes.CurvesDrawStyle->lineWidth =
-        drawingParameters.CurveWidth * drawingParameters.pixelScalingFactor;
+    editModeScenegraphNodes.CurvesDrawStyle->lineWidth = drawingParameters.CurveWidth
+        * drawingParameters.pixelScalingFactor;
     editModeScenegraphNodes.CurvesDrawStyle->linePattern = drawingParameters.CurvePattern;
     editModeScenegraphNodes.CurvesDrawStyle->linePatternScaleFactor = 2;
 
     editModeScenegraphNodes.CurvesConstructionDrawStyle = new SoDrawStyle;
     editModeScenegraphNodes.CurvesConstructionDrawStyle->setName("CurvesConstructionDrawStyle");
-    editModeScenegraphNodes.CurvesConstructionDrawStyle->lineWidth =
-        drawingParameters.ConstructionWidth * drawingParameters.pixelScalingFactor;
-    editModeScenegraphNodes.CurvesConstructionDrawStyle->linePattern =
-        drawingParameters.ConstructionPattern;
+    editModeScenegraphNodes.CurvesConstructionDrawStyle->lineWidth = drawingParameters.ConstructionWidth
+        * drawingParameters.pixelScalingFactor;
+    editModeScenegraphNodes.CurvesConstructionDrawStyle->linePattern
+        = drawingParameters.ConstructionPattern;
     editModeScenegraphNodes.CurvesConstructionDrawStyle->linePatternScaleFactor = 2;
 
     editModeScenegraphNodes.CurvesInternalDrawStyle = new SoDrawStyle;
     editModeScenegraphNodes.CurvesInternalDrawStyle->setName("CurvesInternalDrawStyle");
-    editModeScenegraphNodes.CurvesInternalDrawStyle->lineWidth =
-        drawingParameters.InternalWidth * drawingParameters.pixelScalingFactor;
-    editModeScenegraphNodes.CurvesInternalDrawStyle->linePattern =
-        drawingParameters.InternalPattern;
+    editModeScenegraphNodes.CurvesInternalDrawStyle->lineWidth = drawingParameters.InternalWidth
+        * drawingParameters.pixelScalingFactor;
+    editModeScenegraphNodes.CurvesInternalDrawStyle->linePattern = drawingParameters.InternalPattern;
     editModeScenegraphNodes.CurvesInternalDrawStyle->linePatternScaleFactor = 2;
 
     editModeScenegraphNodes.CurvesExternalDrawStyle = new SoDrawStyle;
     editModeScenegraphNodes.CurvesExternalDrawStyle->setName("CurvesExternalDrawStyle");
-    editModeScenegraphNodes.CurvesExternalDrawStyle->lineWidth =
-        drawingParameters.ExternalWidth * drawingParameters.pixelScalingFactor;
-    editModeScenegraphNodes.CurvesExternalDrawStyle->linePattern =
-        drawingParameters.ExternalPattern;
+    editModeScenegraphNodes.CurvesExternalDrawStyle->lineWidth = drawingParameters.ExternalWidth
+        * drawingParameters.pixelScalingFactor;
+    editModeScenegraphNodes.CurvesExternalDrawStyle->linePattern = drawingParameters.ExternalPattern;
     editModeScenegraphNodes.CurvesExternalDrawStyle->linePatternScaleFactor = 2;
+
+    editModeScenegraphNodes.CurvesExternalDefiningDrawStyle = new SoDrawStyle;
+    editModeScenegraphNodes.CurvesExternalDefiningDrawStyle->setName("CurvesExternalDefiningDrawStyle");
+    editModeScenegraphNodes.CurvesExternalDefiningDrawStyle->lineWidth
+        = drawingParameters.ExternalDefiningWidth * drawingParameters.pixelScalingFactor;
+    editModeScenegraphNodes.CurvesExternalDefiningDrawStyle->linePattern
+        = drawingParameters.ExternalDefiningPattern;
+    editModeScenegraphNodes.CurvesExternalDefiningDrawStyle->linePatternScaleFactor = 2;
 
     for (int i = 0; i < geometryLayerParameters.getCoinLayerCount(); i++) {
         editModeScenegraphNodes.CurvesMaterials.emplace_back();
@@ -672,6 +776,9 @@ void EditModeGeometryCoinManager::createEditModeCurveInventorNodes()
             }
             else if (geometryLayerParameters.isExternalSubLayer(t)) {
                 sep->addChild(editModeScenegraphNodes.CurvesExternalDrawStyle);
+            }
+            else if (geometryLayerParameters.isExternalDefiningSubLayer(t)) {
+                sep->addChild(editModeScenegraphNodes.CurvesExternalDefiningDrawStyle);
             }
             else {
                 sep->addChild(editModeScenegraphNodes.CurvesDrawStyle);

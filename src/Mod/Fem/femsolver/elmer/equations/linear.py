@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
 # *   Copyright (c) 2022 Uwe Stöhr <uwestoehr@lyx.org>                      *
@@ -31,7 +33,6 @@ __url__ = "https://www.freecad.org"
 
 from . import equation
 
-
 # the linear equation object defines some attributes for some various elmer equations
 # these various elmer equations are based on the linear equation object
 # thus in ObjectsFem module is no method to add a linear equation object
@@ -53,18 +54,30 @@ class Proxy(equation.Proxy):
             "BiCGstablDegree",
             "Linear System",
             "Polynom degree for iterative method 'BiCGstabl'",
+            locked=True,
         )
         obj.addProperty(
             "App::PropertyIntegerConstraint",
             "IdrsParameter",
             "Linear System",
             "Parameter for iterative method 'Idrs'",
+            locked=True,
         )
-        obj.addProperty("App::PropertyEnumeration", "LinearDirectMethod", "Linear System", "")
-        obj.addProperty("App::PropertyIntegerConstraint", "LinearIterations", "Linear System", "")
-        obj.addProperty("App::PropertyEnumeration", "LinearIterativeMethod", "Linear System", "")
-        obj.addProperty("App::PropertyEnumeration", "LinearPreconditioning", "Linear System", "")
-        obj.addProperty("App::PropertyEnumeration", "LinearSolverType", "Linear System", "")
+        obj.addProperty(
+            "App::PropertyEnumeration", "LinearDirectMethod", "Linear System", "", locked=True
+        )
+        obj.addProperty(
+            "App::PropertyIntegerConstraint", "LinearIterations", "Linear System", "", locked=True
+        )
+        obj.addProperty(
+            "App::PropertyEnumeration", "LinearIterativeMethod", "Linear System", "", locked=True
+        )
+        obj.addProperty(
+            "App::PropertyEnumeration", "LinearPreconditioning", "Linear System", "", locked=True
+        )
+        obj.addProperty(
+            "App::PropertyEnumeration", "LinearSolverType", "Linear System", "", locked=True
+        )
         obj.addProperty(
             "App::PropertyBool",
             "LinearSystemSolverDisabled",
@@ -74,15 +87,19 @@ class Proxy(equation.Proxy):
                 "Only use for special cases\n"
                 "and consult the Elmer docs."
             ),
+            locked=True,
         )
         obj.addProperty(
             "App::PropertyFloat",
             "LinearTolerance",
             "Linear System",
             "Linear preconditioning method",
+            locked=True,
         )
-        obj.addProperty("App::PropertyBool", "Stabilize", "Base", "")
-        obj.addProperty("App::PropertyFloat", "SteadyStateTolerance", "Steady State", "")
+        obj.addProperty("App::PropertyBool", "Stabilize", "Base", "", locked=True)
+        obj.addProperty(
+            "App::PropertyFloat", "SteadyStateTolerance", "Steady State", "", locked=True
+        )
 
         obj.BiCGstablDegree = (2, 2, 10, 1)
         obj.IdrsParameter = (2, 1, 10, 1)
@@ -94,7 +111,7 @@ class Proxy(equation.Proxy):
         obj.LinearPreconditioning = "ILU0"
         # we must set an expression because we don't have a UI, the user has to
         # view and edit the tolerance via the property editor and this does not
-        # yet allow to view and edit small numbers in scientific notation
+        # yet allow one to view and edit small numbers in scientific notation
         # forum thread: https://forum.freecad.org/viewtopic.php?p=613897#p613897
         obj.setExpression("LinearTolerance", "1e-10")
         obj.LinearSolverType = LINEAR_SOLVER

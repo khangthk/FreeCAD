@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2002 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -22,31 +24,21 @@
  ***************************************************************************/
 
 
-#ifndef BASE_XMLTOOLS_H
-#define BASE_XMLTOOLS_H
+#pragma once
 
 #include <memory>
-#include <iostream>
+#include <ostream>
 #include <xercesc/util/TransService.hpp>
+#include <xercesc/framework/MemoryManager.hpp>
 
-#include <Base/Exception.h>
+#include <FCGlobal.h>
 
-#ifndef XERCES_CPP_NAMESPACE_BEGIN
-#define XERCES_CPP_NAMESPACE_QUALIFIER
-using namespace XERCES_CPP_NAMESPACE;
 namespace XERCES_CPP_NAMESPACE
 {
 class DOMNode;
 class DOMElement;
 class DOMDocument;
 }  // namespace XERCES_CPP_NAMESPACE
-#else
-XERCES_CPP_NAMESPACE_BEGIN
-class DOMNode;
-class DOMElement;
-class DOMDocument;
-XERCES_CPP_NAMESPACE_END
-#endif
 
 // Helper class
 class BaseExport XMLTools
@@ -54,11 +46,29 @@ class BaseExport XMLTools
 public:
     static std::string toStdString(const XMLCh* const toTranscode);
     static std::basic_string<XMLCh> toXMLString(const char* const fromTranscode);
+    static std::string escapeXml(const std::string& input);
     static void initialize();
     static void terminate();
 
 private:
     static std::unique_ptr<XERCES_CPP_NAMESPACE::XMLTranscoder> transcoder;  // NOLINT
+};
+
+// Helper class for XStrLiteral macro
+// This implementation is almost same as Xerces default memory manager.
+class BaseExport XStrMemoryManager final: public XERCES_CPP_NAMESPACE::MemoryManager
+{
+public:
+    XStrMemoryManager() = default;
+    ~XStrMemoryManager() = default;
+
+    MemoryManager* getExceptionMemoryManager() override
+    {
+        return this;
+    }
+
+    void* allocate(XMLSize_t size) override;
+    void deallocate(void* p) override;
 };
 
 //**************************************************************************
@@ -88,12 +98,12 @@ inline std::ostream& operator<<(std::ostream& target, const StrX& toDump)
 }
 
 inline StrX::StrX(const XMLCh* const toTranscode)
-    : fLocalForm(XERCES_CPP_NAMESPACE_QUALIFIER XMLString::transcode(toTranscode))
+    : fLocalForm(XERCES_CPP_NAMESPACE::XMLString::transcode(toTranscode))
 {}
 
 inline StrX::~StrX()
 {
-    XERCES_CPP_NAMESPACE_QUALIFIER XMLString::release(&fLocalForm);
+    XERCES_CPP_NAMESPACE::XMLString::release(&fLocalForm);
 }
 
 
@@ -152,6 +162,7 @@ class XStr
 public:
     ///  Constructors and Destructor
     explicit XStr(const char* const toTranscode);
+    explicit XStr(const char* const toTranscode, XERCES_CPP_NAMESPACE::MemoryManager* memMgr);
     ~XStr();
 
 
@@ -162,17 +173,36 @@ public:
 private:
     /// This is the Unicode XMLCh format of the string.
     XMLCh* fUnicodeForm;
+    XERCES_CPP_NAMESPACE::MemoryManager* memMgr;
 };
 
 
 inline XStr::XStr(const char* const toTranscode)
-    : fUnicodeForm(XERCES_CPP_NAMESPACE_QUALIFIER XMLString::transcode(toTranscode))
+    : XStr(toTranscode, XERCES_CPP_NAMESPACE::XMLPlatformUtils::fgMemoryManager)
+{}
+
+inline XStr::XStr(const char* const toTranscode, XERCES_CPP_NAMESPACE_QUALIFIER MemoryManager* memMgr)
+    : fUnicodeForm(XERCES_CPP_NAMESPACE::XMLString::transcode(toTranscode, memMgr))
+    , memMgr(memMgr)
 {}
 
 inline XStr::~XStr()
 {
-    XERCES_CPP_NAMESPACE_QUALIFIER XMLString::release(&fUnicodeForm);
+    XERCES_CPP_NAMESPACE::XMLString::release(&fUnicodeForm, memMgr);
 }
+
+// Uses the compiler to create a cache of transcoded string literals so that each subsequent call
+// can reuse the data from the lambda's initial creation. Permits the same usage as
+// XStr("literal").unicodeForm()
+// XStrLiteral macro use local memory manager instance to prevent segfault on releasing cached
+// string because xerces default memory manager is already deleted when destructing local static
+// variable.
+#define XStrLiteral(literal) \
+    ([]() -> const XStr& { \
+        static XStrMemoryManager memMgr; \
+        static const XStr str {literal, &memMgr}; \
+        return str; \
+    }())
 
 
 // -----------------------------------------------------------------------
@@ -210,6 +240,14 @@ inline XUTF8Str::XUTF8Str(const char* const fromTranscode)
 
 inline XUTF8Str::~XUTF8Str() = default;
 
+// Uses the compiler to create a cache of transcoded string literals so that each subsequent call
+// can reuse the data from the lambda's initial creation. Permits the same usage as
+// XStr("literal").unicodeForm()
+#define XUTF8StrLiteral(literal) \
+    ([]() -> const XUTF8Str& { \
+        static const XUTF8Str str {literal}; \
+        return str; \
+    }())
 
 // -----------------------------------------------------------------------
 //  Getter methods
@@ -218,5 +256,3 @@ inline const XMLCh* XUTF8Str::unicodeForm() const
 {
     return str.c_str();
 }
-
-#endif  // BASE_XMLTOOLS_H

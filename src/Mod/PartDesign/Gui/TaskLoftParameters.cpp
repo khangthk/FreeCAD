@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 Stefan Tröger <stefantroeger@gmx.net>              *
  *                                                                         *
@@ -21,18 +23,17 @@
  ***************************************************************************/
 
 
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
 #include <QAction>
-#endif
+#include <QEvent>
+
 
 #include <App/Application.h>
 #include <App/Document.h>
 #include <Gui/Application.h>
 #include <Gui/CommandT.h>
 #include <Gui/Document.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
+#include <Gui/Tools.h>
 #include <Mod/PartDesign/App/FeatureLoft.h>
 
 #include "ui_TaskLoftParameters.h"
@@ -46,13 +47,34 @@ using namespace Gui;
 
 /* TRANSLATOR PartDesignGui::TaskLoftParameters */
 
+namespace
+{
+bool isSubtractiveLoft(ViewProviderLoft* view)
+{
+    auto* loft = view->getObject<PartDesign::Loft>();
+    return loft->getAddSubType() == PartDesign::FeatureAddSub::Type::Subtractive;
+}
+
+std::string loftTaskIconName(ViewProviderLoft* view)
+{
+    return isSubtractiveLoft(view) ? "PartDesign_SubtractiveLoft" : "PartDesign_AdditiveLoft";
+}
+
+QString loftTaskTitle(ViewProviderLoft* view)
+{
+    return isSubtractiveLoft(view) ? TaskLoftParameters::tr("Subtractive Loft Parameters")
+                                   : TaskLoftParameters::tr("Additive Loft Parameters");
+}
+}  // namespace
+
 TaskLoftParameters::TaskLoftParameters(ViewProviderLoft* LoftView, bool /*newObj*/, QWidget* parent)
-    : TaskSketchBasedParameters(LoftView, parent, "PartDesign_AdditiveLoft", tr("Loft parameters"))
+    : TaskSketchBasedParameters(LoftView, parent, loftTaskIconName(LoftView), loftTaskTitle(LoftView))
     , ui(new Ui_TaskLoftParameters)
 {
     // we need a separate container widget to add all controls to
     proxy = new QWidget(this);
     ui->setupUi(proxy);
+    setupOperation(ui->labelOperation, ui->comboOperation);
     QMetaObject::connectSlotsByName(this);
 
     // clang-format off
@@ -72,23 +94,20 @@ TaskLoftParameters::TaskLoftParameters(ViewProviderLoft* LoftView, bool /*newObj
 
     // Create context menu
     QAction* remove = new QAction(tr("Remove"), this);
-    {
-        auto& rcCmdMgr = Gui::Application::Instance->commandManager();
-        auto shortcut = rcCmdMgr.getCommandByName("Std_Delete")->getShortcut();
-        remove->setShortcut(QKeySequence(shortcut));
-    }
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+    remove->setShortcut(Gui::QtTools::deleteKeySequence());
+
     // display shortcut behind the context menu entry
     remove->setShortcutVisibleInContextMenu(true);
-#endif
     ui->listWidgetReferences->addAction(remove);
     ui->listWidgetReferences->setContextMenuPolicy(Qt::ActionsContextMenu);
     connect(remove, &QAction::triggered, this, &TaskLoftParameters::onDeleteSection);
 
-    connect(ui->listWidgetReferences->model(),
-            &QAbstractListModel::rowsMoved,
-            this,
-            &TaskLoftParameters::indexesMoved);
+    connect(
+        ui->listWidgetReferences->model(),
+        &QAbstractListModel::rowsMoved,
+        this,
+        &TaskLoftParameters::indexesMoved
+    );
 
     this->groupLayout()->addWidget(proxy);
 
@@ -99,7 +118,7 @@ TaskLoftParameters::TaskLoftParameters(ViewProviderLoft* LoftView, bool /*newObj
     }
 
     // add the profiles
-    PartDesign::Loft* loft = static_cast<PartDesign::Loft*>(LoftView->getObject());
+    PartDesign::Loft* loft = LoftView->getObject<PartDesign::Loft>();
     App::DocumentObject* profile = loft->Profile.getValue();
     if (profile) {
         Gui::Application::Instance->showViewProvider(profile);
@@ -167,7 +186,9 @@ void TaskLoftParameters::onSelectionChanged(const Gui::SelectionChanges& msg)
                     item->setData(
                         Qt::UserRole,
                         QVariant::fromValue(
-                            std::make_pair(object, std::vector<std::string>(1, msg.pSubName))));
+                            std::make_pair(object, std::vector<std::string>(1, msg.pSubName))
+                        )
+                    );
                     ui->listWidgetReferences->addItem(item);
                 }
                 else if (selectionMode == refRemove) {
@@ -214,11 +235,11 @@ bool TaskLoftParameters::referenceSelected(const Gui::SelectionChanges& msg) con
             loft->Profile.setValue(obj, {msg.pSubName});
             return true;
         }
-        else if (selectionMode == refAdd || selectionMode == refRemove) {
+
+        if (selectionMode == refAdd || selectionMode == refRemove) {
             // now check the sections
             std::vector<App::DocumentObject*> refs = loft->Sections.getValues();
-            std::vector<App::DocumentObject*>::iterator f =
-                std::find(refs.begin(), refs.end(), obj);
+            const auto f = std::ranges::find(refs, obj);
 
             if (selectionMode == refAdd) {
                 if (f != refs.end()) {
@@ -260,18 +281,16 @@ void TaskLoftParameters::onDeleteSection()
     int row = ui->listWidgetReferences->currentRow();
     QListWidgetItem* item = ui->listWidgetReferences->takeItem(row);
     if (item) {
-        QByteArray data(item->data(Qt::UserRole)
-                            .value<App::PropertyLinkSubList::SubSet>()
-                            .first->getNameInDocument());
+        QByteArray data(
+            item->data(Qt::UserRole).value<App::PropertyLinkSubList::SubSet>().first->getNameInDocument()
+        );
         delete item;
 
         // search inside the list of sections
-        if (auto loft = getObject<PartDesign::Loft>()) {
+        if (const auto loft = getObject<PartDesign::Loft>()) {
             std::vector<App::DocumentObject*> refs = loft->Sections.getValues();
             App::DocumentObject* obj = loft->getDocument()->getObject(data.constData());
-            std::vector<App::DocumentObject*>::iterator f =
-                std::find(refs.begin(), refs.end(), obj);
-            if (f != refs.end()) {
+            if (const auto f = std::ranges::find(refs, obj); f != refs.end()) {
                 loft->Sections.removeValue(obj);
 
                 recomputeFeature();
@@ -323,8 +342,13 @@ void TaskLoftParameters::exitSelectionMode()
     this->blockSelection(true);
 }
 
-void TaskLoftParameters::changeEvent(QEvent* /*e*/)
-{}
+void TaskLoftParameters::changeEvent(QEvent* e)
+{
+    TaskBox::changeEvent(e);
+    if (e->type() == QEvent::LanguageChange) {
+        ui->retranslateUi(proxy);
+    }
+}
 
 void TaskLoftParameters::onClosed(bool val)
 {
@@ -387,6 +411,7 @@ TaskDlgLoftParameters::TaskDlgLoftParameters(ViewProviderLoft* LoftView, bool ne
     parameter = new TaskLoftParameters(LoftView, newObj);
 
     Content.push_back(parameter);
+    Content.push_back(preview);
 }
 
 TaskDlgLoftParameters::~TaskDlgLoftParameters() = default;

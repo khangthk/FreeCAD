@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2017 Shai Seger <shaise at gmail>                       *
  *                                                                         *
@@ -20,17 +22,18 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Base/Console.h>
 #include <Base/Interpreter.h>
 
 #include "CAMSim.h"
 #include "CAMSimPy.h"
+#include "ViewCAMSimulator.h"
 
 
 namespace CAMSimulator
 {
+
 class Module: public Py::ExtensionModule<Module>
 {
 public:
@@ -54,7 +57,6 @@ PyObject* initModule()
 
 }  // namespace CAMSimulator
 
-
 /* Python entry */
 PyMOD_INIT_FUNC(CAMSimulator)
 {
@@ -71,7 +73,7 @@ PyMOD_INIT_FUNC(CAMSimulator)
 
     //
     PyObject* mod = CAMSimulator::initModule();
-    Base::Console().Log("Loading CAMSimulator module.... done\n");
+    Base::Console().log("Loading CAMSimulator module.... done\n");
 
     // Add Types to module
     Base::Interpreter().addType(&CAMSimulator::CAMSimPy::Type, mod, "PathSim");
@@ -80,6 +82,7 @@ PyMOD_INIT_FUNC(CAMSimulator)
     // call PyType_Ready, otherwise we run into a segmentation fault, later on.
     // This function is responsible for adding inherited slots from a type's base class.
     CAMSimulator::CAMSim::init();
+    CAMSimulator::ViewCAMSimulator::init();
 
     PyMOD_Return(mod);
 }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /**************************************************************************
  *   Copyright (c) 2023 Wanderer Fan <wandererfan@gmail.com>               *
  *                                                                         *
@@ -19,7 +21,6 @@
  *                                                                         *
  **************************************************************************/
 
-#include "PreCompiled.h"
 
 #include "DlgPrefsMeasureAppearanceImp.h"
 #include "ui_DlgPrefsMeasureAppearanceImp.h"
@@ -44,6 +45,8 @@ void DlgPrefsMeasureAppearanceImp::saveSettings()
     ui->cbText->onSave();
     ui->cbLine->onSave();
     ui->cbBackground->onSave();
+    ui->sbArrowRadius->onSave();
+    ui->sbArrowHeight->onSave();
 }
 
 void DlgPrefsMeasureAppearanceImp::loadSettings()
@@ -52,6 +55,8 @@ void DlgPrefsMeasureAppearanceImp::loadSettings()
     ui->cbText->onRestore();
     ui->cbBackground->onRestore();
     ui->cbLine->onRestore();
+    ui->sbArrowRadius->onRestore();
+    ui->sbArrowHeight->onRestore();
 }
 
 /**

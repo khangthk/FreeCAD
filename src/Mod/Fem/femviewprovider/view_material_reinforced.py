@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2019 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -39,4 +41,4 @@ class VPMaterialReinforced(view_base_femmaterial.VPBaseFemMaterial):
     """
 
     def setEdit(self, vobj, mode=0):
-        super().setEdit(vobj, mode, task_material_reinforced._TaskPanel)
+        return super().setEdit(vobj, mode, task_material_reinforced._TaskPanel)

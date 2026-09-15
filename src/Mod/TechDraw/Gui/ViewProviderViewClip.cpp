@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2004 Jürgen Riegel <juergen.riegel@web.de>              *
  *   Copyright (c) 2012 Luke Parry <l.parry@warwick.ac.uk>                 *
@@ -21,28 +23,30 @@
  *                                                                         *
  ***************************************************************************/
 
+#include <FCConfig.h>
 
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
 # ifdef FC_OS_WIN32
 #  include <windows.h>
 # endif
-#endif
 
 #include <App/DocumentObject.h>
 #include <Mod/TechDraw/App/DrawPage.h>
 #include <Mod/TechDraw/App/DrawProjGroupItem.h>
 
 #include "ViewProviderViewClip.h"
+#include "QGIViewClip.h"
 
 using namespace TechDrawGui;
+using namespace TechDraw;
 
 PROPERTY_SOURCE(TechDrawGui::ViewProviderViewClip, TechDrawGui::ViewProviderDrawingView)
 
 ViewProviderViewClip::ViewProviderViewClip()
 {
     sPixmap = "actions/TechDraw_ClipGroup";
+
+    ADD_PROPERTY_TYPE(ClipChildren,(true), "Clip", App::Prop_None, "True clips children. False shows entire child views");
+
 
     // Do not show in property editor   why? wf  WF: because DisplayMode applies only to coin and we
     // don't use coin.
@@ -111,7 +115,7 @@ TechDraw::DrawViewClip* ViewProviderViewClip::getObject() const
 
 void ViewProviderViewClip::dragObject(App::DocumentObject* docObj)
 {
-    if (!docObj->isDerivedFrom(TechDraw::DrawView::getClassTypeId())) {
+    if (!docObj->isDerivedFrom<TechDraw::DrawView>()) {
         return;
     }
 
@@ -122,14 +126,15 @@ void ViewProviderViewClip::dragObject(App::DocumentObject* docObj)
 
 void ViewProviderViewClip::dropObject(App::DocumentObject* docObj)
 {
-    if (docObj->isDerivedFrom(TechDraw::DrawProjGroupItem::getClassTypeId())) {
+    auto dvp = freecad_cast<DrawViewPart*>(docObj);
+    if (dvp && DrawView::isProjGroupItem(dvp)) {
         //DPGI can not be dropped onto the Page if it belongs to DPG
         auto* dpgi = static_cast<TechDraw::DrawProjGroupItem*>(docObj);
         if (dpgi->getPGroup()) {
             return;
         }
     }
-    if (!docObj->isDerivedFrom(TechDraw::DrawView::getClassTypeId())) {
+    if (!docObj->isDerivedFrom<TechDraw::DrawView>()) {
         return;
     }
 
@@ -147,3 +152,14 @@ void ViewProviderViewClip::dropObject(App::DocumentObject* docObj)
 
     getObject()->addView(dv);
 }
+
+void ViewProviderViewClip::onChanged(const App::Property* prop)
+{
+    if (prop == &ClipChildren) {
+        QGIView* qgiv = getQView();
+        if (qgiv) {
+            qgiv->updateView(true);
+        }
+    }
+}
+

@@ -22998,9 +22998,9 @@ Efaces
 Efaces
 
 ***********************************************************
-** constraints fixed node sets
-** ConstraintFixed
-*NSET,NSET=ConstraintFixed
+** constraints displacement node sets
+** Displacement
+*NSET,NSET=Displacement
 2,
 3,
 136,
@@ -23068,8 +23068,8 @@ Efaces
 
 ***********************************************************
 ** constraints contact surface sets
-** ConstraintContact
-*SURFACE, NAME=DEPConstraintContact
+** Contact
+*SURFACE, NAME=DEPContact
 329,S2
 330,S2
 331,S2
@@ -30568,7 +30568,7 @@ Efaces
 7824,S2
 7825,S2
 7826,S2
-*SURFACE, NAME=INDConstraintContact
+*SURFACE, NAME=INDContact
 7827,S2
 7828,S2
 7829,S2
@@ -38359,18 +38359,20 @@ Efaces
 *MATERIAL, NAME=MechanicalMaterial
 *ELASTIC
 72000,0.3
+*EXPANSION, ZERO=0
+0
 
 ***********************************************************
 ** Sections
-*SHELL SECTION, ELSET=MechanicalMaterialShellThickness, MATERIAL=MechanicalMaterial
+*SHELL SECTION, ELSET=MechanicalMaterialShellThickness, MATERIAL=MechanicalMaterial, OFFSET=0
 0.5
 
 ***********************************************************
 ** Contact Constraints
-** ConstraintContact
-*CONTACT PAIR, INTERACTION=INTConstraintContact, TYPE=SURFACE TO SURFACE
-DEPConstraintContact, INDConstraintContact
-*SURFACE INTERACTION, NAME=INTConstraintContact
+** Contact
+*CONTACT PAIR, INTERACTION=INTContact, TYPE=SURFACE TO SURFACE
+DEPContact, INDContact
+*SURFACE INTERACTION, NAME=INTContact
 *SURFACE BEHAVIOR, PRESSURE-OVERCLOSURE=LINEAR
 1000000
 
@@ -38381,21 +38383,18 @@ DEPConstraintContact, INDConstraintContact
 
 
 ***********************************************************
-** Fixed Constraints
-** ConstraintFixed
+** Displacement constraint applied
+** Displacement
 *BOUNDARY
-ConstraintFixed,1
-ConstraintFixed,2
-ConstraintFixed,3
-ConstraintFixed,4
-ConstraintFixed,5
-ConstraintFixed,6
+Displacement,1,1,0
+Displacement,2,2,0
+Displacement,3,3,0
 
 
 ***********************************************************
 ** constraints force node loads
+** Force
 *CLOAD
-** ConstraintForce
 ** node load on shape: Load_place_point:Vertex1
 5,2,-5000
 
@@ -38408,9 +38407,12 @@ U
 *EL FILE
 S, E
 ** outputs --> dat file
-** reaction forces for Constraint fixed
-*NODE PRINT, NSET=ConstraintFixed, TOTALS=ONLY
+** reaction forces for Constraint displacement constraining translation
+*NODE PRINT, NSET=Displacement, TOTALS=ONLY
 RF
+** contact forces for Constraint contact
+*CONTACT PRINT, MASTER=INDContact, SLAVE=DEPContact
+CF, CFN, CFS
 
 *OUTPUT, FREQUENCY=1
 ***********************************************************

@@ -1,5 +1,6 @@
 #! python
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # (c) 2006 Werner Mayer LGPL
 #
 # FreeCAD RevInfo script to get the revision information from Subversion, Bazaar, and Git.
@@ -9,7 +10,8 @@
 # 2012/02/01: The script was extended to support git
 # 2011/02/05: The script was extended to support also Bazaar
 
-import os, sys, re, time, getopt
+import os, sys, re, datetime, time, getopt
+from urllib.parse import urlparse
 import xml.sax
 import xml.sax.handler
 import xml.sax.xmlreader
@@ -275,9 +277,10 @@ class GitControl(VersionControl):
                     match = re.match(r"ssh://\S+?@(\S+)", url)
                     if match is not None:
                         url = "git://%s" % match.group(1)
+                    parsed_url = urlparse(url)
                     entryscore = (
                         url == "git://github.com/FreeCAD/FreeCAD.git",
-                        "github.com" in url,
+                        parsed_url.netloc == "github.com",
                         branch == self.branch,
                         branch == "main",
                         "@" not in url,
@@ -302,10 +305,13 @@ class GitControl(VersionControl):
         referencerevision = 14555
 
         result = None
-        countallfh = os.popen("git rev-list --count %s..HEAD" % referencecommit)
+        null_device = "nul" if os.name == "nt" else "/dev/null"
+        countallfh = os.popen(f"git rev-list --count {referencecommit}..HEAD 2>{null_device}")
         countallstr = countallfh.read().strip()
-        if countallfh.close() is not None:  # reference commit not present
-            self.rev = "%04d (Git shallow)" % referencerevision
+        if countallfh.close() is not None:  # reference commit not present, use the date
+            date_object = datetime.datetime.strptime(self.date, "%Y/%m/%d %H:%M:%S")
+            formatted_date = date_object.strftime("%Y%m%d")
+            self.rev = f"{formatted_date} (Git shallow)"
             return
         else:
             countall = int(countallstr)

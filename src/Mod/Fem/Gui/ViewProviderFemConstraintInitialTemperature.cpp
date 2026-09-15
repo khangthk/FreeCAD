@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Authors: Michael Hindley <hindlemp@eskom.co.za>                       *
@@ -23,7 +25,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include "Mod/Fem/App/FemConstraintInitialTemperature.h"
 #include <Gui/Control.h>
@@ -34,8 +35,7 @@
 
 using namespace FemGui;
 
-PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintInitialTemperature,
-                FemGui::ViewProviderFemConstraint)
+PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintInitialTemperature, FemGui::ViewProviderFemConstraint)
 
 ViewProviderFemConstraintInitialTemperature::ViewProviderFemConstraintInitialTemperature()
 {
@@ -43,8 +43,7 @@ ViewProviderFemConstraintInitialTemperature::ViewProviderFemConstraintInitialTem
     ShapeAppearance.setDiffuseColor(0.2f, 0.3f, 0.2f);
 }
 
-ViewProviderFemConstraintInitialTemperature::~ViewProviderFemConstraintInitialTemperature() =
-    default;
+ViewProviderFemConstraintInitialTemperature::~ViewProviderFemConstraintInitialTemperature() = default;
 
 bool ViewProviderFemConstraintInitialTemperature::setEdit(int ModNum)
 {

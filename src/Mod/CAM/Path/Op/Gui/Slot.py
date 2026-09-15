@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2020 Russell Johnson (russ4262) <russ4262@gmail.com>    *
 # *                                                                         *
@@ -77,9 +78,6 @@ class TaskPanelOpPage(PathOpGui.TaskPanelPage):
 
         self.updateQuantitySpinBoxes()
 
-        self.setupToolController(obj, self.form.toolController)
-        self.setupCoolant(obj, self.form.coolantController)
-
         enums = [t[1] for t in self.propEnums["Reference1"]]
         if "Reference1" in self.ENUMS:
             enums = self.ENUMS["Reference1"]
@@ -98,7 +96,7 @@ class TaskPanelOpPage(PathOpGui.TaskPanelPage):
             idx = enums.index(obj.Reference2)
         self.form.geo2Reference.setCurrentIndex(idx)
 
-        self.selectInComboBox(obj.LayerMode, self.form.layerMode)
+        self.selectInComboBox(obj.CutPattern, self.form.cutPattern)
         self.selectInComboBox(obj.PathOrientation, self.form.pathOrientation)
 
         if obj.ReverseDirection:
@@ -107,23 +105,23 @@ class TaskPanelOpPage(PathOpGui.TaskPanelPage):
             self.form.reverseDirection.setCheckState(QtCore.Qt.Unchecked)
 
     def updateQuantitySpinBoxes(self):
-        self.geo1Extension.updateSpinBox()
-        self.geo2Extension.updateSpinBox()
+        self.geo1Extension.updateWidget()
+        self.geo2Extension.updateWidget()
 
     def getFields(self, obj):
         """getFields(obj) ... transfers values from UI to obj's properties"""
         debugMsg("getFields()")
-        self.updateToolController(obj, self.form.toolController)
-        self.updateCoolant(obj, self.form.coolantController)
 
-        obj.Reference1 = str(self.form.geo1Reference.currentText())
+        val = obj.getEnumerationsOfProperty("Reference1")[self.form.geo1Reference.currentIndex()]
+        obj.Reference1 = val
         self.geo1Extension.updateProperty()
 
-        obj.Reference2 = str(self.form.geo2Reference.currentText())
+        val = obj.getEnumerationsOfProperty("Reference2")[self.form.geo2Reference.currentIndex()]
+        obj.Reference2 = val
         self.geo2Extension.updateProperty()
 
-        val = self.propEnums["LayerMode"][self.form.layerMode.currentIndex()][1]
-        obj.LayerMode = val
+        val = self.propEnums["CutPattern"][self.form.cutPattern.currentIndex()][1]
+        obj.CutPattern = val
 
         val = self.propEnums["PathOrientation"][self.form.pathOrientation.currentIndex()][1]
         obj.PathOrientation = val
@@ -134,15 +132,16 @@ class TaskPanelOpPage(PathOpGui.TaskPanelPage):
         """getSignalsForUpdate(obj) ... return list of signals for updating obj"""
         debugMsg("getSignalsForUpdate()")
         signals = []
-        signals.append(self.form.toolController.currentIndexChanged)
-        signals.append(self.form.coolantController.currentIndexChanged)
         signals.append(self.form.geo1Extension.editingFinished)
         signals.append(self.form.geo1Reference.currentIndexChanged)
         signals.append(self.form.geo2Extension.editingFinished)
         signals.append(self.form.geo2Reference.currentIndexChanged)
-        signals.append(self.form.layerMode.currentIndexChanged)
+        signals.append(self.form.cutPattern.currentIndexChanged)
         signals.append(self.form.pathOrientation.currentIndexChanged)
-        signals.append(self.form.reverseDirection.stateChanged)
+        if hasattr(self.form.reverseDirection, "checkStateChanged"):  # Qt version >= 6.7.0
+            signals.append(self.form.reverseDirection.checkStateChanged)
+        else:  # Qt version < 6.7.0
+            signals.append(self.form.reverseDirection.stateChanged)
         return signals
 
     def updateVisibility(self, sentObj=None):
@@ -274,7 +273,14 @@ Command = PathOpGui.SetupOperation(
     "CAM_Slot",
     QtCore.QT_TRANSLATE_NOOP("CAM_Slot", "Slot"),
     QtCore.QT_TRANSLATE_NOOP(
-        "CAM_Slot", "Create a Slot operation from selected geometry or custom points."
+        "CAM_Slot",
+        "Create a single horizontal slot between two points."
+        "\n\nPoints can be specified through selected geometry or custom points."
+        "\nAllowed selection only from one model:"
+        "\n  - two vertexes,"
+        "\n  - one or two edges,"
+        "\n  - one horizontal or vertical face,"
+        "\n  - one or two vertical faces.",
     ),
     PathSlot.SetupProperties,
 )

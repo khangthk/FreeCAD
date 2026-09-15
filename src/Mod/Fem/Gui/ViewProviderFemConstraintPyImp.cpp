@@ -21,11 +21,9 @@
  *                                                                         *
  **************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <Inventor/nodes/SoSeparator.h>
-#endif
 
+#include <Base/FileInfo.h>
 #include <Base/Interpreter.h>
 
 #include "ViewProviderFemConstraintPy.h"
@@ -50,7 +48,7 @@ PyObject* ViewProviderFemConstraintPy::loadSymbol(PyObject* args)
         return nullptr;
     }
 
-    getViewProviderFemConstraintPtr()->loadSymbol(name);
+    getViewProviderFemConstraintPtr()->loadSymbol(Base::FileInfo::stringToPath(name));
 
     Py_Return;
 }
@@ -60,8 +58,8 @@ Py::Object ViewProviderFemConstraintPy::getSymbolNode() const
     try {
         SoSeparator* sep = getViewProviderFemConstraintPtr()->getSymbolSeparator();
         if (sep) {
-            PyObject* Ptr =
-                Base::Interpreter().createSWIGPointerObj("pivy.coin", "_p_SoSeparator", sep, 1);
+            PyObject* Ptr
+                = Base::Interpreter().createSWIGPointerObj("pivy.coin", "_p_SoSeparator", sep, 1);
             sep->ref();
 
             return Py::Object(Ptr, true);
@@ -80,8 +78,8 @@ Py::Object ViewProviderFemConstraintPy::getExtraSymbolNode() const
     try {
         SoSeparator* sep = getViewProviderFemConstraintPtr()->getExtraSymbolSeparator();
         if (sep) {
-            PyObject* Ptr =
-                Base::Interpreter().createSWIGPointerObj("pivy.coin", "_p_SoSeparator", sep, 1);
+            PyObject* Ptr
+                = Base::Interpreter().createSWIGPointerObj("pivy.coin", "_p_SoSeparator", sep, 1);
             sep->ref();
 
             return Py::Object(Ptr, true);
@@ -103,6 +101,14 @@ Py::Boolean ViewProviderFemConstraintPy::getRotateSymbol() const
 void ViewProviderFemConstraintPy::setRotateSymbol(Py::Boolean arg)
 {
     getViewProviderFemConstraintPtr()->setRotateSymbol((arg));
+}
+
+Py::String ViewProviderFemConstraintPy::getResourceSymbolDir() const
+{
+    std::string dir = Base::FileInfo::pathToString(
+        getViewProviderFemConstraintPtr()->getResourceSymbolDir()
+    );
+    return Py::String(dir);
 }
 
 PyObject* ViewProviderFemConstraintPy::getCustomAttributes(const char* /*attr*/) const

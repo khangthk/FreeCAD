@@ -1,37 +1,40 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2022 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU General Public License (GPL)            *
-# *   as published by the Free Software Foundation; either version 3 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU General Public License for more details.                          *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 """Document observer to act on documents containing NativeIFC objects"""
 
-
-import os
-
 import FreeCAD
+from . import has_ifcopenshell
 
 params = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/NativeIFC")
 
 
 def add_observer():
-    """Adds an observer to the running FreeCAD instance"""
+    """Adds this observer to the running FreeCAD instance"""
+
+    if not has_ifcopenshell(report=True):
+        return
 
     FreeCAD.BIMobserver = ifc_observer()
     FreeCAD.addDocumentObserver(FreeCAD.BIMobserver)
@@ -56,6 +59,8 @@ class ifc_observer:
 
     def slotStartSaveDocument(self, doc, value):
         """Save all IFC documents in this doc"""
+        if not has_ifcopenshell():
+            return
 
         from PySide import QtCore  # lazy loading
 
@@ -67,8 +72,10 @@ class ifc_observer:
 
     def slotDeletedObject(self, obj):
         """Deletes the corresponding object in the IFC document"""
+        if not has_ifcopenshell():
+            return
 
-        from nativeifc import ifc_tools  # lazy loading
+        from . import ifc_tools  # lazy loading
 
         proj = ifc_tools.get_project(obj)
         if not proj:
@@ -81,11 +88,16 @@ class ifc_observer:
 
     def slotChangedDocument(self, doc, prop):
         """Watch document IFC properties"""
+        if not has_ifcopenshell():
+            return
 
-        from nativeifc import ifc_tools  # lazy import
-        from nativeifc import ifc_status
+        # only look at locked IFC documents
+        if "IfcFilePath" not in doc.PropertiesList:
+            return
 
-        if prop == "Schema" and "IfcFilePath" in doc.PropertiesList:
+        from . import ifc_tools  # lazy import
+
+        if prop == "Schema":
             schema = doc.Schema
             ifcfile = ifc_tools.get_ifcfile(doc)
             if ifcfile:
@@ -95,16 +107,18 @@ class ifc_observer:
                     doc.Proxy.ifcfile = ifcfile
                     # migrate children
                     for old_id, new_id in migration_table.items():
-                        child = [
-                            o
-                            for o in doc.Objects
-                            if getattr(o, "StepId", None) == old_id
-                        ]
+                        child = [o for o in doc.Objects if getattr(o, "StepId", None) == old_id]
                         if len(child) == 1:
                             child[0].StepId = new_id
+        elif prop == "Label":
+            ifcfile = ifc_tools.get_ifcfile(doc)
+            project = ifc_tools.get_ifc_element(doc)
+            ifc_tools.set_attribute(ifcfile, project, "Name", doc.Label)
 
     def slotCreatedObject(self, obj):
         """If this is an IFC document, turn the object into IFC"""
+        if not has_ifcopenshell():
+            return
 
         doc = getattr(obj, "Document", None)
         if doc:
@@ -118,10 +132,20 @@ class ifc_observer:
 
     def slotActivateDocument(self, doc):
         """Check if we need to lock"""
+        if not has_ifcopenshell():
+            return
 
-        from nativeifc import ifc_status
+        from . import ifc_status
 
         ifc_status.on_activate()
+
+    def slotRemoveDynamicProperty(self, obj, prop):
+        if not has_ifcopenshell():
+            return
+
+        from . import ifc_psets
+
+        ifc_psets.remove_property(obj, prop)
 
     # implementation methods
 
@@ -131,10 +155,12 @@ class ifc_observer:
         if FreeCAD.GuiUp:
             import FreeCADGui
 
-            FreeCADGui.SendMsgToActiveView("ViewFit")
+            FreeCADGui.ActiveDocument.ActiveView.sendMessage("ViewFit")
 
     def save(self):
         """Saves all IFC documents contained in self.docname Document"""
+        if not has_ifcopenshell():
+            return
 
         if not hasattr(self, "docname"):
             return
@@ -152,8 +178,8 @@ class ifc_observer:
                     if obj.Modified:
                         projects.append(obj)
         if projects:
-            from nativeifc import ifc_tools  # lazy loading
-            from nativeifc import ifc_viewproviders
+            from . import ifc_tools  # lazy loading
+            from . import ifc_viewproviders
 
             ask = params.GetBool("AskBeforeSaving", True)
             if ask and FreeCAD.GuiUp:
@@ -177,6 +203,8 @@ class ifc_observer:
 
     def convert(self):
         """Converts an object to IFC"""
+        if not has_ifcopenshell():
+            return
 
         if not hasattr(self, "objname") or not hasattr(self, "docname"):
             return
@@ -192,10 +220,14 @@ class ifc_observer:
             return
         del self.docname
         del self.objname
-        if obj.isDerivedFrom("Part::Feature") or "IfcType" in obj.PropertiesList:
-            FreeCAD.Console.PrintLog("Converting" + obj.Label + "to IFC\n")
-            from nativeifc import ifc_geometry  # lazy loading
-            from nativeifc import ifc_tools  # lazy loading
+        if (
+            obj.isDerivedFrom("Part::Feature")
+            or "IfcType" in obj.PropertiesList
+            or "CreateSpreadsheet" in obj.PropertiesList
+        ):
+            FreeCAD.Console.PrintLog("Converting " + obj.Label + " to IFC\n")
+            from . import ifc_geometry  # lazy loading
+            from . import ifc_tools  # lazy loading
 
             newobj = ifc_tools.aggregate(obj, doc)
             ifc_geometry.add_geom_properties(newobj)

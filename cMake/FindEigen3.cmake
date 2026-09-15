@@ -1,8 +1,8 @@
 # - Try to find Eigen3 lib
 #
 # This module supports requiring a minimum version, e.g. you can do
-#   find_package(Eigen3 3.1.2)
-# to require version 3.1.2 or newer of Eigen3.
+#   find_package(Eigen3 3.4.0)
+# to require version 3.4.0 or newer of Eigen3.
 #
 # Once done this will define
 #
@@ -17,22 +17,33 @@
 
 if(NOT Eigen3_FIND_VERSION)
   set(Eigen3_FIND_VERSION_MAJOR 3)
-  set(Eigen3_FIND_VERSION_MINOR 0)
+  set(Eigen3_FIND_VERSION_MINOR 4)
   set(Eigen3_FIND_VERSION_PATCH 0)
   set(Eigen3_FIND_VERSION "${Eigen3_FIND_VERSION_MAJOR}.${Eigen3_FIND_VERSION_MINOR}.${Eigen3_FIND_VERSION_PATCH}")
 endif(NOT Eigen3_FIND_VERSION)
 
 macro(_eigen3_check_version)
-  file(READ "${EIGEN3_INCLUDE_DIR}/Eigen/src/Core/util/Macros.h" _eigen3_version_header)
+  # file Version exists from Eigen3 5.0.0
+  if (EXISTS "${EIGEN3_INCLUDE_DIR}/Eigen/Version")
+    file(READ "${EIGEN3_INCLUDE_DIR}/Eigen/Version" _eigen3_version_header)
+    string(REGEX MATCH "define[ \t]+EIGEN_MAJOR_VERSION[ \t]+([0-9]+)" _eigen3_major_version_match "${_eigen3_version_header}")
+    set(EIGEN3_MAJOR_VERSION "${CMAKE_MATCH_1}")
+    string(REGEX MATCH "define[ \t]+EIGEN_MINOR_VERSION[ \t]+([0-9]+)" _eigen3_minor_version_match "${_eigen3_version_header}")
+    set(EIGEN3_MINOR_VERSION "${CMAKE_MATCH_1}")
+    string(REGEX MATCH "define[ \t]+EIGEN_PATCH_VERSION[ \t]+([0-9]+)" _eigen3_patch_version_match "${_eigen3_version_header}")
+    set(EIGEN3_PATCH_VERSION "${CMAKE_MATCH_1}")
+    set(EIGEN3_VERSION ${EIGEN3_MAJOR_VERSION}.${EIGEN3_MINOR_VERSION}.${EIGEN3_PATCH_VERSION})
+  else()
+    file(READ "${EIGEN3_INCLUDE_DIR}/Eigen/src/Core/util/Macros.h" _eigen3_version_header)
+    string(REGEX MATCH "define[ \t]+EIGEN_WORLD_VERSION[ \t]+([0-9]+)" _eigen3_world_version_match "${_eigen3_version_header}")
+    set(EIGEN3_WORLD_VERSION "${CMAKE_MATCH_1}")
+    string(REGEX MATCH "define[ \t]+EIGEN_MAJOR_VERSION[ \t]+([0-9]+)" _eigen3_major_version_match "${_eigen3_version_header}")
+    set(EIGEN3_MAJOR_VERSION "${CMAKE_MATCH_1}")
+    string(REGEX MATCH "define[ \t]+EIGEN_MINOR_VERSION[ \t]+([0-9]+)" _eigen3_minor_version_match "${_eigen3_version_header}")
+    set(EIGEN3_MINOR_VERSION "${CMAKE_MATCH_1}")
+    set(EIGEN3_VERSION ${EIGEN3_WORLD_VERSION}.${EIGEN3_MAJOR_VERSION}.${EIGEN3_MINOR_VERSION})
+  endif()
 
-  string(REGEX MATCH "define[ \t]+EIGEN_WORLD_VERSION[ \t]+([0-9]+)" _eigen3_world_version_match "${_eigen3_version_header}")
-  set(EIGEN3_WORLD_VERSION "${CMAKE_MATCH_1}")
-  string(REGEX MATCH "define[ \t]+EIGEN_MAJOR_VERSION[ \t]+([0-9]+)" _eigen3_major_version_match "${_eigen3_version_header}")
-  set(EIGEN3_MAJOR_VERSION "${CMAKE_MATCH_1}")
-  string(REGEX MATCH "define[ \t]+EIGEN_MINOR_VERSION[ \t]+([0-9]+)" _eigen3_minor_version_match "${_eigen3_version_header}")
-  set(EIGEN3_MINOR_VERSION "${CMAKE_MATCH_1}")
-
-  set(EIGEN3_VERSION ${EIGEN3_WORLD_VERSION}.${EIGEN3_MAJOR_VERSION}.${EIGEN3_MINOR_VERSION})
   if(${EIGEN3_VERSION} VERSION_LESS ${Eigen3_FIND_VERSION})
     set(EIGEN3_VERSION_OK FALSE)
     message(STATUS "Eigen3 version ${EIGEN3_VERSION} found in ${EIGEN3_INCLUDE_DIR}, "

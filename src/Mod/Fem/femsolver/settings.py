@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
 # *   Copyright (c) 2019 Bernd Hahnebach <bernd@bimstatik.org>              *
@@ -21,7 +23,7 @@
 # *   USA                                                                   *
 # *                                                                         *
 # ***************************************************************************
-""" Query FEM specific settings including solver settings.
+"""Query FEM specific settings including solver settings.
 
 Query settings from the hierarchically organized settings/parameter system of
 FreeCAD related to the FEM module. The collection of independent functions use
@@ -147,7 +149,9 @@ def get_write_comments(name):
 def get_custom_dir():
     """Get value for :term:`General/CustomDirectoryPath` parameter."""
     param_group = FreeCAD.ParamGet(_GENERAL_PARAM)
-    return param_group.GetString("CustomDirectoryPath")
+    custom_dir = param_group.GetString("CustomDirectoryPath")
+    # if no custom directory, use home directory
+    return custom_dir if custom_dir else FreeCAD.ConfigGet("UserHomePath")
 
 
 def get_dir_setting():
@@ -168,15 +172,13 @@ def get_dir_setting():
 
 def get_default_solver():
     """Return default solver name."""
-    solver_map = {0: "None"}
-    if get_binary("Calculix", True):
-        solver_map[1] = "CalculiXCcxTools"
-    if get_binary("ElmerSolver", True):
-        solver_map[len(solver_map)] = "Elmer"
-    if get_binary("Mystran", True):
-        solver_map[len(solver_map)] = "Mystran"
-    if get_binary("Z88", True):
-        solver_map[len(solver_map)] = "Z88"
+    solver_map = {
+        0: None,
+        1: "CalculiX",
+        2: "Elmer",
+        3: "Mystran",
+        4: "Z88",
+    }
     param_group = FreeCAD.ParamGet(_GENERAL_PARAM)
     return solver_map[param_group.GetInt("DefaultSolver", 0)]
 
@@ -214,10 +216,9 @@ class _SolverDlg:
 
     WRITE_COMMENTS_PARAM = "writeCommentsToInputFile"
 
-    def __init__(self, default, param_path, use_default, custom_path):
+    def __init__(self, default, param_path, custom_path):
         self.default = default
         self.param_path = param_path
-        self.use_default = use_default
         self.custom_path = custom_path
 
         self.param_group = FreeCAD.ParamGet(self.param_path)
@@ -229,14 +230,10 @@ class _SolverDlg:
         # TODO the binaries provided with the FreeCAD distribution should be found
         # without any additional user input
         # see ccxttols, it works for Windows and Linux there
-        binary = self.default
+        binary = self.param_group.GetString(self.custom_path)
+        if not binary:
+            binary = self.default
         FreeCAD.Console.PrintLog(f"Solver binary path default: {binary} \n")
-
-        # check if use_default is set to True
-        # if True the standard binary path will be overwritten with a user binary path
-        if self.param_group.GetBool(self.use_default, True) is False:
-            binary = self.param_group.GetString(self.custom_path)
-        FreeCAD.Console.PrintLog(f"Solver binary path user setting: {binary} \n")
 
         # get the whole binary path name for the given command or binary path and return it
         # None is returned if the binary has not been found
@@ -264,31 +261,31 @@ _SOLVER_PARAM = {
     "Calculix": _SolverDlg(
         default="ccx",
         param_path=_PARAM_PATH + "Ccx",
-        use_default="UseStandardCcxLocation",
         custom_path="ccxBinaryPath",
     ),
     "ElmerSolver": _SolverDlg(
         default="ElmerSolver",
         param_path=_PARAM_PATH + "Elmer",
-        use_default="UseStandardElmerLocation",
         custom_path="elmerBinaryPath",
     ),
     "ElmerGrid": _SolverDlg(
         default="ElmerGrid",
         param_path=_PARAM_PATH + "Elmer",
-        use_default="UseStandardGridLocation",
         custom_path="gridBinaryPath",
+    ),
+    "MPIElmer": _SolverDlg(
+        default="mpiexec",
+        param_path=_PARAM_PATH + "Elmer",
+        custom_path="mpiBinaryPath",
     ),
     "Mystran": _SolverDlg(
         default="mystran",
         param_path=_PARAM_PATH + "Mystran",
-        use_default="UseStandardMystranLocation",
         custom_path="mystranBinaryPath",
     ),
     "Z88": _SolverDlg(
         default="z88r",
         param_path=_PARAM_PATH + "Z88",
-        use_default="UseStandardZ88Location",
         custom_path="z88BinaryPath",
     ),
 }

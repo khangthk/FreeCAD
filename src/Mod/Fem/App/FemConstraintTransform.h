@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jan Rheinländer                                    *
  *                                   <jrheinlaender@users.sourceforge.net> *
@@ -21,8 +23,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef FEM_CONSTRAINTTransform_H
-#define FEM_CONSTRAINTTransform_H
+#pragma once
 
 #include "FemConstraint.h"
 
@@ -53,13 +54,12 @@ public:
     const char* getViewProviderName() const override;
 
 protected:
-    void handleChangedPropertyName(Base::XMLReader& reader,
-                                   const char* typeName,
-                                   const char* propName) override;
+    void handleChangedPropertyName(
+        Base::XMLReader& reader,
+        const char* typeName,
+        const char* propName
+    ) override;
     void onChanged(const App::Property* prop) override;
 };
 
 }  // namespace Fem
-
-
-#endif  // FEM_CONSTRAINTTransform_H

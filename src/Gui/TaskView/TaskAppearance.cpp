@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /***************************************************************************
  *   Copyright (c) 2009 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -20,8 +21,6 @@
  *                                                                         *
  ***************************************************************************/
 
-
-#include "PreCompiled.h"
 
 #include <Base/Console.h>
 #include <Gui/Application.h>
@@ -57,7 +56,8 @@ TaskAppearance::TaskAppearance(QWidget* parent)
 
     // NOLINTBEGIN
     this->connectChangedObject = Gui::Application::Instance->signalChangedObject.connect(
-        std::bind(&TaskAppearance::slotChangedObject, this, sp::_1, sp::_2));
+        std::bind(&TaskAppearance::slotChangedObject, this, sp::_1, sp::_2)
+    );
     // NOLINTEND
 }
 
@@ -71,17 +71,10 @@ TaskAppearance::~TaskAppearance()
 void TaskAppearance::setupConnections()
 {
     // clang-format off
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-    connect(ui->changeMode, qOverload<const QString&>(&QComboBox::activated),
-            this, &TaskAppearance::onChangeModeActivated);
-    connect(ui->changePlot, qOverload<const QString&>(&QComboBox::activated),
-            this, &TaskAppearance::onChangePlotActivated);
-#else
     connect(ui->changeMode, &QComboBox::textActivated,
             this, &TaskAppearance::onChangeModeActivated);
     connect(ui->changePlot, &QComboBox::textActivated,
             this, &TaskAppearance::onChangePlotActivated);
-#endif
     connect(ui->spinTransparency, qOverload<int>(&QSpinBox::valueChanged),
             this, &TaskAppearance::onTransparencyValueChanged);
     connect(ui->spinPointSize, qOverload<int>(&QSpinBox::valueChanged),
@@ -100,12 +93,13 @@ void TaskAppearance::changeEvent(QEvent* e)
 }
 
 /// @cond DOXERR
-void TaskAppearance::OnChange(Gui::SelectionSingleton::SubjectType& rCaller,
-                              Gui::SelectionSingleton::MessageType Reason)
+void TaskAppearance::OnChange(
+    Gui::SelectionSingleton::SubjectType& rCaller,
+    Gui::SelectionSingleton::MessageType Reason
+)
 {
     Q_UNUSED(rCaller);
-    if (Reason.Type == SelectionChanges::AddSelection
-        || Reason.Type == SelectionChanges::RmvSelection
+    if (Reason.Type == SelectionChanges::AddSelection || Reason.Type == SelectionChanges::RmvSelection
         || Reason.Type == SelectionChanges::SetSelection
         || Reason.Type == SelectionChanges::ClrSelection) {
         std::vector<Gui::ViewProvider*> views = getSelection();
@@ -173,7 +167,7 @@ void TaskAppearance::onChangeModeActivated(const QString& s)
 
 void TaskAppearance::onChangePlotActivated(const QString& s)
 {
-    Base::Console().Log("Plot = %s\n", (const char*)s.toLatin1());
+    Base::Console().log("Plot = %s\n", (const char*)s.toLatin1());
 }
 
 /**
@@ -328,8 +322,9 @@ std::vector<Gui::ViewProvider*> TaskAppearance::getSelection() const
     // get the complete selection
     std::vector<SelectionSingleton::SelObj> sel = Selection().getCompleteSelection();
     for (const auto& it : sel) {
-        Gui::ViewProvider* view =
-            Application::Instance->getDocument(it.pDoc)->getViewProvider(it.pObject);
+        Gui::ViewProvider* view = Application::Instance->getDocument(it.pDoc)->getViewProvider(
+            it.pObject
+        );
         if (view) {
             views.push_back(view);
         }

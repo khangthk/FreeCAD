@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Authors: Michael Hindley <hindlemp@eskom.co.za>                       *
@@ -23,8 +25,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef FEM_CONSTRAINTDISPLACEMENT_H
-#define FEM_CONSTRAINTDISPLACEMENT_H
+#pragma once
 
 #include "FemConstraint.h"
 
@@ -39,6 +40,9 @@ class FemExport ConstraintDisplacement: public Fem::Constraint
 public:
     /// Constructor
     ConstraintDisplacement();
+
+    App::PropertyBool EnableAmplitude;
+    App::PropertyStringList AmplitudeValues;
 
     // Displacement parameters
     App::PropertyDistance xDisplacement;
@@ -68,13 +72,12 @@ public:
     const char* getViewProviderName() const override;
 
 protected:
-    void handleChangedPropertyType(Base::XMLReader& reader,
-                                   const char* TypeName,
-                                   App::Property* prop) override;
+    void handleChangedPropertyType(
+        Base::XMLReader& reader,
+        const char* TypeName,
+        App::Property* prop
+    ) override;
     void onChanged(const App::Property* prop) override;
 };
 
 }  // namespace Fem
-
-
-#endif  // FEM_CONSTRAINTDISPLACEMENT_H

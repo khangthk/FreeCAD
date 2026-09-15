@@ -4,73 +4,73 @@
   <context>
     <name>CmdApproxCylinder</name>
     <message>
-      <location filename="../../Command.cpp" line="248"/>
+      <location filename="../../Command.cpp" line="246"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="249"/>
+      <location filename="../../Command.cpp" line="247"/>
       <source>Cylinder</source>
       <translation>圆柱体</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="250"/>
-      <source>Approximate a cylinder</source>
-      <translation>近似一个圆柱体</translation>
+      <location filename="../../Command.cpp" line="248"/>
+      <source>Approximates a cylinder</source>
+      <translation>逼近圆柱体</translation>
     </message>
   </context>
   <context>
     <name>CmdApproxPlane</name>
     <message>
-      <location filename="../../Command.cpp" line="140"/>
+      <location filename="../../Command.cpp" line="141"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="141"/>
+      <location filename="../../Command.cpp" line="142"/>
       <source>Plane</source>
       <translation>平面</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="142"/>
-      <source>Approximate a plane</source>
-      <translation>近似一个平面</translation>
+      <location filename="../../Command.cpp" line="143"/>
+      <source>Approximates a plane</source>
+      <translation>逼近平面</translation>
     </message>
   </context>
   <context>
     <name>CmdApproxPolynomial</name>
     <message>
-      <location filename="../../Command.cpp" line="364"/>
+      <location filename="../../Command.cpp" line="362"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="365"/>
-      <source>Polynomial surface</source>
-      <translation>多项式表面</translation>
+      <location filename="../../Command.cpp" line="363"/>
+      <source>Polynomial Surface</source>
+      <translation>多项式曲面</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="366"/>
-      <source>Approximate a polynomial surface</source>
-      <translation>近似多项式表面</translation>
+      <location filename="../../Command.cpp" line="364"/>
+      <source>Approximates a polynomial surface</source>
+      <translation>逼近多项式曲面</translation>
     </message>
   </context>
   <context>
     <name>CmdApproxSphere</name>
     <message>
-      <location filename="../../Command.cpp" line="316"/>
+      <location filename="../../Command.cpp" line="314"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="317"/>
+      <location filename="../../Command.cpp" line="315"/>
       <source>Sphere</source>
       <translation>球体</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="318"/>
-      <source>Approximate a sphere</source>
-      <translation>近似一个球体</translation>
+      <location filename="../../Command.cpp" line="316"/>
+      <source>Approximates a sphere</source>
+      <translation>逼近球体</translation>
     </message>
   </context>
   <context>
@@ -82,120 +82,124 @@
     </message>
     <message>
       <location filename="../../Command.cpp" line="103"/>
-      <source>Approximate B-spline surface...</source>
-      <translation>近似 B 样条曲面...</translation>
+      <source>Approximate B-Spline Surface…</source>
+      <translation>近似贝塞尔曲面…</translation>
     </message>
     <message>
       <location filename="../../Command.cpp" line="104"/>
-      <source>Approximate a B-spline surface</source>
-      <translation>近似一个 B 样条曲面</translation>
+      <source>Approximates a B-spline surface</source>
+      <translation>逼近贝塞尔曲面</translation>
     </message>
   </context>
   <context>
     <name>CmdMeshBoundary</name>
     <message>
-      <location filename="../../Command.cpp" line="536"/>
+      <location filename="../../Command.cpp" line="531"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="537"/>
-      <source>Wire from mesh boundary...</source>
-      <translation>来自网格边界的导线...</translation>
+      <location filename="../../Command.cpp" line="532"/>
+      <source>Wire From Mesh Boundary…</source>
+      <translation>网格边界的线…</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="538"/>
-      <source>Create wire from mesh boundaries</source>
+      <location filename="../../Command.cpp" line="533"/>
+      <source>Creates a wire from mesh boundaries</source>
       <translation>从网格边界创建线</translation>
     </message>
   </context>
   <context>
     <name>CmdPoissonReconstruction</name>
     <message>
-      <location filename="../../Command.cpp" line="603"/>
+      <location filename="../../Command.cpp" line="596"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="604"/>
-      <source>Poisson...</source>
-      <translation>泊松...</translation>
+      <location filename="../../Command.cpp" line="597"/>
+      <source>Poisson…</source>
+      <translation>泊松…</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="605"/>
-      <source>Poisson surface reconstruction</source>
-      <translation>泊松曲面重构</translation>
+      <location filename="../../Command.cpp" line="598"/>
+      <source>Performs Poisson surface reconstruction</source>
+      <translation>执行泊松曲面重建</translation>
     </message>
   </context>
   <context>
     <name>CmdSegmentation</name>
     <message>
-      <location filename="../../Command.cpp" line="422"/>
+      <location filename="../../Command.cpp" line="419"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="423"/>
-      <source>Mesh segmentation...</source>
-      <translation>网格分割...</translation>
+      <location filename="../../Command.cpp" line="420"/>
+      <source>Mesh Segmentation…</source>
+      <translation>网格分割…</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="424"/>
-      <source>Create mesh segments</source>
-      <translation>建立网格分割</translation>
+      <location filename="../../Command.cpp" line="421"/>
+      <source>Creates separate mesh segments based on surface types</source>
+      <translation>根据表面类型创建单独的网格段</translation>
     </message>
   </context>
   <context>
     <name>CmdSegmentationFromComponents</name>
     <message>
-      <location filename="../../Command.cpp" line="484"/>
+      <location filename="../../Command.cpp" line="481"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="485"/>
-      <source>From components</source>
+      <location filename="../../Command.cpp" line="482"/>
+      <source>From Components</source>
       <translation>从组件</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="486"/>
-      <source>Create mesh segments from components</source>
-      <translation>从组件创建网格线段</translation>
+      <location filename="../../Command.cpp" line="483"/>
+      <source>Creates mesh segments from components</source>
+      <translation>从组件创建网格段</translation>
     </message>
   </context>
   <context>
     <name>CmdSegmentationManual</name>
     <message>
-      <location filename="../../Command.cpp" line="454"/>
+      <location filename="../../Command.cpp" line="451"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="455"/>
-      <source>Manual segmentation...</source>
-      <translation>手动分割...</translation>
+      <location filename="../../Command.cpp" line="452"/>
+      <source>Manual Segmentation…</source>
+      <translation>手动分割…</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="456"/>
-      <source>Create mesh segments manually</source>
-      <translation>手动创建网格线段</translation>
+      <location filename="../../Command.cpp" line="453"/>
+      <source>Creates mesh segments manually</source>
+      <translation>手动创建网格段</translation>
     </message>
   </context>
   <context>
     <name>CmdViewTriangulation</name>
     <message>
-      <location filename="../../Command.cpp" line="638"/>
+      <location filename="../../Command.cpp" line="633"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="639"/>
-      <source>Structured point clouds</source>
-      <translation>结构化的点云</translation>
+      <location filename="../../Command.cpp" line="634"/>
+      <source>Structured Point Clouds</source>
+      <translation>结构化点云</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="640"/>
-      <location filename="../../Command.cpp" line="641"/>
+      <location filename="../../Command.cpp" line="635"/>
+      <source>Triangulates structured point clouds</source>
+      <translation>对结构化点云进行三角剖分</translation>
+    </message>
+    <message>
+      <location filename="../../Command.cpp" line="636"/>
       <source>Triangulation of structured point clouds</source>
       <translation>结构点云的三角剖分</translation>
     </message>
@@ -203,64 +207,54 @@
   <context>
     <name>Command</name>
     <message>
-      <location filename="../../Command.cpp" line="226"/>
+      <location filename="../../Command.cpp" line="224"/>
       <source>Fit plane</source>
-      <translation>适合平面</translation>
+      <translation>拟合平面</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="258"/>
+      <location filename="../../Command.cpp" line="256"/>
       <source>Fit cylinder</source>
-      <translation>适合圆柱体</translation>
+      <translation>拟合圆柱体</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="326"/>
+      <location filename="../../Command.cpp" line="324"/>
       <source>Fit sphere</source>
-      <translation>适合球体</translation>
+      <translation>拟合球体</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="375"/>
+      <location filename="../../Command.cpp" line="373"/>
       <source>Fit polynomial surface</source>
-      <translation>适合多项式表面</translation>
+      <translation>拟合多项式曲面</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="650"/>
+      <location filename="../../Command.cpp" line="646"/>
       <source>View triangulation</source>
       <translation>查看三角剖分</translation>
     </message>
     <message>
-      <location filename="../../FitBSplineSurface.cpp" line="154"/>
+      <location filename="../../FitBSplineSurface.cpp" line="160"/>
       <source>Placement</source>
-      <translation>定位</translation>
+      <translation>放置</translation>
     </message>
     <message>
-      <location filename="../../FitBSplineSurface.cpp" line="231"/>
-      <location filename="../../FitBSplineCurve.cpp" line="139"/>
+      <location filename="../../FitBSplineCurve.cpp" line="152"/>
+      <location filename="../../FitBSplineSurface.cpp" line="242"/>
       <source>Fit B-spline</source>
-      <translation type="unfinished">Fit B-spline</translation>
+      <translation>拟合贝塞尔曲线</translation>
     </message>
     <message>
-      <location filename="../../Poisson.cpp" line="83"/>
+      <location filename="../../Poisson.cpp" line="87"/>
       <source>Poisson reconstruction</source>
-      <translation>泊松曲面重构</translation>
+      <translation>泊松曲面重建</translation>
     </message>
     <message>
-      <location filename="../../SegmentationManual.cpp" line="281"/>
+      <location filename="../../SegmentationManual.cpp" line="265"/>
       <source>Segmentation</source>
       <translation>段</translation>
     </message>
   </context>
   <context>
     <name>ReenGui::FitBSplineSurface</name>
-    <message>
-      <location filename="../../FitBSplineSurface.ui" line="14"/>
-      <source>Fit B-spline surface</source>
-      <translation>拟合 B 样条曲面</translation>
-    </message>
-    <message>
-      <location filename="../../FitBSplineSurface.ui" line="20"/>
-      <source>u-Direction</source>
-      <translation>u-方向</translation>
-    </message>
     <message>
       <location filename="../../FitBSplineSurface.ui" line="26"/>
       <location filename="../../FitBSplineSurface.ui" line="93"/>
@@ -274,9 +268,19 @@
       <translation>控制点</translation>
     </message>
     <message>
+      <location filename="../../FitBSplineSurface.ui" line="14"/>
+      <source>Fit B-Spline Surface</source>
+      <translation>拟合贝塞尔曲面</translation>
+    </message>
+    <message>
+      <location filename="../../FitBSplineSurface.ui" line="20"/>
+      <source>U-Direction</source>
+      <translation>U-方向</translation>
+    </message>
+    <message>
       <location filename="../../FitBSplineSurface.ui" line="87"/>
-      <source>v-Direction</source>
-      <translation>v-方向</translation>
+      <source>V-Direction</source>
+      <translation>V-方向</translation>
     </message>
     <message>
       <location filename="../../FitBSplineSurface.ui" line="154"/>
@@ -300,18 +304,18 @@
     </message>
     <message>
       <location filename="../../FitBSplineSurface.ui" line="231"/>
-      <source>Create placement</source>
-      <translation>创建位置</translation>
+      <source>Create Placement</source>
+      <translation>创建放置</translation>
+    </message>
+    <message>
+      <location filename="../../FitBSplineSurface.ui" line="247"/>
+      <source>Total weight</source>
+      <translation>总重</translation>
     </message>
     <message>
       <location filename="../../FitBSplineSurface.ui" line="238"/>
       <source>Smoothing</source>
       <translation>平滑</translation>
-    </message>
-    <message>
-      <location filename="../../FitBSplineSurface.ui" line="247"/>
-      <source>Total Weight</source>
-      <translation>总重量</translation>
     </message>
     <message>
       <location filename="../../FitBSplineSurface.ui" line="276"/>
@@ -332,20 +336,20 @@
   <context>
     <name>ReenGui::FitBSplineSurfaceWidget</name>
     <message>
-      <location filename="../../FitBSplineSurface.cpp" line="165"/>
-      <location filename="../../FitBSplineSurface.cpp" line="238"/>
-      <source>Input error</source>
+      <location filename="../../FitBSplineSurface.cpp" line="171"/>
+      <location filename="../../FitBSplineSurface.cpp" line="249"/>
+      <source>Input Error</source>
       <translation>输入错误</translation>
     </message>
     <message>
-      <location filename="../../FitBSplineSurface.cpp" line="206"/>
+      <location filename="../../FitBSplineSurface.cpp" line="215"/>
       <source>Wrong selection</source>
       <translation>选择错误</translation>
     </message>
     <message>
-      <location filename="../../FitBSplineSurface.cpp" line="207"/>
-      <source>Please select a single placement object to get local orientation.</source>
-      <translation>请选择单个放置对象以获取本地方向。</translation>
+      <location filename="../../FitBSplineSurface.cpp" line="216"/>
+      <source>Select a single placement object to get the local orientation.</source>
+      <translation>选择单个放置对象以获取局部方向。</translation>
     </message>
   </context>
   <context>
@@ -376,49 +380,49 @@
       <translation>每个节点的示例</translation>
     </message>
     <message>
-      <location filename="../../Poisson.cpp" line="90"/>
-      <source>Input error</source>
+      <location filename="../../Poisson.cpp" line="94"/>
+      <source>Input Error</source>
       <translation>输入错误</translation>
     </message>
   </context>
   <context>
     <name>Reen_ApproxSurface</name>
     <message>
-      <location filename="../../Command.cpp" line="82"/>
+      <location filename="../../Command.cpp" line="81"/>
       <location filename="../../Command.cpp" line="120"/>
-      <location filename="../../Command.cpp" line="618"/>
+      <location filename="../../Command.cpp" line="612"/>
       <source>Wrong selection</source>
       <translation>选择错误</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="83"/>
-      <source>Please select a point cloud.</source>
-      <translation type="unfinished">Please select a point cloud.</translation>
+      <location filename="../../Command.cpp" line="82"/>
+      <source>Select a point cloud.</source>
+      <translation>选择一个点云。</translation>
     </message>
     <message>
       <location filename="../../Command.cpp" line="121"/>
-      <source>Please select a point cloud or mesh.</source>
-      <translation>请选择一个点云或网格。</translation>
+      <source>Select a point cloud or mesh.</source>
+      <translation>选择点云或网格。</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="619"/>
-      <source>Please select a single point cloud.</source>
-      <translation>请选择单一的点云。</translation>
+      <location filename="../../Command.cpp" line="613"/>
+      <source>Select a single point cloud.</source>
+      <translation>选择单个点云。</translation>
     </message>
   </context>
   <context>
     <name>Reen_ViewTriangulation</name>
     <message>
-      <location filename="../../Command.cpp" line="672"/>
+      <location filename="../../Command.cpp" line="671"/>
       <source>View triangulation failed</source>
-      <translation>视图三角化失败</translation>
+      <translation>查看三角剖分失败</translation>
     </message>
   </context>
   <context>
     <name>ReverseEngineeringGui::Segmentation</name>
     <message>
       <location filename="../../Segmentation.ui" line="14"/>
-      <source>Mesh segmentation</source>
+      <source>Mesh Segmentation</source>
       <translation>网格分割</translation>
     </message>
     <message>
@@ -460,11 +464,6 @@
   <context>
     <name>ReverseEngineeringGui::SegmentationManual</name>
     <message>
-      <location filename="../../SegmentationManual.ui" line="14"/>
-      <source>Manual segmentation</source>
-      <translation>手动分割</translation>
-    </message>
-    <message>
       <location filename="../../SegmentationManual.ui" line="20"/>
       <source>Select</source>
       <translation>选择</translation>
@@ -490,9 +489,14 @@
       <translation>&lt; 面</translation>
     </message>
     <message>
+      <location filename="../../SegmentationManual.ui" line="14"/>
+      <source>Manual Mesh Segmentation</source>
+      <translation>手动网格分割</translation>
+    </message>
+    <message>
       <location filename="../../SegmentationManual.ui" line="98"/>
-      <source>Pick triangle</source>
-      <translation>拾取三角形</translation>
+      <source>Pick Triangle</source>
+      <translation>选取三角形</translation>
     </message>
     <message>
       <location filename="../../SegmentationManual.ui" line="105"/>
@@ -542,18 +546,18 @@
     </message>
     <message>
       <location filename="../../SegmentationManual.ui" line="281"/>
-      <source>Region options</source>
+      <source>Region Options</source>
       <translation>区域选项</translation>
+    </message>
+    <message>
+      <location filename="../../SegmentationManual.ui" line="297"/>
+      <source>Respect only triangles with screen-facing normals</source>
+      <translation>仅考虑具有面向屏幕的法线的三角形</translation>
     </message>
     <message>
       <location filename="../../SegmentationManual.ui" line="287"/>
       <source>Respect only visible triangles</source>
       <translation>仅考虑可见三角形</translation>
-    </message>
-    <message>
-      <location filename="../../SegmentationManual.ui" line="297"/>
-      <source>Respect only triangles with normals facing screen</source>
-      <translation>仅考虑屏幕常规法线三角形</translation>
     </message>
     <message>
       <location filename="../../SegmentationManual.ui" line="310"/>
@@ -574,7 +578,7 @@
   <context>
     <name>ReverseEngineeringGui::TaskSegmentationManual</name>
     <message>
-      <location filename="../../SegmentationManual.cpp" line="352"/>
+      <location filename="../../SegmentationManual.cpp" line="335"/>
       <source>Create</source>
       <translation>创建</translation>
     </message>
@@ -582,17 +586,37 @@
   <context>
     <name>Workbench</name>
     <message>
-      <location filename="../../Workbench.cpp" line="34"/>
+      <location filename="../../Workbench.cpp" line="35"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
+    </message>
+    <message>
+      <location filename="../../Workbench.cpp" line="36"/>
+      <source>&amp;Reverse Engineering</source>
+      <translation>逆向工程(&amp;R)</translation>
+    </message>
+    <message>
+      <location filename="../../Workbench.cpp" line="37"/>
+      <source>Surface Reconstruction</source>
+      <translation>表面重建</translation>
+    </message>
+    <message>
+      <location filename="../../Workbench.cpp" line="38"/>
+      <source>Segmentation</source>
+      <translation>段</translation>
+    </message>
+    <message>
+      <location filename="../../Workbench.cpp" line="39"/>
+      <source>Approximation</source>
+      <translation>近似</translation>
     </message>
   </context>
   <context>
     <name>ReenGui::FitBSplineCurve</name>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="14"/>
-      <source>Fit B-spline surface</source>
-      <translation>拟合 B 样条曲面</translation>
+      <source>Fit B-Spline Curve</source>
+      <translation>拟合贝塞尔曲线</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="20"/>
@@ -602,22 +626,22 @@
     <message>
       <location filename="../../FitBSplineCurve.ui" line="26"/>
       <source>Maximum degree</source>
-      <translation type="unfinished">Maximum degree</translation>
+      <translation>最大角度</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="37"/>
       <source>Chord length</source>
-      <translation type="unfinished">Chord length</translation>
+      <translation>弦长</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="42"/>
       <source>Centripetal</source>
-      <translation type="unfinished">Centripetal</translation>
+      <translation>向心</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="47"/>
-      <source>Iso-Parametric</source>
-      <translation type="unfinished">Iso-Parametric</translation>
+      <source>Equidistant</source>
+      <translation>等距</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="55"/>
@@ -627,52 +651,52 @@
     <message>
       <location filename="../../FitBSplineCurve.ui" line="88"/>
       <source>Parametrization type</source>
-      <translation type="unfinished">Parametrization type</translation>
+      <translation>参数化类型</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="96"/>
       <source>C0</source>
-      <translation type="unfinished">C0</translation>
+      <translation>C0</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="101"/>
       <source>G1</source>
-      <translation type="unfinished">G1</translation>
+      <translation>G1</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="106"/>
       <source>C1</source>
-      <translation type="unfinished">C1</translation>
+      <translation>C1</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="111"/>
       <source>G2</source>
-      <translation type="unfinished">G2</translation>
+      <translation>G2</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="116"/>
       <source>C2</source>
-      <translation type="unfinished">C2</translation>
+      <translation>C2</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="121"/>
       <source>C3</source>
-      <translation type="unfinished">C3</translation>
+      <translation>C3</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="126"/>
       <source>CN</source>
-      <translation type="unfinished">CN</translation>
+      <translation>CN</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="134"/>
       <source>Minimum degree</source>
-      <translation type="unfinished">Minimum degree</translation>
+      <translation>最小角度</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="141"/>
       <source>Closed curve</source>
-      <translation type="unfinished">Closed curve</translation>
+      <translation>闭合曲线</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="151"/>
@@ -682,12 +706,12 @@
     <message>
       <location filename="../../FitBSplineCurve.ui" line="160"/>
       <source>Torsion</source>
-      <translation type="unfinished">Torsion</translation>
+      <translation>挠率</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="167"/>
       <source>Curve length</source>
-      <translation type="unfinished">Curve length</translation>
+      <translation>曲线长度</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="174"/>
@@ -698,26 +722,26 @@
   <context>
     <name>CmdApproxCurve</name>
     <message>
-      <location filename="../../Command.cpp" line="69"/>
+      <location filename="../../Command.cpp" line="67"/>
       <source>Reverse Engineering</source>
       <translation>逆向工程</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="70"/>
-      <source>Approximate B-spline curve...</source>
-      <translation type="unfinished">Approximate B-spline curve...</translation>
+      <location filename="../../Command.cpp" line="68"/>
+      <source>Approximate B-Spline Curve…</source>
+      <translation>近似贝塞尔曲线…</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="71"/>
-      <source>Approximate a B-spline curve</source>
-      <translation type="unfinished">Approximate a B-spline curve</translation>
+      <location filename="../../Command.cpp" line="69"/>
+      <source>Approximates a B-spline curve</source>
+      <translation>逼近贝塞尔曲线</translation>
     </message>
   </context>
   <context>
     <name>ReenGui::FitBSplineCurveWidget</name>
     <message>
-      <location filename="../../FitBSplineCurve.cpp" line="91"/>
-      <source>Input error</source>
+      <location filename="../../FitBSplineCurve.cpp" line="103"/>
+      <source>Input Error</source>
       <translation>输入错误</translation>
     </message>
   </context>

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /******************************************************************************
  *   Copyright (c) 2012 Jan Rheinländer <jrheinlaender@users.sourceforge.net> *
  *                                                                            *
@@ -20,18 +22,14 @@
  *                                                                            *
  ******************************************************************************/
 
-
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
-#endif
+#include <limits>
 
 #include <App/DocumentObject.h>
 #include <App/Document.h>
 #include <Base/Console.h>
 #include <Gui/Command.h>
-#include <Gui/Selection.h>
-#include <Gui/SelectionObject.h>
+#include <Gui/Selection/Selection.h>
+#include <Gui/Selection/SelectionObject.h>
 #include <Gui/ViewProvider.h>
 #include <Mod/PartDesign/App/FeatureScaled.h>
 
@@ -44,16 +42,17 @@ using namespace Gui;
 
 /* TRANSLATOR PartDesignGui::TaskScaledParameters */
 
-TaskScaledParameters::TaskScaledParameters(ViewProviderTransformed* TransformedView,
-                                           QWidget* parent)
+TaskScaledParameters::TaskScaledParameters(ViewProviderTransformed* TransformedView, QWidget* parent)
     : TaskTransformedParameters(TransformedView, parent)
     , ui(new Ui_TaskScaledParameters)
 {
     setupUI();
 }
 
-TaskScaledParameters::TaskScaledParameters(TaskMultiTransformParameters* parentTask,
-                                           QWidget* parameterWidget)
+TaskScaledParameters::TaskScaledParameters(
+    TaskMultiTransformParameters* parentTask,
+    QWidget* parameterWidget
+)
     : TaskTransformedParameters(parentTask)
     , ui(new Ui_TaskScaledParameters)
 {
@@ -65,20 +64,24 @@ void TaskScaledParameters::setupParameterUI(QWidget* widget)
     ui->setupUi(widget);
     QMetaObject::connectSlotsByName(this);
 
-    connect(ui->spinFactor,
-            qOverload<double>(&Gui::QuantitySpinBox::valueChanged),
-            this,
-            &TaskScaledParameters::onFactor);
-    connect(ui->spinOccurrences,
-            &Gui::UIntSpinBox::unsignedChanged,
-            this,
-            &TaskScaledParameters::onOccurrences);
+    connect(
+        ui->spinFactor,
+        qOverload<double>(&Gui::QuantitySpinBox::valueChanged),
+        this,
+        &TaskScaledParameters::onFactor
+    );
+    connect(
+        ui->spinOccurrences,
+        &Gui::UIntSpinBox::unsignedChanged,
+        this,
+        &TaskScaledParameters::onOccurrences
+    );
 
     // Get the feature data
-    auto pcScaled = static_cast<PartDesign::Scaled*>(getObject());
+    auto pcScaled = getObject<PartDesign::Scaled>();
 
     ui->spinFactor->bind(pcScaled->Factor);
-    ui->spinOccurrences->setMaximum(INT_MAX);
+    ui->spinOccurrences->setMaximum(std::numeric_limits<int>::max());
     ui->spinOccurrences->bind(pcScaled->Occurrences);
     ui->spinFactor->setEnabled(true);
     ui->spinOccurrences->setEnabled(true);
@@ -99,7 +102,7 @@ void TaskScaledParameters::updateUI()
     }
     blockUpdate = true;
 
-    auto pcScaled = static_cast<PartDesign::Scaled*>(getObject());
+    auto pcScaled = getObject<PartDesign::Scaled>();
 
     double factor = pcScaled->Factor.getValue();
     unsigned occurrences = pcScaled->Occurrences.getValue();
@@ -115,7 +118,7 @@ void TaskScaledParameters::onFactor(const double factor)
     if (blockUpdate) {
         return;
     }
-    auto pcScaled = static_cast<PartDesign::Scaled*>(getObject());
+    auto pcScaled = getObject<PartDesign::Scaled>();
     pcScaled->Factor.setValue(factor);
     recomputeFeature();
 }
@@ -125,7 +128,7 @@ void TaskScaledParameters::onOccurrences(const uint number)
     if (blockUpdate) {
         return;
     }
-    auto pcScaled = static_cast<PartDesign::Scaled*>(getObject());
+    auto pcScaled = getObject<PartDesign::Scaled>();
     pcScaled->Occurrences.setValue(number);
     recomputeFeature();
 }
@@ -135,7 +138,7 @@ void TaskScaledParameters::onUpdateView(bool on)
     blockUpdate = !on;
     if (on) {
         // Do the same like in TaskDlgScaledParameters::accept() but without doCommand
-        auto pcScaled = static_cast<PartDesign::Scaled*>(getObject());
+        auto pcScaled = getObject<PartDesign::Scaled>();
         pcScaled->Factor.setValue(getFactor());
         pcScaled->Occurrences.setValue(getOccurrences());
         recomputeFeature();

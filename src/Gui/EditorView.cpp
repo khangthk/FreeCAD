@@ -20,13 +20,11 @@
  *                                                                         *
  ***************************************************************************/
 
-
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QDateTime>
+#include <QLabel>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QLineEdit>
@@ -42,11 +40,11 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QToolButton>
-#endif
 
 #include "EditorView.h"
 #include "Application.h"
 #include "FileDialog.h"
+#include "InputHint.h"
 #include "Macro.h"
 #include "MainWindow.h"
 #include "PythonEditor.h"
@@ -57,6 +55,13 @@
 #include <Base/Interpreter.h>
 #include <Base/Parameter.h>
 
+#include <Gui/PreferencePages/DlgSettingsPDF.h>
+
+
+namespace
+{
+constexpr int SearchSelectionProperty = QTextFormat::UserProperty + 1;
+}
 
 using namespace Gui;
 namespace Gui
@@ -131,6 +136,13 @@ EditorView::EditorView(TextEdit* editor, QWidget* parent)
     setCurrentFileName(QString());
     d->textEdit->setFocus();
 
+    connect(d->textEdit, &QPlainTextEdit::cursorPositionChanged, this, &EditorView::updateInputHints);
+    connect(d->textEdit, &QPlainTextEdit::selectionChanged, this, &EditorView::updateInputHints);
+    connect(qApp, &QApplication::focusChanged, this, [this](QWidget*, QWidget*) {
+        updateInputHints();
+    });
+    connect(d->searchBar, &SearchBar::textChanged, this, &EditorView::updateInputHints);
+
     setWindowIcon(d->textEdit->windowIcon());
 
     ParameterGrp::handle hPrefGrp = getWindowParameter();
@@ -139,14 +151,15 @@ EditorView::EditorView(TextEdit* editor, QWidget* parent)
 
     d->activityTimer = new QTimer(this);
     // clang-format off
+    connectionList <<
     connect(d->activityTimer, &QTimer::timeout,
-            this, &EditorView::checkTimestamp);
+            this, &EditorView::checkTimestamp) <<
     connect(d->textEdit->document(), &QTextDocument::modificationChanged,
-            this, &EditorView::setWindowModified);
+            this, &EditorView::setWindowModified) <<
     connect(d->textEdit->document(), &QTextDocument::undoAvailable,
-            this, &EditorView::undoAvailable);
+            this, &EditorView::undoAvailable) <<
     connect(d->textEdit->document(), &QTextDocument::redoAvailable,
-            this, &EditorView::redoAvailable);
+            this, &EditorView::redoAvailable) <<
     connect(d->textEdit->document(), &QTextDocument::contentsChange,
             this, &EditorView::contentsChange);
     // clang-format on
@@ -155,7 +168,13 @@ EditorView::EditorView(TextEdit* editor, QWidget* parent)
 /** Destroys the object and frees any allocated resources */
 EditorView::~EditorView()
 {
+    Gui::getMainWindow()->hideHints();
+
     d->activityTimer->stop();
+    // to avoid the assert introduced a debug version of Qt >6.3. See QTBUG-105473
+    for (auto conn : connectionList) {  // NOLINT(performance-for-range-copy)
+        disconnect(conn);
+    }
     delete d->activityTimer;
     delete d;
     getWindowParameter()->Detach(this);
@@ -170,11 +189,16 @@ void EditorView::showEvent(QShowEvent* event)
 {
     Gui::MainWindow* mw = Gui::getMainWindow();
     mw->updateEditorActions();
+
+    updateInputHints();
+
     MDIView::showEvent(event);
 }
 
 void EditorView::hideEvent(QHideEvent* event)
 {
+    Gui::getMainWindow()->hideHints();
+
     MDIView::hideEvent(event);
 }
 
@@ -202,13 +226,15 @@ void EditorView::checkTimestamp()
     QFileInfo fi(d->fileName);
     qint64 timeStamp = fi.lastModified().toSecsSinceEpoch();
     if (timeStamp != d->timeStamp) {
-        switch (QMessageBox::question(this,
-                                      tr("Modified file"),
-                                      tr("%1.\n\nThis has been modified outside of the source "
-                                         "editor. Do you want to reload it?")
-                                          .arg(d->fileName),
-                                      QMessageBox::Yes | QMessageBox::No,
-                                      QMessageBox::Yes)) {
+        switch (QMessageBox::question(
+            this,
+            tr("Modified file"),
+            tr("%1.\n\nThis has been modified outside of the source "
+               "editor. Reload it?")
+                .arg(d->fileName),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::Yes
+        )) {
             case QMessageBox::Yes:
                 // updates time stamp and timer
                 open(d->fileName);
@@ -228,7 +254,7 @@ void EditorView::checkTimestamp()
 /**
  * Runs the action specified by \a pMsg.
  */
-bool EditorView::onMsg(const char* pMsg, const char** /*ppReturn*/)
+bool EditorView::onMsg(const char* pMsg)
 {
     // don't allow any actions if the editor is being closed
     if (d->aboutToClose) {
@@ -284,12 +310,6 @@ bool EditorView::onHasMsg(const char* pMsg) const
     if (strcmp(pMsg, "Run") == 0) {
         return true;
     }
-    if (strcmp(pMsg, "DebugStart") == 0) {
-        return true;
-    }
-    if (strcmp(pMsg, "DebugStop") == 0) {
-        return true;
-    }
     if (strcmp(pMsg, "SaveAs") == 0) {
         return true;
     }
@@ -339,12 +359,14 @@ bool EditorView::canClose()
         return true;
     }
     this->setFocus();  // raises the view to front
-    switch (QMessageBox::question(this,
-                                  tr("Unsaved document"),
-                                  tr("The document has been modified.\n"
-                                     "Do you want to save your changes?"),
-                                  QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel,
-                                  QMessageBox::Cancel)) {
+    switch (QMessageBox::question(
+        this,
+        tr("Unsaved document"),
+        tr("The document has been modified.\n"
+           "Save all changes?"),
+        QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel,
+        QMessageBox::Cancel
+    )) {
         case QMessageBox::Yes:
             return saveFile();
         case QMessageBox::No:
@@ -370,7 +392,8 @@ bool EditorView::saveAs()
         this,
         QObject::tr("Save Macro"),
         QString(),
-        QString::fromLatin1("%1 (*.FCMacro);;Python (*.py)").arg(tr("FreeCAD macro")));
+        FileDialog::FilterList {{tr("FreeCAD macro"), {"*.FCMacro"}}, {"Python", {"*.py"}}}
+    );
     if (fn.isEmpty()) {
         return false;
     }
@@ -482,10 +505,7 @@ void EditorView::printPreview()
 {
     QPrinter printer(QPrinter::ScreenResolution);
     QPrintPreviewDialog dlg(&printer, this);
-    connect(&dlg,
-            &QPrintPreviewDialog::paintRequested,
-            this,
-            qOverload<QPrinter*>(&EditorView::print));
+    connect(&dlg, &QPrintPreviewDialog::paintRequested, this, qOverload<QPrinter*>(&EditorView::print));
     dlg.exec();
 }
 
@@ -499,18 +519,21 @@ void EditorView::print(QPrinter* printer)
  */
 void EditorView::printPdf()
 {
-    QString filename =
-        FileDialog::getSaveFileName(this,
-                                    tr("Export PDF"),
-                                    QString(),
-                                    QString::fromLatin1("%1 (*.pdf)").arg(tr("PDF file")));
+    QString filename = FileDialog::getSaveFileName(
+        this,
+        tr("Export PDF"),
+        QString(),
+        FileDialog::FilterList {{QStringLiteral("PDF"), {"*.pdf"}}}
+    );
     if (!filename.isEmpty()) {
         QPrinter printer(QPrinter::ScreenResolution);
-        // setPdfVersion sets the printied PDF Version to comply with PDF/A-1b, more details under:
+        // setPdfVersion sets the printed PDF Version to what is chosen in
+        // Preferences/Import-Export/PDF more details under:
         // https://www.kdab.com/creating-pdfa-documents-qt/
-        printer.setPdfVersion(QPagedPaintDevice::PdfVersion_A1b);
+        printer.setPdfVersion(Gui::Dialog::DlgSettingsPDF::evaluatePDFVersion());
         printer.setOutputFormat(QPrinter::PdfFormat);
         printer.setOutputFileName(filename);
+        printer.setCreator(QString::fromStdString(App::Application::getNameWithVersion()));
         d->textEdit->document()->print(&printer);
     }
 }
@@ -518,7 +541,6 @@ void EditorView::printPdf()
 void EditorView::setCurrentFileName(const QString& fileName)
 {
     d->fileName = fileName;
-    Q_EMIT changeFileName(d->fileName);
     d->textEdit->document()->setModified(false);
 
     QString name;
@@ -540,7 +562,7 @@ void EditorView::setCurrentFileName(const QString& fileName)
         shownName = tr("untitled[*]");
     }
     else {
-        shownName = QString::fromLatin1("%1[*]").arg(name);
+        shownName = QStringLiteral("%1[*]").arg(name);
     }
     shownName += tr(" - Editor");
     setWindowTitle(shownName);
@@ -627,12 +649,85 @@ QStringList EditorView::undoActions() const
 QStringList EditorView::redoActions() const
 {
     return d->redos;
-    ;
 }
 
 void EditorView::focusInEvent(QFocusEvent*)
 {
     d->textEdit->setFocus();
+}
+
+/**
+ * Somewhat contextual Input Hints in Status Bar.
+ */
+void EditorView::updateInputHints()
+{
+    auto* mw = Gui::getMainWindow();
+    if (!mw) {
+        return;
+    }
+
+    if (mw->activeWindow() != this) {
+        mw->hideHints();
+        return;
+    }
+
+    using enum Gui::InputHint::UserInput;
+
+    std::list<Gui::InputHint> hints;
+
+    QWidget* fw = QApplication::focusWidget();
+
+    bool editorFocus = fw && (fw == d->textEdit || d->textEdit->isAncestorOf(fw));
+    bool searchFocus = fw && (fw == d->searchBar || d->searchBar->isAncestorOf(fw));
+
+    QTextCursor cursor = d->textEdit->textCursor();
+    bool hasSelection = cursor.hasSelection();
+
+    if (editorFocus) {
+
+        hints.push_back({.message = tr("%1 search"), .sequences = {{ModifierCtrl, KeyF}}});
+
+        hints.push_back({.message = tr("%1 toggle breakpoint"), .sequences = {{KeyF9}}});
+
+        hints.push_back(
+            {.message = tr("(%1) %2 (un)indent"), .sequences = {{ModifierShift}, {KeyTab}}}
+        );
+
+        if (hasSelection) {
+            hints.push_back(
+                {.message = tr("%1 / %2 (un)comment"), .sequences = {{ModifierAlt, KeyC}, {KeyU}}}
+            );
+
+            hints.push_back(
+                {.message = tr("%1 execute selection"),
+                 .sequences = {{ModifierAlt, ModifierShift, KeyP}}}
+            );
+        }
+
+        if (d->textEdit->hasCompletion()) {
+            hints.push_back(
+                {.message = tr("%1 auto-complete"), .sequences = {{ModifierCtrl, KeySpace}}}
+            );
+        }
+    }
+
+    else if (searchFocus) {
+
+        bool hasText = !d->searchBar->getSearchText().isEmpty();
+
+        if (hasText) {
+            hints.push_back({.message = tr("%1 next result"), .sequences = {{KeyReturn}}});
+        }
+
+        hints.push_back({.message = tr("%1 close search"), .sequences = {{KeyEscape}}});
+    }
+
+    else {
+        mw->hideHints();
+        return;
+    }
+
+    mw->showHints(hints);
 }
 
 // ---------------------------------------------------------
@@ -641,35 +736,22 @@ TYPESYSTEM_SOURCE_ABSTRACT(Gui::PythonEditorView, Gui::EditorView)
 
 PythonEditorView::PythonEditorView(PythonEditor* editor, QWidget* parent)
     : EditorView(editor, parent)
-    , _pye(editor)
-{
-    connect(this, &PythonEditorView::changeFileName, editor, &PythonEditor::setFileName);
-    watcher = new PythonTracingWatcher(this);
-}
+    , watcher(new PythonTracingWatcher(this))
+{}
 
 PythonEditorView::~PythonEditorView()
 {
     delete watcher;
 }
 
-/**
- * Runs the action specified by \a pMsg.
- */
-bool PythonEditorView::onMsg(const char* pMsg, const char** ppReturn)
+/// Runs the action specified by \a pMsg.
+bool PythonEditorView::onMsg(const char* pMsg)
 {
     if (strcmp(pMsg, "Run") == 0) {
         executeScript();
         return true;
     }
-    else if (strcmp(pMsg, "StartDebug") == 0) {
-        QTimer::singleShot(300, this, &PythonEditorView::startDebug);
-        return true;
-    }
-    else if (strcmp(pMsg, "ToggleBreakpoint") == 0) {
-        toggleBreakpoint();
-        return true;
-    }
-    return EditorView::onMsg(pMsg, ppReturn);
+    return EditorView::onMsg(pMsg);
 }
 
 /**
@@ -681,23 +763,15 @@ bool PythonEditorView::onHasMsg(const char* pMsg) const
     if (strcmp(pMsg, "Run") == 0) {
         return true;
     }
-    if (strcmp(pMsg, "StartDebug") == 0) {
-        return true;
-    }
-    if (strcmp(pMsg, "ToggleBreakpoint") == 0) {
-        return true;
-    }
     return EditorView::onHasMsg(pMsg);
 }
 
-/**
- * Runs the opened script in the macro manager.
- */
+/// Runs the opened script in the macro manager.
 void PythonEditorView::executeScript()
 {
     // always save the macro when it is modified
     if (EditorView::onHasMsg("Save")) {
-        EditorView::onMsg("Save", nullptr);
+        EditorView::onMsg("Save");
     }
     try {
         getMainWindow()->setCursor(Qt::WaitCursor);
@@ -709,29 +783,9 @@ void PythonEditorView::executeScript()
         // handle SystemExit exceptions
         Base::PyGILStateLocker locker;
         Base::PyException e;
-        e.ReportException();
+        e.reportException();
         getMainWindow()->unsetCursor();
     }
-}
-
-void PythonEditorView::startDebug()
-{
-    _pye->startDebug();
-}
-
-void PythonEditorView::toggleBreakpoint()
-{
-    _pye->toggleBreakpoint();
-}
-
-void PythonEditorView::showDebugMarker(int line)
-{
-    _pye->showDebugMarker(line);
-}
-
-void PythonEditorView::hideDebugMarker()
-{
-    _pye->hideDebugMarker();
 }
 
 // ----------------------------------------------------------------------------
@@ -752,10 +806,21 @@ SearchBar::SearchBar(QWidget* parent)
 
     searchText = new QLineEdit(this);
     searchText->setClearButtonEnabled(true);
+    searchText->setPlaceholderText(tr("Find in document..."));
     horizontalLayout->addWidget(searchText);
     connect(searchText, &QLineEdit::returnPressed, this, &SearchBar::findNext);
-    connect(searchText, &QLineEdit::textChanged, this, &SearchBar::findCurrent);
+    connect(searchText, &QLineEdit::textChanged, this, [this]() {
+        if (!skipSearch) {
+            findCurrent();
+        }
+    });
     connect(searchText, &QLineEdit::textChanged, this, &SearchBar::updateButtons);
+    connect(searchText, &QLineEdit::textChanged, this, &SearchBar::textChanged);
+
+    resultLabel = new QLabel(this);
+    resultLabel->setMinimumWidth(60);
+    resultLabel->setAlignment(Qt::AlignCenter);
+    horizontalLayout->addWidget(resultLabel);
 
     prevButton = new QToolButton(this);
     prevButton->setIcon(style()->standardIcon(QStyle::SP_ArrowBack));
@@ -786,6 +851,7 @@ SearchBar::SearchBar(QWidget* parent)
 
     setMinimumWidth(minimumSizeHint().width());
     updateButtons();
+    resultLabel->setText("");
     hide();
 }
 
@@ -812,11 +878,26 @@ void SearchBar::retranslateUi()
     matchWord->setText(tr("Whole words"));
 }
 
-void SearchBar::activate()
+/**
+ * Show the search bar with optional prefilled text from selection.
+ */
+void SearchBar::activate(const QString& prefill)
 {
     show();
+
+    if (!prefill.isEmpty()) {
+        skipSearch = true;  // prevent cursor jump to next search match after prefill
+        searchText->setText(prefill);
+        skipSearch = false;
+    }
+
     searchText->selectAll();
     searchText->setFocus(Qt::ShortcutFocusReason);
+    updateButtons();
+
+    if (!searchText->text().isEmpty()) {
+        updateSearchResults(searchText->text());
+    }
 }
 
 void SearchBar::deactivate()
@@ -825,6 +906,141 @@ void SearchBar::deactivate()
         textEditor->setFocus();
     }
     hide();
+}
+
+/**
+ * Get all search result matches in document.
+ */
+SearchBar::SearchResults SearchBar::findAllMatches(const QString& str)
+{
+    SearchResults matches;
+
+    if (!textEditor || str.isEmpty()) {
+        return matches;
+    }
+
+    QTextDocument* doc = textEditor->document();
+    if (!doc) {
+        return matches;
+    }
+
+    QTextDocument::FindFlags options = {};
+    if (matchCase->isChecked()) {
+        options |= QTextDocument::FindCaseSensitively;
+    }
+    if (matchWord->isChecked()) {
+        options |= QTextDocument::FindWholeWords;
+    }
+
+    QTextCursor cursor(doc);
+    QTextCursor currentCursor = textEditor->textCursor();
+
+    while (true) {
+        cursor = doc->find(str, cursor, options);
+        if (cursor.isNull()) {
+            break;
+        }
+
+        const int start = cursor.selectionStart();
+        const int end = cursor.selectionEnd();
+
+        matches.matchRanges.push_back({start, end});
+
+        if (currentCursor.position() >= start && currentCursor.position() <= end) {
+            matches.currentIndex = matches.matchRanges.size();
+        }
+    }
+
+    return matches;
+}
+
+/**
+ * Show current search result position and total matches count.
+ */
+void SearchBar::updateSearchResults(const QString& str)
+{
+    if (!textEditor || str.isEmpty()) {
+        resultLabel->clear();
+        return;
+    }
+
+    SearchResults matches = findAllMatches(str);
+
+    if (matches.matchRanges.isEmpty()) {
+        resultLabel->setText(tr("No results"));
+        highlightSearchResults(matches);
+        return;
+    }
+
+    int total = matches.matchRanges.size();
+    int currentIndex = matches.currentIndex;
+
+    if (currentIndex == -1) {
+        resultLabel->setText(QString("0 / %1").arg(total));
+    }
+    else {
+        resultLabel->setText(QString("%1 / %2").arg(currentIndex).arg(total));
+    }
+
+    highlightSearchResults(matches);
+}
+
+/**
+ * Highlight visually all search result matches.
+ * Note: highlight stays after closing search bar, but disappears after any subsequent click.
+ */
+void SearchBar::highlightSearchResults(const SearchResults& matches)
+{
+    if (!textEditor || !textEditor->document()) {
+        return;
+    }
+
+    const auto& selections = textEditor->extraSelections();
+
+    QVector<QTextEdit::ExtraSelection> cleaned;
+    cleaned.reserve(selections.size());
+
+    for (const auto& sel : selections) {
+        if (!sel.format.property(SearchSelectionProperty).toBool()) {
+            cleaned.push_back(sel);
+        }
+    }
+
+    QVector<QTextEdit::ExtraSelection> searchSelections;
+    searchSelections.reserve(matches.matchRanges.size());
+
+    QTextCursor currentCursor = textEditor->textCursor();
+
+    const QPalette pal = textEditor->palette();
+    const QColor highlightColor = pal.color(QPalette::Highlight);
+
+    QColor matchColor = highlightColor;
+    matchColor.setAlphaF(0.75);
+
+    QTextDocument* doc = textEditor->document();
+
+    for (const auto& range : matches.matchRanges) {
+        QTextCursor cursor(doc);
+        cursor.setPosition(range.first);
+        cursor.setPosition(range.second, QTextCursor::KeepAnchor);
+
+        QTextEdit::ExtraSelection sel;
+        sel.cursor = cursor;
+
+        const int pos = currentCursor.position();
+        const bool isCurrent = (pos >= range.first && pos <= range.second);
+
+        QTextCharFormat format;
+        format.setBackground(isCurrent ? highlightColor : matchColor);
+        format.setProperty(QTextFormat::FullWidthSelection, true);
+        format.setProperty(SearchSelectionProperty, true);
+
+        sel.format = format;
+        searchSelections.push_back(sel);
+    }
+
+    cleaned += searchSelections;
+    textEditor->setExtraSelections(cleaned);
 }
 
 void SearchBar::findPrevious()
@@ -861,7 +1077,7 @@ void SearchBar::findText(bool skip, bool next, const QString& str)
     bool found = true;
     QTextCursor newCursor = cursor;
     if (!str.isEmpty()) {
-        QTextDocument::FindFlags options;
+        QTextDocument::FindFlags options = {};
         if (!next) {
             options |= QTextDocument::FindBackward;
         }
@@ -875,8 +1091,9 @@ void SearchBar::findText(bool skip, bool next, const QString& str)
         newCursor = doc->find(str, cursor, options);
         if (newCursor.isNull()) {
             QTextCursor ac(doc);
-            ac.movePosition(options & QTextDocument::FindBackward ? QTextCursor::End
-                                                                  : QTextCursor::Start);
+            ac.movePosition(
+                options & QTextDocument::FindBackward ? QTextCursor::End : QTextCursor::Start
+            );
             newCursor = doc->find(str, ac, options);
             if (newCursor.isNull()) {
                 found = false;
@@ -893,12 +1110,15 @@ void SearchBar::findText(bool skip, bool next, const QString& str)
 
     QString styleSheet;
     if (!found) {
-        styleSheet = QString::fromLatin1(" QLineEdit {\n"
-                                         "     background-color: rgb(221,144,161);\n"
-                                         " }\n");
+        styleSheet = QStringLiteral(
+            " QLineEdit {\n"
+            "     background-color: rgb(221,144,161);\n"
+            " }\n"
+        );
     }
 
     searchText->setStyleSheet(styleSheet);
+    updateSearchResults(str);
 }
 
 void SearchBar::updateButtons()
@@ -915,6 +1135,11 @@ void SearchBar::changeEvent(QEvent* event)
     }
 
     QWidget::changeEvent(event);
+}
+
+QString SearchBar::getSearchText() const
+{
+    return searchText->text();
 }
 
 #include "moc_EditorView.cpp"

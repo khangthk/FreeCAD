@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jan Rheinländer                                    *
  *                                   <jrheinlaender@users.sourceforge.net> *
@@ -22,9 +24,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <Inventor/nodes/SoMaterial.h>
 #include <Inventor/nodes/SoMultipleCopy.h>
 #include <Inventor/nodes/SoPickStyle.h>
@@ -33,13 +33,13 @@
 #include <Inventor/nodes/SoTransform.h>
 #include <QAction>
 #include <QMenu>
-#endif
+
 
 #include "App/Application.h"
 #include "Gui/Command.h"
 #include "Gui/Control.h"
 #include "Gui/Document.h"
-#include "Gui/Selection.h"
+#include "Gui/Selection/Selection.h"
 #include "Mod/Fem/App/FemConstraint.h"
 
 #include "ViewProviderFemConstraint.h"
@@ -56,7 +56,6 @@ ViewProviderFemConstraint::ViewProviderFemConstraint()
     , pSymbol(nullptr)
     , pExtraSymbol(nullptr)
     , pExtraTrans(nullptr)
-    , ivFile(nullptr)
 {
     pShapeSep = new SoSeparator();
     pShapeSep->ref();
@@ -96,14 +95,21 @@ void ViewProviderFemConstraint::attach(App::DocumentObject* pcObject)
     addDisplayMaskMode(sep, "Base");
 }
 
-std::string ViewProviderFemConstraint::resourceSymbolDir =
-    App::Application::getResourceDir() + "Mod/Fem/Resources/symbols/";
+std::filesystem::path ViewProviderFemConstraint::resourceSymbolDir
+    = Base::FileInfo::stringToPath(App::Application::getResourceDir())
+    / Base::FileInfo::stringToPath("Mod/Fem/Resources/symbols/").make_preferred();
 
-void ViewProviderFemConstraint::loadSymbol(const char* fileName)
+const std::filesystem::path& ViewProviderFemConstraint::getResourceSymbolDir()
 {
-    ivFile = fileName;
+    return resourceSymbolDir;
+}
+
+void ViewProviderFemConstraint::loadSymbol(const std::filesystem::path& ivFile)
+{
+    std::string ivStr = Base::FileInfo::pathToString(ivFile);
+    const char* fileName = ivStr.c_str();
     SoInput in;
-    if (!in.openFile(ivFile)) {
+    if (!in.openFile(fileName)) {
         std::stringstream str;
         str << "Error opening symbol file " << fileName;
         throw Base::ImportError(str.str());
@@ -156,11 +162,13 @@ std::vector<App::DocumentObject*> ViewProviderFemConstraint::claimChildren() con
 void ViewProviderFemConstraint::setupContextMenu(QMenu* menu, QObject* receiver, const char* member)
 {
     QAction* act;
-    act = menu->addAction(QObject::tr("Edit analysis feature"), receiver, member);
+    act = menu->addAction(QObject::tr("Edit Analysis Feature"), receiver, member);
     act->setData(QVariant((int)ViewProvider::Default));
-    ViewProviderGeometryObject::setupContextMenu(menu,
-                                                 receiver,
-                                                 member);  // clazy:exclude=skipped-base-method
+    ViewProviderGeometryObject::setupContextMenu(
+        menu,
+        receiver,
+        member
+    );  // clazy:exclude=skipped-base-method
 }
 
 void ViewProviderFemConstraint::onChanged(const App::Property* prop)
@@ -170,7 +178,7 @@ void ViewProviderFemConstraint::onChanged(const App::Property* prop)
 
 void ViewProviderFemConstraint::updateData(const App::Property* prop)
 {
-    auto pcConstraint = static_cast<const Fem::Constraint*>(this->getObject());
+    auto pcConstraint = this->getObject<const Fem::Constraint>();
 
     if (prop == &pcConstraint->Points || prop == &pcConstraint->Normals
         || prop == &pcConstraint->Scale) {
@@ -181,9 +189,11 @@ void ViewProviderFemConstraint::updateData(const App::Property* prop)
     }
 }
 
-void ViewProviderFemConstraint::handleChangedPropertyName(Base::XMLReader& reader,
-                                                          const char* typeName,
-                                                          const char* propName)
+void ViewProviderFemConstraint::handleChangedPropertyName(
+    Base::XMLReader& reader,
+    const char* typeName,
+    const char* propName
+)
 {
     if (strcmp(propName, "FaceColor") == 0
         && Base::Type::fromName(typeName) == App::PropertyColor::getClassTypeId()) {
@@ -191,8 +201,10 @@ void ViewProviderFemConstraint::handleChangedPropertyName(Base::XMLReader& reade
         color.Restore(reader);
         ShapeAppearance.setDiffuseColor(color.getValue());
     }
-    else if (strcmp(propName, "ShapeMaterial") == 0
-             && Base::Type::fromName(typeName) == App::PropertyMaterial::getClassTypeId()) {
+    else if (
+        strcmp(propName, "ShapeMaterial") == 0
+        && Base::Type::fromName(typeName) == App::PropertyMaterial::getClassTypeId()
+    ) {
         // nothing
     }
     else {
@@ -200,9 +212,19 @@ void ViewProviderFemConstraint::handleChangedPropertyName(Base::XMLReader& reade
     }
 }
 
+void ViewProviderFemConstraint::setRotateSymbol(bool rotate)
+{
+    rotateSymbol = rotate;
+    updateSymbol();
+}
+
 void ViewProviderFemConstraint::updateSymbol()
 {
-    auto obj = static_cast<const Fem::Constraint*>(this->getObject());
+    auto obj = this->getObject<const Fem::Constraint>();
+    if (!obj) {
+        return;
+    }
+
     const std::vector<Base::Vector3d>& points = obj->Points.getValue();
     const std::vector<Base::Vector3d>& normals = obj->Normals.getValue();
     if (points.size() != normals.size()) {
@@ -221,26 +243,26 @@ void ViewProviderFemConstraint::updateSymbol()
     transformExtraSymbol();
 }
 
-void ViewProviderFemConstraint::transformSymbol(const Base::Vector3d& point,
-                                                const Base::Vector3d& normal,
-                                                SbMatrix& mat) const
+void ViewProviderFemConstraint::transformSymbol(
+    const Base::Vector3d& point,
+    const Base::Vector3d& normal,
+    SbMatrix& mat
+) const
 {
-    auto obj = static_cast<const Fem::Constraint*>(this->getObject());
+    auto obj = this->getObject<const Fem::Constraint>();
     SbVec3f axisY(0, 1, 0);
     float s = obj->getScaleFactor();
     SbVec3f scale(s, s, s);
     SbVec3f norm = rotateSymbol ? SbVec3f(normal.x, normal.y, normal.z) : axisY;
     SbRotation rot(axisY, norm);
-    SbVec3f tra(static_cast<float>(point.x),
-                static_cast<float>(point.y),
-                static_cast<float>(point.z));
+    SbVec3f tra(static_cast<float>(point.x), static_cast<float>(point.y), static_cast<float>(point.z));
     mat.setTransform(tra, rot, scale);
 }
 
 void ViewProviderFemConstraint::transformExtraSymbol() const
 {
     if (pExtraTrans) {
-        auto obj = static_cast<const Fem::Constraint*>(this->getObject());
+        auto obj = this->getObject<const Fem::Constraint>();
         float s = obj->getScaleFactor();
         SbMatrix mat;
         mat.setScale(s);
@@ -267,9 +289,11 @@ std::string ViewProviderFemConstraint::gethideMeshShowPartStr()
 
 bool ViewProviderFemConstraint::setEdit(int ModNum)
 {
-    Gui::Command::doCommand(Gui::Command::Doc,
-                            "%s",
-                            ViewProviderFemConstraint::gethideMeshShowPartStr().c_str());
+    Gui::Command::doCommand(
+        Gui::Command::Doc,
+        "%s",
+        ViewProviderFemConstraint::gethideMeshShowPartStr().c_str()
+    );
     return Gui::ViewProviderGeometryObject::setEdit(ModNum);
 }
 

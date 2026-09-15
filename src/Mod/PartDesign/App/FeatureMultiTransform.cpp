@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /******************************************************************************
  *   Copyright (c) 2012 Jan Rheinländer <jrheinlaender@users.sourceforge.net> *
  *                                                                            *
@@ -21,12 +23,10 @@
  ******************************************************************************/
 
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <BRepGProp.hxx>
 #include <GProp_GProps.hxx>
 #include <Precision.hxx>
-#endif
+
 
 #include "FeatureMultiTransform.h"
 #include "FeatureAddSub.h"
@@ -52,18 +52,19 @@ void MultiTransform::positionBySupport()
     PartDesign::Transformed::positionBySupport();
     std::vector<App::DocumentObject*> transFeatures = Transformations.getValues();
     for (auto f : transFeatures) {
-        auto transFeature = Base::freecad_dynamic_cast<PartDesign::Transformed>(f);
+        auto transFeature = freecad_cast<PartDesign::Transformed*>(f);
         if (!transFeature) {
             throw Base::TypeError("Transformation features must be subclasses of Transformed");
         }
 
-        transFeature->Placement.setValue(this->Placement.getValue());
-
-        // To avoid that a linked transform feature stays touched after a recompute
-        // we have to purge the touched state
-        if (this->isRecomputing()) {
-            transFeature->purgeTouched();
+        const auto& placement = this->Placement.getValue();
+        if (transFeature->Placement.getValue() != placement) {
+            transFeature->Placement.setValue(placement);
         }
+
+        // These objects only store transformation parameters. Their execution is handled by this
+        // MultiTransform, so synchronizing their placement must not schedule another document pass.
+        transFeature->purgeTouched();
     }
 }
 
@@ -75,8 +76,9 @@ short MultiTransform::mustExecute() const
     return Transformed::mustExecute();
 }
 
-const std::list<gp_Trsf>
-MultiTransform::getTransformations(const std::vector<App::DocumentObject*> originals)
+const std::list<gp_Trsf> MultiTransform::getTransformations(
+    const std::vector<App::DocumentObject*> originals
+)
 {
     std::vector<App::DocumentObject*> transFeatures = Transformations.getValues();
 
@@ -84,8 +86,7 @@ MultiTransform::getTransformations(const std::vector<App::DocumentObject*> origi
     if (!originals.empty()) {
         // Find centre of gravity of first original
         // FIXME: This method will NOT give the expected result for more than one original!
-        if (auto addFeature =
-                Base::freecad_dynamic_cast<PartDesign::FeatureAddSub>(originals.front())) {
+        if (auto addFeature = freecad_cast<PartDesign::FeatureAddSub*>(originals.front())) {
             TopoDS_Shape original = addFeature->AddSubShape.getShape().getShape();
 
             GProp_GProps props;
@@ -98,12 +99,16 @@ MultiTransform::getTransformations(const std::vector<App::DocumentObject*> origi
     std::list<gp_Pnt> cogs;
 
     for (auto const& f : transFeatures) {
-        auto transFeature = Base::freecad_dynamic_cast<PartDesign::Transformed>(f);
+        auto transFeature = freecad_cast<PartDesign::Transformed*>(f);
         if (!transFeature) {
             throw Base::TypeError("Transformation features must be subclasses of Transformed");
         }
 
         std::list<gp_Trsf> newTransformations = transFeature->getTransformations(originals);
+        // Computing transformations can update derived helper properties such as Spacings and
+        // Offset. The helper is not executed independently, so do not let those updates schedule
+        // the parent MultiTransform for a second document recompute pass.
+        transFeature->purgeTouched();
         if (result.empty()) {
             // First transformation Feature
             result = newTransformations;
@@ -130,12 +135,16 @@ MultiTransform::getTransformations(const std::vector<App::DocumentObject*> origi
                 // oldTransformations vector
 
                 if (newTransformations.empty()) {
-                    throw Base::ValueError("Number of occurrences must be a divisor of previous "
-                                           "number of occurrences");
+                    throw Base::ValueError(
+                        "Number of occurrences must be a divisor of previous "
+                        "number of occurrences"
+                    );
                 }
                 if (oldTransformations.size() % newTransformations.size() != 0) {
-                    throw Base::ValueError("Number of occurrences must be a divisor of previous "
-                                           "number of occurrences");
+                    throw Base::ValueError(
+                        "Number of occurrences must be a divisor of previous "
+                        "number of occurrences"
+                    );
                 }
 
                 unsigned sliceLength = oldTransformations.size() / newTransformations.size();

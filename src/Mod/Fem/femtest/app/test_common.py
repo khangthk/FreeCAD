@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2015 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -122,8 +124,12 @@ class TestFemCommon(unittest.TestCase):
             fcc_print(f"Try importing {mod} ...")
             try:
                 im = __import__(f"{mod}")
-            except ImportError:
-                im = False
+            except ImportError as e:
+                # check if it is a VTK module that is missing, because maybe we should not need it
+                if "vtkmodules" in e.name and not "BUILD_FEM_VTK_PYTHON" in FreeCAD.__cmake__:
+                    im = True
+                else:
+                    im = False
             if not im:
                 # to get an error message what was going wrong
                 __import__(f"{mod}")

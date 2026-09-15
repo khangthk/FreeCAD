@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2020 Przemo Firszt <przemo@firszt.eu>                   *
 # *   Copyright (c) 2020 Bernd Hahnebach <bernd@bimstatik.org>              *
@@ -34,33 +36,15 @@ import FreeCAD
 from FreeCAD import Units
 
 from . import femutils
-from femsolver.calculix.solver import ANALYSIS_TYPES
 
 
 def check_member_for_solver_calculix(analysis, solver, mesh, member):
 
     message = ""
 
-    # solver
-    if solver.AnalysisType not in ANALYSIS_TYPES:
-        message += f"Unknown analysis type: {solver.AnalysisType}\n"
-    if solver.AnalysisType == "frequency":
-        if not hasattr(solver, "EigenmodeHighLimit"):
-            message += "Frequency analysis: Solver has no EigenmodeHighLimit.\n"
-        elif not hasattr(solver, "EigenmodeLowLimit"):
-            message += "Frequency analysis: Solver has no EigenmodeLowLimit.\n"
-        elif not hasattr(solver, "EigenmodesCount"):
-            message += "Frequency analysis: Solver has no EigenmodesCount.\n"
-    if hasattr(solver, "MaterialNonlinearity") and solver.MaterialNonlinearity == "nonlinear":
-        if not member.mats_nonlinear:
-            message += (
-                "Solver is set to nonlinear materials, "
-                "but there is no nonlinear material in the analysis.\n"
-            )
-
     # mesh
     if not mesh:
-        message += "No mesh object defined in the analysis.\n"
+        message += "A single mesh object must be defined in the analysis.\n"
     if mesh:
         if (
             mesh.FemMesh.VolumeCount == 0
@@ -69,7 +53,7 @@ def check_member_for_solver_calculix(analysis, solver, mesh, member):
         ):
             message += (
                 "FEM mesh has no volume elements, "
-                "either define a shell thicknesses or "
+                "either define shell thicknesses or "
                 "provide a FEM mesh with volume elements.\n"
             )
         if (
@@ -109,6 +93,8 @@ def check_member_for_solver_calculix(analysis, solver, mesh, member):
     mat_ref_shty = ""
     for m in member.mats_linear:
         ref_shty = femutils.get_refshape_type(m["Object"])
+        if ref_shty == "Compound":
+            ref_shty = "Solid"
         if not mat_ref_shty:
             mat_ref_shty = ref_shty
         if mat_ref_shty and ref_shty and ref_shty != mat_ref_shty:
@@ -156,7 +142,7 @@ def check_member_for_solver_calculix(analysis, solver, mesh, member):
                 )
         if femutils.is_of_type(mat_obj, "Fem::MaterialReinforced"):
             # additional tests for reinforced materials,
-            # they are needed for result calculation not for ccx analysis
+            # they are needed for result calculation, not for ccx analysis
             mat_map_m = mat_obj.Material
             if "AngleOfFriction" in mat_map_m:
                 # print(Units.Quantity(mat_map_m["AngleOfFriction"]).Value)
@@ -179,7 +165,7 @@ def check_member_for_solver_calculix(analysis, solver, mesh, member):
                     )
             else:
                 message += (
-                    "No CompressiveStrength defined for the matrinx "
+                    "No CompressiveStrength defined for the matrix "
                     "of at least one reinforced material.\n"
                 )
             mat_map_r = mat_obj.Reinforcement
@@ -202,17 +188,6 @@ def check_member_for_solver_calculix(analysis, solver, mesh, member):
                 "Only one material object, but this one has a reference shape. "
                 "The reference shape will be ignored.\n"
             )
-    for m in member.mats_linear:
-        has_nonlinear_material = False
-        for nlm in member.mats_nonlinear:
-            if nlm["Object"].LinearBaseMaterial == m["Object"]:
-                if has_nonlinear_material is False:
-                    has_nonlinear_material = True
-                else:
-                    message += (
-                        "At least two nonlinear materials use the same linear base material. "
-                        "Only one nonlinear material for each linear material allowed.\n"
-                    )
 
     # which analysis needs which constraints
     # no check in the regard of loads existence (constraint force, pressure, self weight)
@@ -224,8 +199,6 @@ def check_member_for_solver_calculix(analysis, solver, mesh, member):
         if not member.cons_initialtemperature:
             if not member.geos_fluidsection:
                 message += "Thermomechanical analysis: No initial temperature defined.\n"
-        if len(member.cons_initialtemperature) > 1:
-            message += "Thermomechanical analysis: Only one initial temperature is allowed.\n"
 
     # constraints
     # fixed
@@ -301,13 +274,13 @@ def check_member_for_solver_calculix(analysis, solver, mesh, member):
             # this needs to be checked only once either here or in shell_thicknesses
             message += (
                 "Beam sections and shell thicknesses in one analysis "
-                "is not supported at the moment.\n"
+                "are not supported at the moment.\n"
             )
         if member.geos_fluidsection:
             # this needs to be checked only once either here or in shell_thicknesses
             message += (
                 "Beam sections and fluid sections in one analysis "
-                "is not supported at the moment.\n"
+                "are not supported at the moment.\n"
             )
         has_no_references = False
         for b in member.geos_beamsection:

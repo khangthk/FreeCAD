@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /***************************************************************************
  *   Copyright (c) 2008 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -24,22 +25,14 @@
 #include <FCConfig.h>
 
 #if defined(_MSC_VER)
-#include <windows.h>
-#include <dbghelp.h>
-#endif
-
-
-#ifdef _PreComp_
-#undef _PreComp_
-#endif
-
-#ifdef FC_OS_LINUX
-#include <unistd.h>
+# include <windows.h>
 #endif
 
 #if HAVE_CONFIG_H
-#include <config.h>
+# include <config.h>
 #endif  // HAVE_CONFIG_H
+
+#include <Build/Version.h>  // For FCCopyrightYear
 
 #include <cstdio>
 #include <map>
@@ -48,25 +41,28 @@
 #include <QApplication>
 #include <QLocale>
 #include <QMessageBox>
+#include <QStandardPaths>
 
 // FreeCAD header
 #include <App/Application.h>
+#include <App/ProgramInformation.h>
 #include <Base/ConsoleObserver.h>
+#include <Base/CrashReporter/WindowsCrashReporter.h>
 #include <Base/Interpreter.h>
 #include <Base/Parameter.h>
 #include <Base/Exception.h>
 #include <Gui/Application.h>
+#include <Gui/ProgramInformation.h>
 
 
 void PrintInitHelp();
 
-const char sBanner[] =
-    "(C) 2001-2024 FreeCAD contributors\n"
-    "FreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\n";
+const auto sBanner = fmt::format(
+    "(C) 2001-{} FreeCAD contributors\n"
+    "FreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\n",
+    FCCopyrightYear
+);
 
-#if defined(_MSC_VER)
-void InitMiniDumpWriter(const std::string&);
-#endif
 
 class Redirection
 {
@@ -94,6 +90,59 @@ private:
     Base::FileInfo fi;
     FILE* file;
 };
+
+static bool inGuiMode()
+{
+    // if console option is set then run in cmd mode
+    if (App::Application::Config()["Console"] == "1") {
+        return false;
+    }
+    return App::Application::Config()["RunMode"] == "Gui"
+        || App::Application::Config()["RunMode"] == "Internal";
+}
+
+#if defined(FC_OS_LINUX) || defined(FC_OS_BSD)
+static bool desktopFileIsAvailable(const QString& desktopFileName)
+{
+    const QString desktopFile = desktopFileName + QStringLiteral(".desktop");
+    return !QStandardPaths::locate(QStandardPaths::ApplicationsLocation, desktopFile).isEmpty();
+}
+#else
+static bool desktopFileIsAvailable(const QString&)
+{
+    return true;
+}
+#endif
+
+static void displayInfo(const std::string& msg, bool preformatted = true)
+{
+    if (inGuiMode()) {
+        QString qMsg = QString::fromStdString(msg);
+        QString appName = QString::fromStdString(App::Application::getExecutableName());
+        QMessageBox msgBox;
+        msgBox.setIcon(QMessageBox::Information);
+        msgBox.setWindowTitle(appName);
+        msgBox.setDetailedText(qMsg);
+        msgBox.setText(preformatted ? QStringLiteral("<pre>%1</pre>").arg(qMsg) : qMsg);
+        msgBox.exec();
+    }
+    else {
+        std::cout << msg;
+    }
+}
+
+static void displayCritical(const QString& msg, bool preformatted = true)
+{
+    if (inGuiMode()) {
+        QString appName = QString::fromStdString(App::Application::getExecutableName());
+        QString title = QObject::tr("Initialization of %1 failed").arg(appName);
+        QString text = preformatted ? QStringLiteral("<pre>%1</pre>").arg(msg) : msg;
+        QMessageBox::critical(nullptr, title, text);
+    }
+    else {
+        std::cerr << msg.toStdString();
+    }
+}
 
 int main(int argc, char** argv)
 {
@@ -150,22 +199,21 @@ int main(int argc, char** argv)
         }
         argv_.push_back(0);  // 0-terminated string
     }
-
-    // https://www.qt.io/blog/dark-mode-on-windows-11-with-qt-6.5
-    _putenv("QT_QPA_PLATFORM=windows:darkmode=1");
 #endif
 
     // Name and Version of the Application
     App::Application::Config()["ExeName"] = "FreeCAD";
     App::Application::Config()["ExeVendor"] = "FreeCAD";
     App::Application::Config()["AppDataSkipVendor"] = "true";
-    App::Application::Config()["MaintainerUrl"] = "https://www.freecad.org/wiki/Main_Page";
+    App::Application::Config()["MaintainerUrl"] = "https://freecad.org";
 
     // set the banner (for logging and console)
     App::Application::Config()["CopyrightInfo"] = sBanner;
     App::Application::Config()["AppIcon"] = "freecad";
     App::Application::Config()["SplashScreen"] = "freecadsplash";
-    App::Application::Config()["AboutImage"] = "freecadabout";
+    App::Application::Config()["AboutImage"] = App::Application::isDevelopmentVersion()
+        ? "freecadaboutdev"
+        : "freecadabout";
     App::Application::Config()["StartWorkbench"] = "PartDesignWorkbench";
     // App::Application::Config()["HiddenDockWindow"] = "Property editor";
     App::Application::Config()["SplashAlignment"] = "Bottom|Left";
@@ -173,8 +221,7 @@ int main(int argc, char** argv)
     App::Application::Config()["SplashWarningColor"] = "#CA333B";
     App::Application::Config()["SplashInfoColor"] = "#000000";
     App::Application::Config()["SplashInfoPosition"] = "6,75";
-
-    QGuiApplication::setDesktopFileName(QStringLiteral("org.freecad.FreeCAD"));
+    App::Application::Config()["DesktopFileName"] = "org.freecad.FreeCAD";
 
     try {
         // Init phase ===========================================================
@@ -186,20 +233,31 @@ int main(int argc, char** argv)
         // Inits the Application
 #if defined(FC_OS_WIN32)
         App::Application::init(argc_, argv_.data());
+# ifdef _MSC_VER
+        // *Not* installed on mingw, etc.
+        Base::CrashReporter::WindowsCrashReporter::install(
+            App::Application::getUserAppDataDir() + "CrashReports"
+        );
+# endif
 #else
         App::Application::init(argc, argv);
 #endif
-#if defined(_MSC_VER)
-        // create a dump file when the application crashes
-        std::string dmpfile = App::Application::getUserAppDataDir();
-        dmpfile += "crash.dmp";
-        InitMiniDumpWriter(dmpfile);
-#endif
-        std::map<std::string, std::string>::iterator it =
-            App::Application::Config().find("NavigationStyle");
+        // To set the window icon on Wayland, the desktop file has to be available to the
+        // compositor. Qt also uses the desktop file name to register with the portal registry.
+        const QString desktopFileName = QString::fromStdString(
+            App::Application::Config()["DesktopFileName"]
+        );
+        if (desktopFileIsAvailable(desktopFileName)) {
+            QGuiApplication::setDesktopFileName(desktopFileName);
+        }
+
+        std::map<std::string, std::string>::iterator it = App::Application::Config().find(
+            "NavigationStyle"
+        );
         if (it != App::Application::Config().end()) {
             ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath(
-                "User parameter:BaseApp/Preferences/View");
+                "User parameter:BaseApp/Preferences/View"
+            );
             // if not already defined do it now (for the very first start)
             std::string style = hGrp->GetASCII("NavigationStyle", it->second.c_str());
             hGrp->SetASCII("NavigationStyle", style.c_str());
@@ -214,66 +272,63 @@ int main(int argc, char** argv)
     }
     catch (const Base::UnknownProgramOption& e) {
         QApplication app(argc, argv);
-        QString appName = QString::fromLatin1(App::Application::Config()["ExeName"].c_str());
         QString msg = QString::fromLatin1(e.what());
-        QString s = QLatin1String("<pre>") + msg + QLatin1String("</pre>");
-        QMessageBox::critical(nullptr, appName, s);
+        displayCritical(msg);
         exit(1);
     }
     catch (const Base::ProgramInformation& e) {
         QApplication app(argc, argv);
-        QString appName = QString::fromLatin1(App::Application::Config()["ExeName"].c_str());
-        QString msg = QString::fromUtf8(e.what());
-        QString s = QLatin1String("<pre>") + msg + QLatin1String("</pre>");
-
-        QMessageBox msgBox;
-        msgBox.setIcon(QMessageBox::Information);
-        msgBox.setWindowTitle(appName);
-        msgBox.setDetailedText(msg);
-        msgBox.setText(s);
-        msgBox.exec();
+        if (std::strcmp(e.what(), App::ProgramInformation::verboseVersionEmitMessage) == 0) {
+            displayInfo(Gui::ProgramInformation::collect());
+        }
+        else {
+            displayInfo(e.what());
+        }
         exit(0);
     }
     catch (const Base::Exception& e) {
         // Popup an own dialog box instead of that one of Windows
         QApplication app(argc, argv);
-        QString appName = QString::fromLatin1(App::Application::Config()["ExeName"].c_str());
-        QString msg;
-        msg = QObject::tr("While initializing %1 the following exception occurred: '%2'\n\n"
-                          "Python is searching for its files in the following directories:\n%3\n\n"
-                          "Python version information:\n%4\n")
-                  .arg(appName,
-                       QString::fromUtf8(e.what()),
-                       QString::fromUtf8(Py_EncodeLocale(Py_GetPath(), nullptr)),
-                       QString::fromLatin1(Py_GetVersion()));
+        QString appName = QString::fromStdString(App::Application::getExecutableName());
+        QString msg = QObject::tr("While initializing %1 the following exception occurred: '%2'\n\n")
+                          .arg(appName, QString::fromUtf8(e.what()));
+        if (Py_IsInitialized()) {
+            msg += QObject::tr("Python is searching for its files in the following directories:\n%1\n\n")
+                       .arg(QString::fromStdString(Base::Interpreter().getPythonPath()));
+        }
+        else {
+            msg += QObject::tr("Python has not initialized yet.\n\n");
+        }
+        msg += QObject::tr("Python version information:\n%1\n")
+                   .arg(QString::fromLatin1(Py_GetVersion()));
         const char* pythonhome = getenv("PYTHONHOME");
         if (pythonhome) {
             msg += QObject::tr("\nThe environment variable PYTHONHOME is set to '%1'.")
                        .arg(QString::fromUtf8(pythonhome));
-            msg += QObject::tr("\nSetting this environment variable might cause Python to fail. "
-                               "Please contact your administrator to unset it on your system.\n\n");
+            msg += QObject::tr(
+                "\nSetting this environment variable might cause Python to fail. "
+                "Please contact your administrator to unset it on your system.\n\n"
+            );
         }
         else {
             msg += QObject::tr(
-                "\nPlease contact the application's support team for more information.\n\n");
+                "\nPlease contact the application's support team for more information.\n\n"
+            );
         }
 
-        QMessageBox::critical(nullptr,
-                              QObject::tr("Initialization of %1 failed").arg(appName),
-                              msg);
+        displayCritical(msg, false);
         exit(100);
     }
     catch (...) {
         // Popup an own dialog box instead of that one of Windows
         QApplication app(argc, argv);
-        QString appName = QString::fromLatin1(App::Application::Config()["ExeName"].c_str());
-        QString msg =
-            QObject::tr("Unknown runtime error occurred while initializing %1.\n\n"
-                        "Please contact the application's support team for more information.\n\n")
-                .arg(appName);
-        QMessageBox::critical(nullptr,
-                              QObject::tr("Initialization of %1 failed").arg(appName),
-                              msg);
+        QString appName = QString::fromStdString(App::Application::getExecutableName());
+        QString msg = QObject::tr(
+                          "Unknown runtime error occurred while initializing %1.\n\n"
+                          "Please contact the application's support team for more information.\n\n"
+        )
+                          .arg(appName);
+        displayCritical(msg, false);
         exit(101);
     }
 
@@ -286,12 +341,7 @@ int main(int argc, char** argv)
     std::streambuf* oldcerr = std::cerr.rdbuf(&stdcerr);
 
     try {
-        // if console option is set then run in cmd mode
-        if (App::Application::Config()["Console"] == "1") {
-            App::Application::runApplication();
-        }
-        if (App::Application::Config()["RunMode"] == "Gui"
-            || App::Application::Config()["RunMode"] == "Internal") {
+        if (inGuiMode()) {
             Gui::Application::runApplication();
         }
         else {
@@ -302,15 +352,15 @@ int main(int argc, char** argv)
         exit(e.getExitCode());
     }
     catch (const Base::Exception& e) {
-        e.ReportException();
+        e.reportException();
         exit(1);
     }
     catch (const std::exception& e) {
-        Base::Console().Error("Application unexpectedly terminated: %s\n", e.what());
+        Base::Console().error("Application unexpectedly terminated: %s\n", e.what());
         exit(1);
     }
     catch (...) {
-        Base::Console().Error("Application unexpectedly terminated\n");
+        Base::Console().error("Application unexpectedly terminated\n");
         exit(1);
     }
 
@@ -319,139 +369,12 @@ int main(int argc, char** argv)
     std::cerr.rdbuf(oldcerr);
 
     // Destruction phase ===========================================================
-    Base::Console().Log("%s terminating...\n", App::Application::Config()["ExeName"].c_str());
+    Base::Console().log("%s terminating...\n", App::Application::getExecutableName().c_str());
 
     // cleans up
     App::Application::destruct();
 
-    Base::Console().Log("%s completely terminated\n",
-                        App::Application::Config()["ExeName"].c_str());
+    Base::Console().log("%s completely terminated\n", App::Application::getExecutableName().c_str());
 
     return 0;
 }
-
-#if defined(_MSC_VER)
-
-typedef BOOL(__stdcall* tMDWD)(IN HANDLE hProcess,
-                               IN DWORD ProcessId,
-                               IN HANDLE hFile,
-                               IN MINIDUMP_TYPE DumpType,
-                               IN CONST PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
-                               OPTIONAL IN CONST PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
-                               OPTIONAL IN CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam
-                                   OPTIONAL);
-
-static tMDWD s_pMDWD;
-static HMODULE s_hDbgHelpMod;
-static MINIDUMP_TYPE s_dumpTyp = MiniDumpNormal;
-static std::wstring s_szMiniDumpFileName;  // initialize with whatever appropriate...
-
-#include <Base/StackWalker.h>
-class MyStackWalker: public StackWalker
-{
-    DWORD threadId;
-
-public:
-    MyStackWalker()
-        : StackWalker()
-        , threadId(GetCurrentThreadId())
-    {
-        std::string name = App::Application::Config()["UserAppData"] + "crash.log";
-        Base::Console().AttachObserver(new Base::ConsoleObserverFile(name.c_str()));
-    }
-    MyStackWalker(DWORD dwProcessId, HANDLE hProcess)
-        : StackWalker(dwProcessId, hProcess)
-    {}
-    virtual void OnOutput(LPCSTR szText)
-    {
-        Base::Console().Log("Id: %ld: %s", threadId, szText);
-        // StackWalker::OnOutput(szText);
-    }
-};
-
-static LONG __stdcall MyCrashHandlerExceptionFilter(EXCEPTION_POINTERS* pEx)
-{
-#ifdef _M_IX86
-    if (pEx->ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
-        // be sure that we have enough space...
-        static char MyStack[1024 * 128];
-        // it assumes that DS and SS are the same!!! (this is the case for Win32)
-        // change the stack only if the selectors are the same (this is the case for Win32)
-        //__asm push offset MyStack[1024*128];
-        //__asm pop esp;
-        __asm mov eax, offset MyStack[1024 * 128];
-        __asm mov esp, eax;
-    }
-#endif
-    MyStackWalker sw;
-    sw.ShowCallstack(GetCurrentThread(), pEx->ContextRecord);
-    Base::Console().Log("*** Unhandled Exception!\n");
-    Base::Console().Log("   ExpCode: 0x%8.8X\n", pEx->ExceptionRecord->ExceptionCode);
-    Base::Console().Log("   ExpFlags: %d\n", pEx->ExceptionRecord->ExceptionFlags);
-    Base::Console().Log("   ExpAddress: 0x%8.8X\n", pEx->ExceptionRecord->ExceptionAddress);
-
-    bool bFailed = true;
-    HANDLE hFile;
-    hFile = CreateFileW(s_szMiniDumpFileName.c_str(),
-                        GENERIC_WRITE,
-                        0,
-                        NULL,
-                        CREATE_ALWAYS,
-                        FILE_ATTRIBUTE_NORMAL,
-                        NULL);
-    if (hFile != INVALID_HANDLE_VALUE) {
-        MINIDUMP_EXCEPTION_INFORMATION stMDEI;
-        stMDEI.ThreadId = GetCurrentThreadId();
-        stMDEI.ExceptionPointers = pEx;
-        stMDEI.ClientPointers = true;
-        // try to create a miniDump:
-        if (s_pMDWD(GetCurrentProcess(),
-                    GetCurrentProcessId(),
-                    hFile,
-                    s_dumpTyp,
-                    &stMDEI,
-                    NULL,
-                    NULL)) {
-            bFailed = false;  // succeeded
-        }
-        CloseHandle(hFile);
-    }
-
-    if (bFailed) {
-        return EXCEPTION_CONTINUE_SEARCH;
-    }
-
-    // Optional display an error message
-    // FatalAppExit(-1, ("Application failed!"));
-
-
-    // or return one of the following:
-    // - EXCEPTION_CONTINUE_SEARCH
-    // - EXCEPTION_CONTINUE_EXECUTION
-    // - EXCEPTION_EXECUTE_HANDLER
-    return EXCEPTION_CONTINUE_SEARCH;  // this will trigger the "normal" OS error-dialog
-}
-
-void InitMiniDumpWriter(const std::string& filename)
-{
-    if (s_hDbgHelpMod != NULL) {
-        return;
-    }
-    Base::FileInfo fi(filename);
-    s_szMiniDumpFileName = fi.toStdWString();
-
-    // Initialize the member, so we do not load the dll after the exception has occurred
-    // which might be not possible anymore...
-    s_hDbgHelpMod = LoadLibraryA(("dbghelp.dll"));
-    if (s_hDbgHelpMod != NULL) {
-        s_pMDWD = (tMDWD)GetProcAddress(s_hDbgHelpMod, "MiniDumpWriteDump");
-    }
-
-    // Register Unhandled Exception-Filter:
-    SetUnhandledExceptionFilter(MyCrashHandlerExceptionFilter);
-
-    // Additional call "PreventSetUnhandledExceptionFilter"...
-    // See also: "SetUnhandledExceptionFilter" and VC8 (and later)
-    // http://blog.kalmbachnet.de/?postid=75
-}
-#endif

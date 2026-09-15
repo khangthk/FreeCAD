@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 Peter McB                                          *
  *                                                                         *
@@ -21,7 +23,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <App/DocumentObjectPy.h>
 
@@ -35,11 +36,7 @@ PROPERTY_SOURCE(Fem::FemSetElementNodesObject, Fem::FemSetObject)
 
 FemSetElementNodesObject::FemSetElementNodesObject()
 {
-    ADD_PROPERTY_TYPE(Elements,
-                      (),
-                      "Element indexes",
-                      Prop_None,
-                      "Elements belonging to the ElementSet");
+    ADD_PROPERTY_TYPE(Elements, (), "Element indexes", Prop_None, "Elements belonging to the ElementSet");
 }
 
 FemSetElementNodesObject::~FemSetElementNodesObject() = default;

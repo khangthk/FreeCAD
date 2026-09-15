@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Friedli <david[at]friedli-be.ch>             *
  *                                                                         *
@@ -20,12 +22,12 @@
  **************************************************************************/
 
 
-#include "PreCompiled.h"
-
 #include <App/PropertyContainer.h>
 #include <App/Application.h>
 #include <App/MeasureManager.h>
 #include <App/Document.h>
+
+#include <fmt/format.h>
 
 #include "MeasurePosition.h"
 
@@ -37,20 +39,18 @@ PROPERTY_SOURCE(Measure::MeasurePosition, Measure::MeasureBase)
 
 MeasurePosition::MeasurePosition()
 {
-    ADD_PROPERTY_TYPE(Element,
-                      (nullptr),
-                      "Measurement",
-                      App::Prop_None,
-                      "Element to get the position from");
+    ADD_PROPERTY_TYPE(Element, (nullptr), "Measurement", App::Prop_None, "Element to get the position from");
     Element.setScope(App::LinkScope::Global);
     Element.setAllowExternal(true);
 
 
-    ADD_PROPERTY_TYPE(Position,
-                      (0.0, 0.0, 0.0),
-                      "Measurement",
-                      App::PropertyType(App::Prop_ReadOnly | App::Prop_Output),
-                      "The absolute position");
+    ADD_PROPERTY_TYPE(
+        Position,
+        (0.0, 0.0, 0.0),
+        "Measurement",
+        App::PropertyType(App::Prop_ReadOnly | App::Prop_Output),
+        "The absolute position"
+    );
 }
 
 MeasurePosition::~MeasurePosition() = default;
@@ -95,7 +95,9 @@ App::DocumentObjectExecReturn* MeasurePosition::execute()
 {
     const App::DocumentObject* object = Element.getValue();
     const std::vector<std::string>& subElements = Element.getSubValues();
-
+    if (subElements.empty()) {
+        return {};
+    }
     App::SubObjectT subject {object, subElements.front().c_str()};
     auto info = getMeasureInfo(subject);
 
@@ -123,33 +125,23 @@ void MeasurePosition::onChanged(const App::Property* prop)
 }
 
 
-QString MeasurePosition::getResultString()
+std::string MeasurePosition::getResultString()
 {
     App::Property* prop = this->getResultProp();
     if (prop == nullptr) {
         return {};
     }
-
+    Base::Unit unit = Position.getUnit();
     Base::Vector3d value = Position.getValue();
-    QString unit = Position.getUnit().getString();
-    int precision = 2;
-    QString text;
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-    QTextStream(&text) << "X: " << QString::number(value.x, 'f', precision) << " " << unit << endl
-                       << "Y: " << QString::number(value.y, 'f', precision) << " " << unit << endl
-                       << "Z: " << QString::number(value.z, 'f', precision) << " " << unit;
-#else
-    QTextStream(&text) << "X: " << QString::number(value.x, 'f', precision) << " " << unit
-                       << Qt::endl
-                       << "Y: " << QString::number(value.y, 'f', precision) << " " << unit
-                       << Qt::endl
-                       << "Z: " << QString::number(value.z, 'f', precision) << " " << unit;
-#endif
-    return text;
+    Base::Quantity qx(value.x, unit);
+    Base::Quantity qy(value.y, unit);
+    Base::Quantity qz(value.z, unit);
+
+    return fmt::format("X: {}\nY: {}\nZ: {}", formatQuantity(qx), formatQuantity(qy), formatQuantity(qz));
 }
 
 
-Base::Placement MeasurePosition::getPlacement()
+Base::Placement MeasurePosition::getPlacement() const
 {
     Base::Placement placement;
     placement.setPosition(Position.getValue());

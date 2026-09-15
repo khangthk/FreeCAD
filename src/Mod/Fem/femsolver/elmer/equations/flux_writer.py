@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
 # *   Copyright (c) 2020 Bernd Hahnebach <bernd@bimstatik.org>              *
@@ -79,13 +81,18 @@ class Fluxwriter:
                     "Enforces continuity within the same material\n"
                     "in the 'Discontinuous Galerkin' discretization"
                 ),
+                locked=True,
             )
         if hasattr(equation, "Bubbles"):
             # Bubbles was removed because it is unused by Elmer for the flux solver
             equation.removeProperty("Bubbles")
         if not hasattr(equation, "CalculateFluxAbs"):
             equation.addProperty(
-                "App::PropertyBool", "CalculateFluxAbs", "Flux", "Computes absolute of flux vector"
+                "App::PropertyBool",
+                "CalculateFluxAbs",
+                "Flux",
+                "Computes absolute of flux vector",
+                locked=True,
             )
         if not hasattr(equation, "CalculateFluxMagnitude"):
             equation.addProperty(
@@ -93,6 +100,7 @@ class Fluxwriter:
                 "CalculateFluxMagnitude",
                 "Flux",
                 "Computes magnitude of flux vector field",
+                locked=True,
             )
         if not hasattr(equation, "CalculateGradAbs"):
             equation.addProperty(
@@ -100,6 +108,7 @@ class Fluxwriter:
                 "CalculateGradAbs",
                 "Flux",
                 "Computes absolute of gradient field",
+                locked=True,
             )
         if not hasattr(equation, "CalculateGradMagnitude"):
             equation.addProperty(
@@ -107,6 +116,7 @@ class Fluxwriter:
                 "CalculateGradMagnitude",
                 "Flux",
                 "Computes magnitude of gradient field",
+                locked=True,
             )
         if not hasattr(equation, "DiscontinuousGalerkin"):
             equation.addProperty(
@@ -117,6 +127,7 @@ class Fluxwriter:
                     "Enable if standard Galerkin approximation leads to\n"
                     "unphysical results when there are discontinuities"
                 ),
+                locked=True,
             )
         if not hasattr(equation, "EnforcePositiveMagnitude"):
             equation.addProperty(
@@ -127,6 +138,7 @@ class Fluxwriter:
                     "If true, negative values of computed magnitude fields\n"
                     "are a posteriori set to zero."
                 ),
+                locked=True,
             )
         tempFluxCoefficient = ""
         if hasattr(equation, "FluxCoefficient"):
@@ -141,6 +153,7 @@ class Fluxwriter:
                 "FluxCoefficient",
                 "Flux",
                 "Name of proportionality coefficient\nto compute the flux",
+                locked=True,
             )
             equation.FluxCoefficient = flux.COEFFICIENTS
             if tempFluxCoefficient:
@@ -159,6 +172,7 @@ class Fluxwriter:
                     "FluxVariable",
                     "Flux",
                     "Variable name for flux calculation",
+                    locked=True,
                 )
                 equation.FluxVariable = flux.VARIABLES
                 equation.FluxVariable = tempFluxVariable

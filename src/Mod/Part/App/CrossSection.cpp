@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2010 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
@@ -20,39 +22,41 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
-# include <algorithm>
-# include <BRepAdaptor_Surface.hxx>
-# include <BRepAlgoAPI_Common.hxx>
-# include <BRepAlgoAPI_Cut.hxx>
-# include <BRepAlgoAPI_Section.hxx>
-# include <BRepBuilderAPI_MakeFace.hxx>
-# include <BRepBuilderAPI_MakeWire.hxx>
-# include <BRepPrimAPI_MakeHalfSpace.hxx>
-# include <gp_Pln.hxx>
-# include <Precision.hxx>
-# include <ShapeAnalysis_FreeBounds.hxx>
-# include <ShapeFix_Wire.hxx>
-# include <TopExp.hxx>
-# include <TopExp_Explorer.hxx>
-# include <TopTools_HSequenceOfShape.hxx>
-# include <TopTools_IndexedMapOfShape.hxx>
-# include <TopoDS.hxx>
-# include <TopoDS_Edge.hxx>
-# include <TopoDS_Wire.hxx>
-#endif
+#include <algorithm>
+#include <BRepAdaptor_Surface.hxx>
+#include <Mod/Part/App/FCBRepAlgoAPI_Common.h>
+#include <Mod/Part/App/FCBRepAlgoAPI_Cut.h>
+#include <Mod/Part/App/FCBRepAlgoAPI_Section.h>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepPrimAPI_MakeHalfSpace.hxx>
+#include <BRep_Tool.hxx>
+#include <gp_Pln.hxx>
+#include <Precision.hxx>
+#include <ShapeAnalysis_FreeBounds.hxx>
+#include <ShapeFix_Wire.hxx>
+#include <TopExp.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopTools_HSequenceOfShape.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Wire.hxx>
+
 
 #include "CrossSection.h"
+#include "ShapeAnalysis_FreeBoundsFix.h"
 #include "TopoShapeOpCode.h"
 
 
 using namespace Part;
 
 CrossSection::CrossSection(double a, double b, double c, const TopoDS_Shape& s)
-  : a(a), b(b), c(c), s(s)
-{
-}
+    : a(a)
+    , b(b)
+    , c(c)
+    , s(s)
+{}
 
 std::list<TopoDS_Wire> CrossSection::slice(double d) const
 {
@@ -81,24 +85,30 @@ std::list<TopoDS_Wire> CrossSection::removeDuplicates(const std::list<TopoDS_Wir
         TopExp::MapShapes(wire, TopAbs_EDGE, mapOfEdges1);
 
         // The wires are independent shapes but their edges might be shared
-        auto it = std::find_if(wires_reduce.begin(), wires_reduce.end(), [&mapOfEdges1](const TopoDS_Wire& w) {
-            // same TShape and same placement but different orientation
-            TopTools_IndexedMapOfShape mapOfEdges2;
-            TopExp::MapShapes(w, TopAbs_EDGE, mapOfEdges2);
-            int numEdges1 = mapOfEdges1.Extent();
-            int numEdges2 = mapOfEdges2.Extent();
-            if (numEdges1 != numEdges2)
-                return false;
-
-            TopTools_IndexedMapOfShape::Iterator it1(mapOfEdges1);
-            TopTools_IndexedMapOfShape::Iterator it2(mapOfEdges2);
-            for (; it1.More() && it2.More(); it1.Next(), it2.Next()) {
-                if (!it1.Value().IsSame(it2.Value()))
+        auto it = std::find_if(
+            wires_reduce.begin(),
+            wires_reduce.end(),
+            [&mapOfEdges1](const TopoDS_Wire& w) {
+                // same TShape and same placement but different orientation
+                TopTools_IndexedMapOfShape mapOfEdges2;
+                TopExp::MapShapes(w, TopAbs_EDGE, mapOfEdges2);
+                int numEdges1 = mapOfEdges1.Extent();
+                int numEdges2 = mapOfEdges2.Extent();
+                if (numEdges1 != numEdges2) {
                     return false;
-            }
+                }
 
-            return true;
-        });
+                TopTools_IndexedMapOfShape::Iterator it1(mapOfEdges1);
+                TopTools_IndexedMapOfShape::Iterator it2(mapOfEdges2);
+                for (; it1.More() && it2.More(); it1.Next(), it2.Next()) {
+                    if (!it1.Value().IsSame(it2.Value())) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        );
 
         if (it == wires_reduce.end()) {
             wires_reduce.push_back(wire);
@@ -109,43 +119,47 @@ std::list<TopoDS_Wire> CrossSection::removeDuplicates(const std::list<TopoDS_Wir
 
 void CrossSection::sliceNonSolid(double d, const TopoDS_Shape& shape, std::list<TopoDS_Wire>& wires) const
 {
-    BRepAlgoAPI_Section cs(shape, gp_Pln(a,b,c,-d));
+    FCBRepAlgoAPI_Section cs(shape, gp_Pln(a, b, c, -d));
     if (cs.IsDone()) {
         std::list<TopoDS_Edge> edges;
         TopExp_Explorer xp;
-        for (xp.Init(cs.Shape(), TopAbs_EDGE); xp.More(); xp.Next())
+        for (xp.Init(cs.Shape(), TopAbs_EDGE); xp.More(); xp.Next()) {
             edges.push_back(TopoDS::Edge(xp.Current()));
+        }
         connectEdges(edges, wires);
     }
 }
 
 void CrossSection::sliceSolid(double d, const TopoDS_Shape& shape, std::list<TopoDS_Wire>& wires) const
 {
-    gp_Pln slicePlane(a,b,c,-d);
+    gp_Pln slicePlane(a, b, c, -d);
     BRepBuilderAPI_MakeFace mkFace(slicePlane);
     TopoDS_Face face = mkFace.Face();
 
     // Make sure to choose a point that does not lie on the plane (fixes #0001228)
-    gp_Vec tempVector(a,b,c);
-    tempVector.Normalize();//just in case.
-    tempVector *= (d+1.0);
+    gp_Vec tempVector(a, b, c);
+    tempVector.Normalize();  // just in case.
+    tempVector *= (d + 1.0);
     gp_Pnt refPoint(0.0, 0.0, 0.0);
     refPoint.Translate(tempVector);
 
     BRepPrimAPI_MakeHalfSpace mkSolid(face, refPoint);
     TopoDS_Solid solid = mkSolid.Solid();
-    BRepAlgoAPI_Cut mkCut(shape, solid);
+    FCBRepAlgoAPI_Cut mkCut(shape, solid);
 
     if (mkCut.IsDone()) {
+        Standard_Real fuzzyTol = mkCut.FuzzyValue();
         TopTools_IndexedMapOfShape mapOfFaces;
         TopExp::MapShapes(mkCut.Shape(), TopAbs_FACE, mapOfFaces);
-        for (int i=1; i<=mapOfFaces.Extent(); i++) {
+        for (int i = 1; i <= mapOfFaces.Extent(); i++) {
             const TopoDS_Face& face = TopoDS::Face(mapOfFaces.FindKey(i));
             BRepAdaptor_Surface adapt(face);
             if (adapt.GetType() == GeomAbs_Plane) {
                 gp_Pln plane = adapt.Plane();
-                if (plane.Axis().IsParallel(slicePlane.Axis(), Precision::Confusion()) &&
-                    plane.Distance(slicePlane.Location()) < Precision::Confusion()) {
+                Standard_Real faceTol = BRep_Tool::Tolerance(face);
+                Standard_Real tol = faceTol + fuzzyTol;
+                if (plane.Axis().IsParallel(slicePlane.Axis(), Precision::Confusion())
+                    && plane.Distance(slicePlane.Location()) < tol) {
                     // sort and repair the wires
                     TopTools_IndexedMapOfShape mapOfWires;
                     TopExp::MapShapes(face, TopAbs_WIRE, mapOfWires);
@@ -156,7 +170,7 @@ void CrossSection::sliceSolid(double d, const TopoDS_Shape& shape, std::list<Top
     }
 }
 
-void CrossSection::connectEdges (const std::list<TopoDS_Edge>& edges, std::list<TopoDS_Wire>& wires) const
+void CrossSection::connectEdges(const std::list<TopoDS_Edge>& edges, std::list<TopoDS_Wire>& wires) const
 {
     // Hint: Use ShapeAnalysis_FreeBounds::ConnectEdgesToWires() as an alternative
     std::list<TopoDS_Edge> edge_list = edges;
@@ -172,7 +186,8 @@ void CrossSection::connectEdges (const std::list<TopoDS_Edge>& edges, std::list<
         bool found = false;
         do {
             found = false;
-            for (std::list<TopoDS_Edge>::iterator pE = edge_list.begin(); pE != edge_list.end();++pE) {
+            for (std::list<TopoDS_Edge>::iterator pE = edge_list.begin(); pE != edge_list.end();
+                 ++pE) {
                 mkWire.Add(*pE);
                 if (mkWire.Error() != BRepBuilderAPI_DisconnectedWire) {
                     // edge added ==> remove it from list
@@ -182,26 +197,28 @@ void CrossSection::connectEdges (const std::list<TopoDS_Edge>& edges, std::list<
                     break;
                 }
             }
-        }
-        while (found);
+        } while (found);
 
         // Fix any topological issues of the wire
         wires.push_back(fixWire(new_wire));
     }
 }
 
-void CrossSection::connectWires (const TopTools_IndexedMapOfShape& wireMap, std::list<TopoDS_Wire>& wires) const
+void CrossSection::connectWires(
+    const TopTools_IndexedMapOfShape& wireMap,
+    std::list<TopoDS_Wire>& wires
+) const
 {
     Handle(TopTools_HSequenceOfShape) hWires = new TopTools_HSequenceOfShape();
-    for (int i=1; i<=wireMap.Extent(); i++) {
+    for (int i = 1; i <= wireMap.Extent(); i++) {
         const TopoDS_Shape& wire = wireMap.FindKey(i);
         hWires->Append(wire);
     }
 
     Handle(TopTools_HSequenceOfShape) hSorted = new TopTools_HSequenceOfShape();
-    ShapeAnalysis_FreeBounds::ConnectWiresToWires(hWires, Precision::Confusion(), false, hSorted);
+    Part::Fix_ShapeAnalysis_FreeBounds_ConnectWiresToWires(hWires, Precision::Confusion(), false, hSorted);
 
-    for (int i=1; i<=hSorted->Length(); i++) {
+    for (int i = 1; i <= hSorted->Length(); i++) {
         const TopoDS_Wire& new_wire = TopoDS::Wire(hSorted->Value(i));
         // Fix any topological issues of the wire
         wires.push_back(fixWire(new_wire));
@@ -220,10 +237,13 @@ TopoDS_Wire CrossSection::fixWire(const TopoDS_Wire& wire) const
     return aFix.Wire();
 }
 
-TopoCrossSection::TopoCrossSection(double a, double b, double c, const TopoShape& s, const char *op)
-    : a(a), b(b), c(c), shape(s), op(op?op:Part::OpCodes::Slice)
-{
-}
+TopoCrossSection::TopoCrossSection(double a, double b, double c, const TopoShape& s, const char* op)
+    : a(a)
+    , b(b)
+    , c(c)
+    , shape(s)
+    , op(op ? op : Part::OpCodes::Slice)
+{}
 
 void TopoCrossSection::slice(int idx, double d, std::vector<TopoShape>& wires) const
 {
@@ -251,18 +271,18 @@ TopoShape TopoCrossSection::slice(int idx, double d) const
 {
     std::vector<TopoShape> wires;
     slice(idx, d, wires);
-    return TopoShape().makeElementCompound(
-        wires,
-        0,
-        TopoShape::SingleShapeCompoundCreationPolicy::returnShape);
+    return TopoShape()
+        .makeElementCompound(wires, 0, TopoShape::SingleShapeCompoundCreationPolicy::returnShape);
 }
 
-void TopoCrossSection::sliceNonSolid(int idx,
-                                     double d,
-                                     const TopoShape& shape,
-                                     std::vector<TopoShape>& wires) const
+void TopoCrossSection::sliceNonSolid(
+    int idx,
+    double d,
+    const TopoShape& shape,
+    std::vector<TopoShape>& wires
+) const
 {
-    BRepAlgoAPI_Section cs(shape.getShape(), gp_Pln(a, b, c, -d));
+    FCBRepAlgoAPI_Section cs(shape.getShape(), gp_Pln(a, b, c, -d));
     if (cs.IsDone()) {
         std::string prefix(op);
         prefix += Data::indexSuffix(idx);
@@ -274,10 +294,12 @@ void TopoCrossSection::sliceNonSolid(int idx,
     }
 }
 
-void TopoCrossSection::sliceSolid(int idx,
-                                  double d,
-                                  const TopoShape& shape,
-                                  std::vector<TopoShape>& wires) const
+void TopoCrossSection::sliceSolid(
+    int idx,
+    double d,
+    const TopoShape& shape,
+    std::vector<TopoShape>& wires
+) const
 {
     gp_Pln slicePlane(a, b, c, -d);
     BRepBuilderAPI_MakeFace mkFace(slicePlane);
@@ -296,7 +318,7 @@ void TopoCrossSection::sliceSolid(int idx,
     std::string prefix(op);
     prefix += Data::indexSuffix(idx);
     solid.makeElementShape(mkSolid, face, prefix.c_str());
-    BRepAlgoAPI_Cut mkCut(shape.getShape(), solid.getShape());
+    FCBRepAlgoAPI_Cut mkCut(shape.getShape(), solid.getShape());
 
     if (mkCut.IsDone()) {
         TopoShape res(shape.Tag, shape.Hasher);
@@ -311,9 +333,11 @@ void TopoCrossSection::sliceSolid(int idx,
                 if (plane.Axis().IsParallel(slicePlane.Axis(), Precision::Confusion())
                     && plane.Distance(slicePlane.Location()) < Precision::Confusion()) {
                     auto repaired_wires = TopoShape(face.Tag)
-                                              .makeElementWires(face.getSubTopoShapes(TopAbs_EDGE),
-                                                                prefix.c_str(),
-                                                                true)
+                                              .makeElementWires(
+                                                  face.getSubTopoShapes(TopAbs_EDGE),
+                                                  prefix.c_str(),
+                                                  true
+                                              )
                                               .getSubTopoShapes(TopAbs_WIRE);
                     wires.insert(wires.end(), repaired_wires.begin(), repaired_wires.end());
                 }

@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2015 Dan Falck <ddfalck@gmail.com>                      *
 # *                                                                         *
@@ -70,7 +71,7 @@ class StockType:
 
 def shapeBoundBox(obj):
     Path.Log.track(type(obj))
-    if list == type(obj) and obj:
+    if isinstance(obj, list) and obj:
         bb = FreeCAD.BoundBox()
         for o in obj:
             bb.add(shapeBoundBox(o))
@@ -106,6 +107,8 @@ class Stock(object):
 
 
 class StockFromBase(Stock):
+    MinExtent = 1
+
     def __init__(self, obj, base):
         "Make stock"
         obj.addProperty(
@@ -120,7 +123,7 @@ class StockFromBase(Stock):
             "Stock",
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Extra allowance from part bound box in negative X direction",
+                "Extra allowance from part bound box in negative X-direction",
             ),
         )
         obj.addProperty(
@@ -129,7 +132,7 @@ class StockFromBase(Stock):
             "Stock",
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Extra allowance from part bound box in positive X direction",
+                "Extra allowance from part bound box in positive X-direction",
             ),
         )
         obj.addProperty(
@@ -138,7 +141,7 @@ class StockFromBase(Stock):
             "Stock",
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Extra allowance from part bound box in negative Y direction",
+                "Extra allowance from part bound box in negative Y-direction",
             ),
         )
         obj.addProperty(
@@ -147,7 +150,7 @@ class StockFromBase(Stock):
             "Stock",
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Extra allowance from part bound box in positive Y direction",
+                "Extra allowance from part bound box in positive Y-direction",
             ),
         )
         obj.addProperty(
@@ -156,7 +159,7 @@ class StockFromBase(Stock):
             "Stock",
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Extra allowance from part bound box in negative Z direction",
+                "Extra allowance from part bound box in negative Z-direction",
             ),
         )
         obj.addProperty(
@@ -165,17 +168,19 @@ class StockFromBase(Stock):
             "Stock",
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Extra allowance from part bound box in positive Z direction",
+                "Extra allowance from part bound box in positive Z-direction",
             ),
         )
 
         obj.Base = base
-        obj.ExtXneg = 1.0
-        obj.ExtXpos = 1.0
-        obj.ExtYneg = 1.0
-        obj.ExtYpos = 1.0
-        obj.ExtZneg = 1.0
-        obj.ExtZpos = 1.0
+        _ext_unit = FreeCAD.Units.Quantity(1, FreeCAD.Units.Length).getUserPreferred()[2]
+        _default_ext = 3.175 if _ext_unit in ("in", '"') else 1.0  # 0.125" or 1mm
+        obj.ExtXneg = _default_ext
+        obj.ExtXpos = _default_ext
+        obj.ExtYneg = _default_ext
+        obj.ExtYpos = _default_ext
+        obj.ExtZneg = _default_ext
+        obj.ExtZpos = _default_ext
 
         # placement is only tracked on creation
         bb = shapeBoundBox(base.Group) if base else None
@@ -209,8 +214,34 @@ class StockFromBase(Stock):
             self.origin = FreeCAD.Vector(-obj.ExtXneg.Value, -obj.ExtYneg.Value, -obj.ExtZneg.Value)
 
             self.length = bb.XLength + obj.ExtXneg.Value + obj.ExtXpos.Value
+            if self.length <= 0:
+                self.length = self.MinExtent
+                Path.Log.warning(
+                    translate(
+                        "PathStock", "Stock length can not be zero or negative. Used length %s mm"
+                    )
+                    % self.MinExtent
+                )
+
             self.width = bb.YLength + obj.ExtYneg.Value + obj.ExtYpos.Value
+            if self.width <= 0:
+                self.width = self.MinExtent
+                Path.Log.warning(
+                    translate(
+                        "PathStock", "Stock width can not be zero or negative. Used width %s mm"
+                    )
+                    % self.MinExtent
+                )
+
             self.height = bb.ZLength + obj.ExtZneg.Value + obj.ExtZpos.Value
+            if self.height <= 0:
+                self.height = self.MinExtent
+                Path.Log.warning(
+                    translate(
+                        "PathStock", "Stock height can not be zero or negative. Used height %s mm"
+                    )
+                    % self.MinExtent
+                )
 
             shape = Part.makeBox(self.length, self.width, self.height, self.origin)
             shape.Placement = obj.Placement
@@ -219,7 +250,7 @@ class StockFromBase(Stock):
     def onChanged(self, obj, prop):
         if (
             prop in ["ExtXneg", "ExtXpos", "ExtYneg", "ExtYpos", "ExtZneg", "ExtZpos"]
-            and not "Restore" in obj.State
+            and "Restore" not in obj.State
         ):
             self.execute(obj)
 
@@ -272,7 +303,7 @@ class StockCreateBox(Stock):
         obj.Shape = shape
 
     def onChanged(self, obj, prop):
-        if prop in ["Length", "Width", "Height"] and not "Restore" in obj.State:
+        if prop in ["Length", "Width", "Height"] and "Restore" not in obj.State:
             self.execute(obj)
 
 
@@ -292,9 +323,17 @@ class StockCreateCylinder(Stock):
             "Stock",
             QT_TRANSLATE_NOOP("App::Property", "Height of this stock cylinder"),
         )
+        obj.addProperty(
+            "App::PropertyEnumeration",
+            "Axis",
+            "Stock",
+            QT_TRANSLATE_NOOP("App::Property", "Axis of this stock cylinder"),
+        )
 
         obj.Radius = 2
         obj.Height = 10
+        obj.Axis = ("X", "Y", "Z")
+        obj.Axis = "Z"
 
         obj.Proxy = self
 
@@ -310,13 +349,32 @@ class StockCreateCylinder(Stock):
         if obj.Height < self.MinExtent:
             obj.Height = self.MinExtent
 
-        shape = Part.makeCylinder(obj.Radius, obj.Height)
+        if obj.Axis == "X":  # along X
+            axisVec = FreeCAD.Vector(1, 0, 0)
+        elif obj.Axis == "Y":  # along Y
+            axisVec = FreeCAD.Vector(0, 1, 0)
+        else:  # along Z
+            axisVec = FreeCAD.Vector(0, 0, 1)
+
+        shape = Part.makeCylinder(obj.Radius, obj.Height, FreeCAD.Vector(0, 0, 0), axisVec, 360)
         shape.Placement = obj.Placement
         obj.Shape = shape
 
     def onChanged(self, obj, prop):
-        if prop in ["Radius", "Height"] and not "Restore" in obj.State:
+        if prop in ("Axis", "Radius", "Height") and "Restore" not in obj.State:
             self.execute(obj)
+
+    def onDocumentRestored(self, obj):
+        super().onDocumentRestored(obj)
+        if not hasattr(obj, "Axis"):
+            obj.addProperty(
+                "App::PropertyEnumeration",
+                "Axis",
+                "Stock",
+                QT_TRANSLATE_NOOP("App::Property", "Axis of this stock cylinder"),
+            )
+            obj.Axis = ("X", "Y", "Z")
+            obj.Axis = "Z"
 
 
 def SetupStockObject(obj, stockType):
@@ -340,8 +398,15 @@ def SetupStockObject(obj, stockType):
         import Path.Base.Gui.IconViewProvider as PathIconViewProvider
 
         PathIconViewProvider.ViewProvider(obj.ViewObject, "Stock")
-        obj.ViewObject.Transparency = 90
-        obj.ViewObject.DisplayMode = "Wireframe"
+        obj.ViewObject.ShapeColor = (0.792, 0.718, 0.537)
+        obj.ViewObject.Transparency = 95
+        obj.ViewObject.LineColor = (0.553, 0.502, 0.376)
+        obj.ViewObject.PointColor = (0.553, 0.502, 0.376)
+        obj.ViewObject.DrawStyle = "Dotted"
+        obj.ViewObject.DisplayMode = "Flat Lines"
+        obj.ViewObject.PointSize = 1
+        obj.ViewObject.LineWidth = 1
+        obj.ViewObject.Selectable = False
 
 
 class FakeJob(object):
@@ -411,10 +476,13 @@ def CreateBox(job, extent=None, placement=None):
     return obj
 
 
-def CreateCylinder(job, radius=None, height=None, placement=None):
+def CreateCylinder(job, radius=None, height=None, placement=None, axis=None):
     base = _getBase(job)
     obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython", "Stock")
     obj.Proxy = StockCreateCylinder(obj)
+
+    if axis:
+        obj.Axis = axis
 
     if radius:
         obj.Radius = radius
@@ -423,15 +491,29 @@ def CreateCylinder(job, radius=None, height=None, placement=None):
         obj.Height = height
     elif base:
         bb = shapeBoundBox(base.Group)
-        obj.Radius = math.sqrt(bb.XLength**2 + bb.YLength**2) / 2.0
-        obj.Height = max(bb.ZLength, 1)
+        if axis == "X":  # along X
+            obj.Height = max(bb.XLength, 1)
+            obj.Radius = math.hypot(bb.YLength, bb.ZLength) / 2
+        elif axis == "Y":  # along Y
+            obj.Height = max(bb.YLength, 1)
+            obj.Radius = math.hypot(bb.XLength, bb.ZLength) / 2
+        else:  # along Z
+            obj.Height = max(bb.ZLength, 1)
+            obj.Radius = math.hypot(bb.XLength, bb.YLength) / 2
 
     if placement:
         obj.Placement = placement
     elif base:
         bb = shapeBoundBox(base.Group)
-        origin = FreeCAD.Vector((bb.XMin + bb.XMax) / 2, (bb.YMin + bb.YMax) / 2, bb.ZMin)
-        obj.Placement = FreeCAD.Placement(origin, FreeCAD.Vector(), 0)
+        if axis == "X":  # along X
+            origin = FreeCAD.Vector(bb.XMin, bb.Center.y, bb.Center.z)
+            obj.Placement = FreeCAD.Placement(origin, FreeCAD.Vector(0, 0, 1), 0)
+        elif axis == "Y":  # along Y
+            origin = FreeCAD.Vector(bb.Center.x, bb.YMin, bb.Center.z)
+            obj.Placement = FreeCAD.Placement(origin, FreeCAD.Vector(0, 0, 1), 0)
+        else:  # along Z
+            origin = FreeCAD.Vector(bb.Center.x, bb.Center.y, bb.ZMin)
+            obj.Placement = FreeCAD.Placement(origin, FreeCAD.Vector(0, 0, 1), 0)
 
     SetupStockObject(obj, StockType.CreateCylinder)
     return obj
@@ -597,6 +679,20 @@ def CreateFromTemplate(job, template):
                 )
             )
         return None
+
+
+def ApplyStockViewDefaults(stock):
+    """Apply default appearance settings to a stock object's ViewObject."""
+    if stock and stock.ViewObject:
+        stock.ViewObject.ShapeColor = (0.792, 0.718, 0.537)
+        stock.ViewObject.Transparency = 85
+        stock.ViewObject.LineColor = (0.553, 0.502, 0.376)
+        stock.ViewObject.PointColor = (0.553, 0.502, 0.376)
+        stock.ViewObject.DrawStyle = "Dotted"
+        stock.ViewObject.DisplayMode = "Flat Lines"
+        stock.ViewObject.PointSize = 1
+        stock.ViewObject.LineWidth = 1
+        stock.ViewObject.Selectable = False
 
 
 FreeCAD.Console.PrintLog("Loading PathStock... done\n")

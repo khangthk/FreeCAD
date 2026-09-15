@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2021 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -55,14 +57,36 @@ def get_after_write_constraint():
 
 
 def write_meshdata_constraint(f, femobj, contact_obj, ccxwriter):
+    # use False as default for reversed values
+    rev_slave = [False] * len(femobj["ContactSlaveFaces"])
+    for i, v in enumerate(contact_obj.ReversedSlave[: len(rev_slave)]):
+        rev_slave[i] = v
+
+    rev_master = [False] * len(femobj["ContactMasterFaces"])
+    for i, v in enumerate(contact_obj.ReversedMaster[: len(rev_master)]):
+        rev_master[i] = v
+
     # slave DEP
     f.write(f"*SURFACE, NAME=DEP{contact_obj.Name}\n")
-    for i in femobj["ContactSlaveFaces"]:
-        f.write(f"{i[0]},S{i[1]}\n")
+    for (refs, surf, is_sub_el), rev in zip(femobj["ContactSlaveFaces"], rev_slave):
+        if is_sub_el:
+            for elem, fno in surf:
+                f.write(f"{elem},S{fno}\n")
+        else:
+            fno = 1 if rev else 2
+            for elem in surf:
+                f.write(f"{elem},S{fno}\n")
+
     # master IND
     f.write(f"*SURFACE, NAME=IND{contact_obj.Name}\n")
-    for i in femobj["ContactMasterFaces"]:
-        f.write(f"{i[0]},S{i[1]}\n")
+    for (refs, surf, is_sub_el), rev in zip(femobj["ContactMasterFaces"], rev_master):
+        if is_sub_el:
+            for elem, fno in surf:
+                f.write(f"{elem},S{fno}\n")
+        else:
+            fno = 1 if rev else 2
+            for elem in surf:
+                f.write(f"{elem},S{fno}\n")
 
 
 def write_constraint(f, femobj, contact_obj, ccxwriter):
@@ -81,11 +105,25 @@ def write_constraint(f, femobj, contact_obj, ccxwriter):
     dep_surf = "DEP" + contact_obj.Name
     f.write(f"{dep_surf}, {ind_surf}\n")
     f.write(f"*SURFACE INTERACTION, NAME=INT{contact_obj.Name}\n")
-    f.write("*SURFACE BEHAVIOR, PRESSURE-OVERCLOSURE=LINEAR\n")
-    slope = contact_obj.Slope.getValueAs("MPa/mm").Value
-    f.write(f"{slope:.13G}\n")
+    if contact_obj.SurfaceBehavior == "Linear":
+        f.write("*SURFACE BEHAVIOR, PRESSURE-OVERCLOSURE=LINEAR\n")
+        slope = contact_obj.Slope.getValueAs("MPa/mm").Value
+        f.write(f"{slope:.13G}\n")
+    elif contact_obj.SurfaceBehavior == "Hard":
+        f.write("*SURFACE BEHAVIOR, PRESSURE-OVERCLOSURE=HARD\n")
+    elif contact_obj.SurfaceBehavior == "Tied":
+        f.write("*SURFACE BEHAVIOR, PRESSURE-OVERCLOSURE=TIED\n")
+        slope = contact_obj.Slope.getValueAs("MPa/mm").Value
+        f.write(f"{slope:.13G}\n")
+    else:
+        return
     if contact_obj.Friction:
         f.write("*FRICTION\n")
         friction = contact_obj.FrictionCoefficient
         stick = contact_obj.StickSlope.getValueAs("MPa/mm").Value
         f.write(f"{friction:.13G}, {stick:.13G}\n")
+    if contact_obj.EnableThermalContact:
+        f.write("*GAP CONDUCTANCE\n")
+        for value in contact_obj.ThermalContactConductance:
+            f.write(f"{value}\n")
+        f.write("\n")

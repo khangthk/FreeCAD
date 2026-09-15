@@ -15,47 +15,15 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QFrame" name="frame_2">
-     <property name="frameShape">
-      <enum>QFrame::StyledPanel</enum>
-     </property>
-     <property name="frameShadow">
-      <enum>QFrame::Raised</enum>
-     </property>
-     <layout class="QGridLayout" name="gridLayout">
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>Tool Controller</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QComboBox" name="toolController">
-        <property name="toolTip">
-         <string>The tool and its settings to be used for this operation</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>Probe Grid Points</string>
+      <string>Probe grid points</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_3">
       <item row="0" column="0">
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>X:</string>
+         <string>X</string>
         </property>
        </widget>
       </item>
@@ -72,11 +40,11 @@
       <item row="0" column="3">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>Y:</string>
+         <string>Y</string>
         </property>
        </widget>
       </item>
-     <item row="0" column="4">
+      <item row="0" column="4">
        <widget class="QSpinBox" name="PointCountY">
         <property name="minimum">
          <number>3</number>
@@ -86,7 +54,7 @@
         </property>
        </widget>
       </item>
-      </layout>
+     </layout>
     </widget>
    </item>
    <item>
@@ -98,7 +66,7 @@
       <item row="1" column="0">
        <widget class="QLabel" name="label_5">
         <property name="text">
-         <string>X Offset</string>
+         <string>X offset</string>
         </property>
        </widget>
       </item>
@@ -109,10 +77,10 @@
         </property>
        </widget>
       </item>
-     <item row="2" column="0">
+      <item row="2" column="0">
        <widget class="QLabel" name="label_6">
         <property name="text">
-         <string>Y Offset</string>
+         <string>Y offset</string>
         </property>
        </widget>
       </item>
@@ -123,7 +91,7 @@
         </property>
        </widget>
       </item>
-      </layout>
+     </layout>
     </widget>
    </item>
    <item>
@@ -135,7 +103,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="label_4">
         <property name="text">
-         <string>File Name</string>
+         <string>File name</string>
         </property>
        </widget>
       </item>
@@ -152,7 +120,7 @@
       <item row="0" column="2">
        <widget class="QToolButton" name="SetOutputFileName">
         <property name="text">
-         <string notr="true">...</string>
+         <string notr="true">…</string>
         </property>
        </widget>
       </item>

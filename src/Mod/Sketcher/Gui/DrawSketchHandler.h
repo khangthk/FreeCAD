@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2009 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -20,24 +22,28 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef SKETCHERGUI_DrawSketchHandler_H
-#define SKETCHERGUI_DrawSketchHandler_H
+#pragma once
 
-#include <QCursor>
 #include <QPixmap>
+#include <QCoreApplication>
 
 #include <Inventor/SbString.h>
 
 #include <Base/Parameter.h>
 #include <Base/Tools2D.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 #include <Gui/ToolHandler.h>
+#include <Gui/InputHint.h>
+
 #include <Mod/Part/App/Geometry.h>
 #include <Mod/Sketcher/App/Constraint.h>
 
 #include "AutoConstraint.h"
+#include "Utils.h"
+#include "SnapManager.h"
 
 class QWidget;
+class QTimer;
 
 namespace Sketcher
 {
@@ -69,8 +75,9 @@ public:
 
     std::vector<Base::Vector2d> toVector2D(const Part::Geometry* geometry);
 
-    std::list<std::vector<Base::Vector2d>>
-    toVector2DList(const std::vector<Part::Geometry*>& geometries);
+    std::list<std::vector<Base::Vector2d>> toVector2DList(
+        const std::vector<Part::Geometry*>& geometries
+    );
 
 private:
     void updateCurvedEdgeCountSegmentsParameter();
@@ -82,7 +89,6 @@ private:
     int curvedEdgeCountSegments;
 };
 
-
 /**
  * In order to enforce a certain degree of encapsulation and promote a not
  * too tight coupling, while still allowing well defined collaboration,
@@ -92,31 +98,57 @@ class ViewProviderSketchDrawSketchHandlerAttorney
 {
 private:
     static inline void setConstraintSelectability(ViewProviderSketch& vp, bool enabled = true);
-    static inline void
-    setPositionText(ViewProviderSketch& vp, const Base::Vector2d& Pos, const SbString& txt);
+    static inline void setOriginPointMarker(ViewProviderSketch& vp, bool hollow);
+    static inline void setPositionText(
+        ViewProviderSketch& vp,
+        const Base::Vector2d& Pos,
+        const SbString& txt
+    );
     static inline void setPositionText(ViewProviderSketch& vp, const Base::Vector2d& Pos);
     static inline void resetPositionText(ViewProviderSketch& vp);
-    static inline void drawEdit(ViewProviderSketch& vp,
-                                const std::vector<Base::Vector2d>& EditCurve);
-    static inline void drawEdit(ViewProviderSketch& vp,
-                                const std::list<std::vector<Base::Vector2d>>& list);
-    static inline void drawEditMarkers(ViewProviderSketch& vp,
-                                       const std::vector<Base::Vector2d>& EditMarkers,
-                                       unsigned int augmentationlevel = 0);
+    static inline void drawEdit(ViewProviderSketch& vp, const std::vector<Base::Vector2d>& EditCurve);
+    static inline void drawEdit(
+        ViewProviderSketch& vp,
+        const std::list<std::vector<Base::Vector2d>>& list
+    );
+    static inline void drawParallelPerpendicularHint(
+        ViewProviderSketch& vp,
+        const std::vector<Base::Vector2d>& HintLines,
+        int activeLineIndex
+    );
+    static inline void drawLineExtensionAutoConstraintHint(
+        ViewProviderSketch& vp,
+        const std::vector<Base::Vector2d>& HintCurve
+    );
+    static inline bool isLineExtensionAutoConstraintHintVisible(
+        const ViewProviderSketch& vp,
+        const std::vector<Base::Vector2d>& HintCurve
+    );
+    static inline void drawEditMarkers(
+        ViewProviderSketch& vp,
+        const std::vector<Base::Vector2d>& EditMarkers,
+        unsigned int augmentationlevel = 0
+    );
     static inline void setAxisPickStyle(ViewProviderSketch& vp, bool on);
     static inline void moveCursorToSketchPoint(ViewProviderSketch& vp, Base::Vector2d point);
     static inline void ensureFocus(ViewProviderSketch& vp);
     static inline void preselectAtPoint(ViewProviderSketch& vp, Base::Vector2d point);
-    static inline void setAngleSnapping(ViewProviderSketch& vp,
-                                        bool enable,
-                                        Base::Vector2d referencePoint = Base::Vector2d(0., 0.));
+    static inline void setAngleSnapping(
+        ViewProviderSketch& vp,
+        bool enable,
+        Base::Vector2d referencePoint = Base::Vector2d(0., 0.)
+    );
 
     static inline int getPreselectPoint(const ViewProviderSketch& vp);
     static inline int getPreselectCurve(const ViewProviderSketch& vp);
     static inline int getPreselectCross(const ViewProviderSketch& vp);
 
-    static inline void
-    moveConstraint(ViewProviderSketch& vp, int constNum, const Base::Vector2d& toPos);
+    static inline void moveConstraint(
+        ViewProviderSketch& vp,
+        int constNum,
+        const Base::Vector2d& toPos,
+        OffsetMode offset = NoOffset
+    );
 
     static inline void signalToolChanged(const ViewProviderSketch& vp, const std::string& toolname);
 
@@ -140,23 +172,33 @@ private:
  */
 class SketcherGuiExport DrawSketchHandler: public Gui::ToolHandler
 {
+    Q_DECLARE_TR_FUNCTIONS(SketcherGui::DrawSketchHandler)
+
 public:
     DrawSketchHandler();
     virtual ~DrawSketchHandler();
 
     void activate(ViewProviderSketch*);
+    void setSketchGui(ViewProviderSketch* vp);
     void deactivate() override;
 
-    virtual void mouseMove(Base::Vector2d pos) = 0;
+    virtual void mouseMove(SnapManager::SnapHandle snapHandle) = 0;
     virtual bool pressButton(Base::Vector2d pos) = 0;
     virtual bool releaseButton(Base::Vector2d pos) = 0;
 
+    /// Cancels the current tool action. Used by Esc, right click, and OVP cancel.
+    virtual void cancelCurrentAction();
     virtual void registerPressedKey(bool pressed, int key);
     virtual void pressRightButton(Base::Vector2d pos);
 
     virtual bool onSelectionChanged(const Gui::SelectionChanges&)
     {
         return false;
+    }
+
+    std::list<Gui::InputHint> getToolHints() const override
+    {
+        return {};
     }
 
     void quit() override;
@@ -168,23 +210,29 @@ public:
     // get the actual highest edge index, the next use will be +1
     int getHighestCurveIndex();
 
-    int seekAutoConstraint(std::vector<AutoConstraint>& suggestedConstraints,
-                           const Base::Vector2d& Pos,
-                           const Base::Vector2d& Dir,
-                           AutoConstraint::TargetType type = AutoConstraint::VERTEX);
+    int seekAutoConstraint(
+        std::vector<AutoConstraint>& suggestedConstraints,
+        const Base::Vector2d& Pos,
+        const Base::Vector2d& Dir,
+        AutoConstraint::TargetType type = AutoConstraint::VERTEX
+    );
 
-    int seekAndRenderAutoConstraint(std::vector<AutoConstraint>& suggestedConstraints,
-                                    const Base::Vector2d& Pos,
-                                    const Base::Vector2d& Dir,
-                                    AutoConstraint::TargetType type = AutoConstraint::VERTEX);
+    int seekAndRenderAutoConstraint(
+        std::vector<AutoConstraint>& suggestedConstraints,
+        const Base::Vector2d& Pos,
+        const Base::Vector2d& Dir,
+        AutoConstraint::TargetType type = AutoConstraint::VERTEX
+    );
 
     // createowncommand indicates whether a separate command shall be create and committed (for
     // example for undo purposes) or not is not it is the responsibility of the developer to create
     // and commit the command appropriately.
-    void createAutoConstraints(const std::vector<AutoConstraint>& autoConstrs,
-                               int geoId,
-                               Sketcher::PointPos pointPos = Sketcher::PointPos::none,
-                               bool createowncommand = true);
+    void createAutoConstraints(
+        const std::vector<AutoConstraint>& autoConstrs,
+        int geoId,
+        Sketcher::PointPos pointPos = Sketcher::PointPos::none,
+        bool createowncommand = true
+    );
 
     void setPositionText(const Base::Vector2d& Pos, const SbString& text);
     void setPositionText(const Base::Vector2d& Pos);
@@ -206,7 +254,7 @@ public:
     std::unique_ptr<QWidget> createToolWidget() const;
 
     /** @brief Returns whether this tool expects/supports a visible tool widget. Emphasis is in
-     * visibility, so to allow to adapt the interface accordingly.
+     * visibility, so to allow one to adapt the interface accordingly.
      * This is an NVI interface and specific handlers must overload the corresponding virtual
      * function.
      */
@@ -240,24 +288,46 @@ protected:
     void drawEdit(const std::vector<Base::Vector2d>& EditCurve) const;
     void drawEdit(const std::list<std::vector<Base::Vector2d>>& list) const;
     void drawEdit(const std::vector<Part::Geometry*>& geometries) const;
-    void drawEditMarkers(const std::vector<Base::Vector2d>& EditMarkers,
-                         unsigned int augmentationlevel = 0) const;
+    void drawLineExtensionAutoConstraintHint(const std::vector<Base::Vector2d>& HintCurve) const;
+    bool isLineExtensionAutoConstraintHintVisible(const std::vector<Base::Vector2d>& HintCurve) const;
+    void drawEditMarkers(
+        const std::vector<Base::Vector2d>& EditMarkers,
+        unsigned int augmentationlevel = 0
+    ) const;
+
+    virtual bool getStartPointOfCurrentSegment(Base::Vector2d& point) const;
+    void drawParallelPerpendicularHint(
+        const std::vector<Base::Vector2d>& HintLines,
+        int activeLineIndex = -1
+    ) const;
+    bool areDirectionalAutoConstraintHintsVisible() const;
+    void resetParallelPerpendicularHint();
+    void clearParallelPerpendicularHintDrawing() const;
+    bool updateParallelPerpendicularEndpointHint();
+    bool snapToParallelPerpendicularHint(Base::Vector2d& point);
+    void startHoverTimer();
+    void stopHoverTimer();
+    void onHoverTimeout();
 
     void clearEdit() const;
+    void clearLineExtensionAutoConstraintHintDrawing() const;
     void clearEditMarkers() const;
 
     void setAxisPickStyle(bool on);
     void moveCursorToSketchPoint(Base::Vector2d point);
     void ensureFocus();
+    bool isConstructionMode() const;
+    const char* constructionModeAsBooleanText();
     void preselectAtPoint(Base::Vector2d point);
 
     void drawPositionAtCursor(const Base::Vector2d& position);
     void drawDirectionAtCursor(const Base::Vector2d& position, const Base::Vector2d& origin);
-    void
-    drawWidthHeightAtCursor(const Base::Vector2d& position, const double val1, const double val2);
-    void drawDoubleAtCursor(const Base::Vector2d& position,
-                            const double radius,
-                            Base::Unit unit = Base::Unit::Length);
+    void drawWidthHeightAtCursor(const Base::Vector2d& position, const double val1, const double val2);
+    void drawDoubleAtCursor(
+        const Base::Vector2d& position,
+        const double radius,
+        Base::Unit unit = Base::Unit::Length
+    );
 
     int getPreselectPoint() const;
     int getPreselectCurve() const;
@@ -265,27 +335,121 @@ protected:
 
     Sketcher::SketchObject* getSketchObject();
 
+    bool generateOneAutoConstraintFromSuggestion(
+        const AutoConstraint& autoConstraint,
+        int geoId,
+        Sketcher::PointPos pointPos,
+        std::vector<std::unique_ptr<Sketcher::Constraint>>& autoConstraints
+    );
+    bool filterRedundantAutoConstraints(
+        std::vector<std::unique_ptr<Sketcher::Constraint>>& autoConstraints
+    );
+    void addGeneratedAutoConstraints(
+        const std::vector<std::unique_ptr<Sketcher::Constraint>>& autoConstraints
+    );
+
     void setAngleSnapping(bool enable, Base::Vector2d referencePoint = Base::Vector2d(0., 0.));
 
-    void moveConstraint(int constNum, const Base::Vector2d& toPos);
+    void moveConstraint(int constNum, const Base::Vector2d& toPos, OffsetMode offset = NoOffset);
 
     void signalToolChanged() const;
 
+    // Helpers for seekAutoConstraint :
+    // Helper structure to hold preselection data
+    struct PreselectionData
+    {
+        int geoId = Sketcher::GeoEnum::GeoUndef;
+        Sketcher::PointPos posId = Sketcher::PointPos::none;
+        // direction of hit shape (if it is a line, the direction of the line)
+        Base::Vector3d hitShapeDir = Base::Vector3d(0, 0, 0);
+        bool isLine = false;
+    };
+
+    struct LineExtensionAutoConstraintHint
+    {
+        bool isValid = false;
+        Base::Vector2d start;
+        Base::Vector2d end;
+    };
+
+    struct TangentAutoConstraintHint
+    {
+        bool isValid = false;
+        bool isActive = false;
+        int geoId = Sketcher::GeoEnum::GeoUndef;
+        Sketcher::PointPos posId = Sketcher::PointPos::none;
+        Base::Vector2d start;
+        Base::Vector2d direction;
+        Base::Vector2d center;
+        double radius = 0.0;
+    };
+
+    PreselectionData getPreselectionData() const;
+
+    double getAutoConstraintSearchDistance() const;
+
+    void seekPreselectionAutoConstraint(
+        std::vector<AutoConstraint>& constraints,
+        const Base::Vector2d& Pos,
+        const Base::Vector2d& Dir,
+        AutoConstraint::TargetType type
+    );
+
+    bool seekLineExtensionAutoConstraint(
+        std::vector<AutoConstraint>& constraints,
+        const Base::Vector2d& Pos,
+        AutoConstraint::TargetType type
+    );
+
+    void resetLineExtensionAutoConstraintHint();
+    void renderLineExtensionAutoConstraintHint() const;
+
+    bool isLineExtensionAutoConstraintHintVisible(
+        const Base::Vector2d& start,
+        const Base::Vector2d& end
+    ) const;
+    bool getLineExtensionAutoConstraintSnapPoint(Base::Vector2d& point) const;
+
+    void resetTangentAutoConstraintHint();
+    bool updateTangentAutoConstraintHint();
+    void renderDirectionalAutoConstraintHints() const;
+    bool isDirectionCloseToTangentHint(const Base::Vector2d& direction) const;
+    bool snapToTangentHint(Base::Vector2d& point);
+
+    bool isLineCenterAutoConstraint(int GeoId, const Base::Vector2d& Pos) const;
+
+    bool seekAlignmentAutoConstraint(std::vector<AutoConstraint>& constraints, const Base::Vector2d& Dir);
+
+    bool seekTangentAutoConstraint(
+        std::vector<AutoConstraint>& constraints,
+        const Base::Vector2d& Pos,
+        const Base::Vector2d& Dir
+    );
+
+    void openCommand(const std::string& name);
+    void commitCommand();
+    void abortCommand();
 
 protected:
     /**
      * Returns constraints icons scaled to width.
      **/
-    std::vector<QPixmap>
-    suggestedConstraintsPixmaps(std::vector<AutoConstraint>& suggestedConstraints);
+    std::vector<QPixmap> suggestedConstraintsPixmaps(std::vector<AutoConstraint>& suggestedConstraints);
 
     ViewProviderSketch* sketchgui;
 
     QWidget* toolwidget;
+    int currentTransactionID {0};
+
+private:
+    LineExtensionAutoConstraintHint lineExtensionAutoConstraintHint;
+    TangentAutoConstraintHint tangentAutoConstraintHint;
+    int parallelPerpendicularRefGeoId {Sketcher::GeoEnum::GeoUndef};
+    int parallelPerpendicularActiveHintLine {-1};
+    bool parallelPerpendicularRefFromEndpoint {false};
+    int lastHoveredGeoId {Sketcher::GeoEnum::GeoUndef};
+    QTimer* hoverTimer {nullptr};
 };
 
 
 }  // namespace SketcherGui
-
-
-#endif  // SKETCHERGUI_DrawSketchHandler_H

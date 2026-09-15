@@ -1,30 +1,31 @@
-# -*- coding: utf8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2017 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 """This module contains FreeCAD commands for the BIM workbench"""
 
 import os
+
 import FreeCAD
 import FreeCADGui
 
@@ -34,6 +35,7 @@ translate = FreeCAD.Qt.translate
 
 # Status bar buttons
 
+
 def setStatusIcons(show=True):
     "shows or hides the BIM icons in the status bar"
 
@@ -41,7 +43,7 @@ def setStatusIcons(show=True):
     from PySide import QtCore, QtGui
 
     nudgeLabelsI = [
-        translate("BIM", "Custom..."),
+        translate("BIM", "Custom…"),
         '1/16"',
         '1/8"',
         '1/4"',
@@ -51,7 +53,7 @@ def setStatusIcons(show=True):
         translate("BIM", "Auto"),
     ]
     nudgeLabelsM = [
-        translate("BIM", "Custom..."),
+        translate("BIM", "Custom…"),
         "1 mm",
         "5 mm",
         "1 cm",
@@ -60,9 +62,6 @@ def setStatusIcons(show=True):
         "50 cm",
         translate("BIM", "Auto"),
     ]
-
-    def toggle(state):
-        FreeCADGui.runCommand("BIM_TogglePanels")
 
     def toggleBimViews(state):
         FreeCADGui.runCommand("BIM_Views")
@@ -77,35 +76,12 @@ def setStatusIcons(show=True):
             form = FreeCADGui.PySideUic.loadUi(":/ui/dialogNudgeValue.ui")
             # center the dialog over FreeCAD window
             mw = FreeCADGui.getMainWindow()
-            form.move(
-                mw.frameGeometry().topLeft() + mw.rect().center() - form.rect().center()
-            )
+            form.move(mw.frameGeometry().topLeft() + mw.rect().center() - form.rect().center())
             result = form.exec_()
             if not result:
                 return
             utext = form.inputField.text()
         action.parent().parent().parent().setText(utext)
-
-    def toggleContextMenu(point):
-        # DISABLED - TODO need to find a way to add a context menu to a QAction...
-        FreeCADGui.BimToggleMenu = QtGui.QMenu()
-        for t in ["Report view", "Python console", "Selection view", "Combo View"]:
-            a = QtGui.QAction(t)
-            # a.setCheckable(True)
-            # a.setChecked(FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM").GetBool("toggle"+t.replace(" ",""),True))
-            FreeCADGui.BimToggleMenu.addAction(a)
-        pos = FreeCADGui.getMainWindow().cursor().pos()
-        FreeCADGui.BimToggleMenu.triggered.connect(toggleSaveSettings)
-        # QtCore.QObject.connect(FreeCADGui.BimToggleMenu,QtCore.SIGNAL("triggered(QAction *)"),toggleSaveSettings)
-        FreeCADGui.BimToggleMenu.popup(pos)
-
-    def toggleSaveSettings(action):
-        t = action.text()
-        FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM").SetBool(
-            "toggle" + t.replace(" ", ""), action.isChecked()
-        )
-        if hasattr(FreeCADGui, "BimToggleMenu"):
-            del FreeCADGui.BimToggleMenu
 
     # main code
 
@@ -116,33 +92,26 @@ def setStatusIcons(show=True):
         if show:
             if statuswidget:
                 statuswidget.show()
+                if hasattr(statuswidget, "propertybuttons"):
+                    statuswidget.propertybuttons.show()
             else:
                 statuswidget = FreeCADGui.UiLoader().createWidget("Gui::ToolBar")
                 statuswidget.setObjectName("BIMStatusWidget")
-                s = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/General").GetInt("ToolbarIconSize", 24)
-                statuswidget.setIconSize(QtCore.QSize(s,s))
-                st.insertPermanentWidget(2, statuswidget)
-
-                # report panels toggle button
-                togglebutton = QtGui.QAction()
-                togglemenu = QtGui.QMenu()
-                for t in ["Toggle", "Report view", "Python console", "Selection view", "Combo View"]:
-                    a = QtGui.QAction(t)
-                    togglemenu.addAction(a)
-                togglemenu.triggered.connect(toggleSaveSettings)
-                togglebutton.setIcon(QtGui.QIcon(":/icons/BIM_TogglePanels.svg"))
-                togglebutton.setText("")
-                togglebutton.setToolTip(
-                    translate("BIM", "Toggle report panels on/off (Ctrl+0)")
+                text = translate(
+                    "BIMStatusWidget",
+                    "BIM Status Widget",
+                    "A context menu action used to show or hide this toolbar widget",
                 )
-                togglebutton.setCheckable(True)
-                rv = mw.findChild(QtGui.QWidget, "Python console")
-                if rv and rv.isVisible():
-                    togglebutton.setChecked(True)
-                statuswidget.togglebutton = togglebutton
-                #togglebutton.setMenu(togglemenu)
-                togglebutton.triggered.connect(toggle)
-                statuswidget.addAction(togglebutton)
+                statuswidget.setIconSize(QtCore.QSize(16, 16))
+                # MainWindow owns placement/ordering/persistence/menu; we only register.
+                mw.addStatusBarItem(
+                    statuswidget,
+                    id="BIMStatusWidget",
+                    title=text,
+                    slot="Right",
+                    # Workbench band (550-699): just left of the Bottom Panel Toggle.
+                    order=570,
+                )
 
                 # bim views widget toggle button
                 from bimcommands import BimViews
@@ -151,9 +120,7 @@ def setStatusIcons(show=True):
                 bimviewsbutton.setIcon(QtGui.QIcon(":/icons/BIM_Views.svg"))
 
                 bimviewsbutton.setText("")
-                bimviewsbutton.setToolTip(
-                    translate("BIM", "Toggle BIM views panel on/off (Ctrl+9)")
-                )
+                bimviewsbutton.setToolTip(translate("BIM", "Toggles the BIM Views Manager on/off"))
                 bimviewsbutton.setCheckable(True)
                 if BimViews.findWidget():
                     bimviewsbutton.setChecked(True)
@@ -163,14 +130,12 @@ def setStatusIcons(show=True):
 
                 # background toggle button
                 bgbutton = QtGui.QAction()
-                #bwidth = bgbutton.fontMetrics().boundingRect("AAAA").width()
-                #bgbutton.setMaximumWidth(bwidth)
+                # bwidth = bgbutton.fontMetrics().boundingRect("AAAA").width()
+                # bgbutton.setMaximumWidth(bwidth)
                 bgbutton.setIcon(QtGui.QIcon(":/icons/BIM_Background.svg"))
                 bgbutton.setText("")
                 bgbutton.setToolTip(
-                    translate(
-                        "BIM", "Toggle 3D view background between simple and gradient"
-                    )
+                    translate("BIM", "Toggles the 3D View background between simple and gradient")
                 )
                 statuswidget.bgbutton = bgbutton
                 bgbutton.triggered.connect(toggleBackground)
@@ -186,17 +151,16 @@ def setStatusIcons(show=True):
 
                 # nudge button
                 nudge = QtGui.QPushButton(nudgeLabelsM[-1])
-                nudge.setIcon(
-                    QtGui.QIcon(":/icons/BIM_Nudge.svg"))
+                nudge.setIcon(QtGui.QIcon(":/icons/BIM_Nudge.svg"))
                 nudge.setFlat(True)
                 nudge.setToolTip(
                     translate(
                         "BIM",
                         "The value of the nudge movement (rotation is always 45°)."
-                        "CTRL+arrows to move\nCTRL+, to rotate left"
-                        "CTRL+. to rotate right\nCTRL+PgUp to extend extrusion"
-                        "CTRL+PgDown to shrink extrusion"
-                        "CTRL+/ to switch between auto and manual mode",
+                        "Alt+arrows to move\nAlt+, to rotate left"
+                        "Alt+. to rotate right\nAlt+PgUp to extend extrusion"
+                        "Alt+PgDown to shrink extrusion"
+                        "Alt+/ to switch between auto and manual mode",
                     )
                 )
                 statuswidget.addWidget(nudge)
@@ -221,3 +185,5 @@ def setStatusIcons(show=True):
             if statuswidget:
                 statuswidget.hide()
                 statuswidget.toggleViewAction().setVisible(False)
+                if hasattr(statuswidget, "propertybuttons"):
+                    statuswidget.propertybuttons.hide()

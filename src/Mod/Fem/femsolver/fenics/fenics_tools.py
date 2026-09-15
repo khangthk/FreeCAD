@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2017 Johannes Hartung <j.hartung@gmx.net>               *
 # *                                                                         *
@@ -257,6 +259,3 @@ class FacetFunctionFromXDMF:
 
     # TODO: write some functions to return integrals for Neumann and Robin
     # boundary conditions for the general case (i.e. vector, tensor)
-
-
-##  @}

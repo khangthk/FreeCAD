@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
 # ***************************************************************************
 # *   Copyright (c) 2021 sliptonic <shopinthewoods@gmail.com>               *
 # *                                                                         *
@@ -33,8 +33,12 @@ else:
 class AdvancedPreferencesPage:
     def __init__(self, parent=None):
         self.form = FreeCADGui.PySideUic.loadUi(":preferences/Advanced.ui")
-        self.form.WarningSuppressAllSpeeds.stateChanged.connect(self.updateSelection)
-        self.form.EnableAdvancedOCLFeatures.stateChanged.connect(self.updateSelection)
+        if hasattr(self.form.WarningSuppressAllSpeeds, "checkStateChanged"):  # Qt version >= 6.7.0
+            self.form.WarningSuppressAllSpeeds.checkStateChanged.connect(self.updateSelection)
+            self.form.EnableAdvancedOCLFeatures.checkStateChanged.connect(self.updateSelection)
+        else:  # Qt version < 6.7.0
+            self.form.WarningSuppressAllSpeeds.stateChanged.connect(self.updateSelection)
+            self.form.EnableAdvancedOCLFeatures.stateChanged.connect(self.updateSelection)
 
     def saveSettings(self):
         Path.Preferences.setPreferencesAdvanced(
@@ -43,7 +47,6 @@ class AdvancedPreferencesPage:
             self.form.WarningSuppressRapidSpeeds.isChecked(),
             self.form.WarningSuppressSelectionMode.isChecked(),
             self.form.WarningSuppressOpenCamLib.isChecked(),
-            self.form.WarningSuppressVelocity.isChecked(),
         )
 
     def loadSettings(self):
@@ -59,7 +62,6 @@ class AdvancedPreferencesPage:
             Path.Preferences.advancedOCLFeaturesEnabled()
         )
         self.form.WarningSuppressOpenCamLib.setChecked(Path.Preferences.suppressOpenCamLibWarning())
-        self.form.WarningSuppressVelocity.setChecked(Path.Preferences.suppressVelocity())
         self.updateSelection()
 
     def updateSelection(self, state=None):

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2009 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
@@ -20,14 +22,14 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
+#include <limits>
+
 #include <QPushButton>
-#endif
+
 
 #include <Gui/Application.h>
 #include <Gui/Document.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 
 #include "RemoveComponents.h"
 #include "ui_RemoveComponents.h"
@@ -41,9 +43,9 @@ RemoveComponents::RemoveComponents(QWidget* parent, Qt::WindowFlags fl)
 {
     ui->setupUi(this);
     setupConnections();
-    ui->spSelectComp->setRange(1, INT_MAX);
+    ui->spSelectComp->setRange(1, std::numeric_limits<int>::max());
     ui->spSelectComp->setValue(10);
-    ui->spDeselectComp->setRange(1, INT_MAX);
+    ui->spDeselectComp->setRange(1, std::numeric_limits<int>::max());
     ui->spDeselectComp->setValue(10);
 
     Gui::Selection().clearSelection();

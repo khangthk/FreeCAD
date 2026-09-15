@@ -4,40 +4,40 @@
   <context>
     <name>StartGui::FirstStartWidget</name>
     <message>
-      <location filename="../../FirstStartWidget.cpp" line="95"/>
+      <location filename="../../FirstStartWidget.cpp" line="91"/>
       <source>Done</source>
       <translation>完成</translation>
     </message>
     <message>
-      <location filename="../../FirstStartWidget.cpp" line="97"/>
+      <location filename="../../FirstStartWidget.cpp" line="94"/>
       <source>Welcome to %1</source>
       <translation>欢迎使用 %1。</translation>
     </message>
     <message>
-      <location filename="../../FirstStartWidget.cpp" line="100"/>
-      <source>To get started, set your basic configuration options below.</source>
-      <translation>想要开始，请在下方设置您的基本配置选项。</translation>
+      <location filename="../../FirstStartWidget.cpp" line="97"/>
+      <source>Set your basic configuration options below.</source>
+      <translation>在下面设置您的基本配置选项。</translation>
     </message>
     <message>
-      <location filename="../../FirstStartWidget.cpp" line="101"/>
-      <source>These options (and many more) can be changed later in Preferences.</source>
-      <translation>这些选项(以及更多选项)以后可以在首选项中更改。</translation>
+      <location filename="../../FirstStartWidget.cpp" line="98"/>
+      <source>These options (and many more) can be changed later in the preferences.</source>
+      <translation>这些选项（以及更多选项）可以稍后在偏好设置中更改。</translation>
     </message>
   </context>
   <context>
     <name>StartGui::GeneralSettingsWidget</name>
     <message>
-      <location filename="../../GeneralSettingsWidget.cpp" line="212"/>
+      <location filename="../../GeneralSettingsWidget.cpp" line="222"/>
       <source>Language</source>
       <translation>语言</translation>
     </message>
     <message>
-      <location filename="../../GeneralSettingsWidget.cpp" line="213"/>
+      <location filename="../../GeneralSettingsWidget.cpp" line="223"/>
       <source>Unit System</source>
-      <translation>量纲</translation>
+      <translation>单位系统</translation>
     </message>
     <message>
-      <location filename="../../GeneralSettingsWidget.cpp" line="226"/>
+      <location filename="../../GeneralSettingsWidget.cpp" line="240"/>
       <source>Navigation Style</source>
       <translation>导航样式</translation>
     </message>
@@ -45,109 +45,113 @@
   <context>
     <name>CmdStart</name>
     <message>
-      <location filename="../../Manipulator.cpp" line="47"/>
-      <location filename="../../Manipulator.cpp" line="48"/>
+      <location filename="../../Manipulator.cpp" line="45"/>
       <source>Start</source>
       <translation>开始</translation>
     </message>
     <message>
-      <location filename="../../Manipulator.cpp" line="49"/>
-      <source>Displays the Start in an MDI view</source>
-      <translation>在MDI视图中显示开始</translation>
+      <location filename="../../Manipulator.cpp" line="46"/>
+      <source>&amp;Start Page</source>
+      <translation>起始页(&amp;S)</translation>
+    </message>
+    <message>
+      <location filename="../../Manipulator.cpp" line="47"/>
+      <source>Displays the start page</source>
+      <translation>显示起始页</translation>
     </message>
   </context>
   <context>
     <name>StartGui::StartView</name>
     <message>
-      <location filename="../../StartView.cpp" line="212"/>
-      <source>Empty file</source>
-      <translation>空文件</translation>
-    </message>
-    <message>
-      <location filename="../../StartView.cpp" line="213"/>
-      <source>Create a new empty FreeCAD file</source>
-      <translation>新建一个空白FreeCAD文件</translation>
-    </message>
-    <message>
-      <location filename="../../StartView.cpp" line="215"/>
+      <location filename="../../StartView.cpp" line="226"/>
       <source>Open File</source>
       <translation>打开文件</translation>
     </message>
     <message>
-      <location filename="../../StartView.cpp" line="216"/>
-      <source>Open an existing CAD file or 3D model</source>
-      <translation>打开现有的 CAD 文件或 3D 模型</translation>
-    </message>
-    <message>
-      <location filename="../../StartView.cpp" line="218"/>
-      <source>Parametric Part</source>
-      <translation>参数视图</translation>
-    </message>
-    <message>
-      <location filename="../../StartView.cpp" line="219"/>
-      <source>Create a part with the Part Design workbench</source>
-      <translation>使用零件设计工作台创建一个零件</translation>
-    </message>
-    <message>
-      <location filename="../../StartView.cpp" line="221"/>
+      <location filename="../../StartView.cpp" line="236"/>
       <source>Assembly</source>
       <translation>装配</translation>
     </message>
     <message>
-      <location filename="../../StartView.cpp" line="222"/>
-      <source>Create an assembly project</source>
-      <translation>创建装配项目</translation>
-    </message>
-    <message>
-      <location filename="../../StartView.cpp" line="224"/>
+      <location filename="../../StartView.cpp" line="241"/>
       <source>2D Draft</source>
       <translation>2D草图</translation>
     </message>
     <message>
-      <location filename="../../StartView.cpp" line="225"/>
-      <source>Create a 2D Draft with the Draft workbench</source>
-      <translation>使用草图工作台创建 2D 草图</translation>
+      <location filename="../../StartView.cpp" line="241"/>
+      <source>Creates a 2D Draft document</source>
+      <translation>创建 2D 草图文档</translation>
     </message>
     <message>
-      <location filename="../../StartView.cpp" line="227"/>
+      <location filename="../../StartView.cpp" line="244"/>
       <source>BIM/Architecture</source>
       <translation>BIM/结构</translation>
     </message>
     <message>
-      <location filename="../../StartView.cpp" line="228"/>
-      <source>Create an architectural project</source>
+      <location filename="../../StartView.cpp" line="221"/>
+      <source>Empty File</source>
+      <translation>空文件</translation>
+    </message>
+    <message>
+      <location filename="../../StartView.cpp" line="222"/>
+      <source>Creates a new empty FreeCAD file</source>
+      <translation>创建一个新的空 FreeCAD 文件</translation>
+    </message>
+    <message>
+      <location filename="../../StartView.cpp" line="227"/>
+      <source>Opens an existing CAD file or 3D model</source>
+      <translation>打开现有的 CAD 文件或 3D 模型</translation>
+    </message>
+    <message>
+      <location filename="../../StartView.cpp" line="231"/>
+      <source>Parametric Body</source>
+      <translation>参数实体</translation>
+    </message>
+    <message>
+      <location filename="../../StartView.cpp" line="232"/>
+      <source>Creates a body with the Part Design workbench</source>
+      <translation>使用零件设计工作台创建主体</translation>
+    </message>
+    <message>
+      <location filename="../../StartView.cpp" line="237"/>
+      <source>Creates an assembly project</source>
+      <translation>创建装配项目</translation>
+    </message>
+    <message>
+      <location filename="../../StartView.cpp" line="245"/>
+      <source>Creates an architectural project</source>
       <translation>创建一个建筑项目</translation>
     </message>
     <message>
-      <location filename="../../StartView.cpp" line="494"/>
+      <location filename="../../StartView.cpp" line="529"/>
       <source>New File</source>
       <translation>新建文件</translation>
     </message>
     <message>
-      <location filename="../../StartView.cpp" line="495"/>
+      <location filename="../../StartView.cpp" line="531"/>
       <source>Examples</source>
       <translation>示例</translation>
     </message>
     <message>
-      <location filename="../../StartView.cpp" line="496"/>
+      <location filename="../../StartView.cpp" line="533"/>
       <source>Recent Files</source>
       <translation>最近打开的文件</translation>
     </message>
     <message>
-      <location filename="../../StartView.cpp" line="499"/>
-      <source>Open first start setup</source>
-      <translation type="unfinished">Open first start setup</translation>
+      <location filename="../../StartView.cpp" line="548"/>
+      <source>Open First Start Setup</source>
+      <translation>打开“首次启动设置”</translation>
     </message>
     <message>
-      <location filename="../../StartView.cpp" line="501"/>
-      <source>Don't show this Start page again (start with blank screen)</source>
-      <translation>不再显示此开始页 (将以空白开头)</translation>
+      <location filename="../../StartView.cpp" line="549"/>
+      <source>Do not show this Start page again (start with blank screen)</source>
+      <translation>不再显示此起始页（以空白屏幕开始）</translation>
     </message>
   </context>
   <context>
     <name>Workbench</name>
     <message>
-      <location filename="../../StartView.cpp" line="488"/>
+      <location filename="../../StartView.cpp" line="523"/>
       <source>Start</source>
       <translation>开始</translation>
     </message>
@@ -155,47 +159,124 @@
   <context>
     <name>StartGui::ThemeSelectorWidget</name>
     <message>
-      <location filename="../../ThemeSelectorWidget.cpp" line="58"/>
+      <location filename="../../ThemeSelectorWidget.cpp" line="115"/>
       <source>FreeCAD Classic</source>
-      <translation type="unfinished">FreeCAD Classic</translation>
+      <translation>FreeCAD 经典</translation>
     </message>
     <message>
-      <location filename="../../ThemeSelectorWidget.cpp" line="59"/>
+      <location filename="../../ThemeSelectorWidget.cpp" line="116"/>
       <source>FreeCAD Dark</source>
-      <translation type="unfinished">FreeCAD Dark</translation>
+      <translation>FreeCAD 深色</translation>
     </message>
     <message>
-      <location filename="../../ThemeSelectorWidget.cpp" line="60"/>
+      <location filename="../../ThemeSelectorWidget.cpp" line="117"/>
       <source>FreeCAD Light</source>
-      <translation type="unfinished">FreeCAD Light</translation>
+      <translation>FreeCAD 浅色</translation>
     </message>
     <message>
-      <location filename="../../ThemeSelectorWidget.cpp" line="166"/>
+      <location filename="../../ThemeSelectorWidget.cpp" line="251"/>
       <source>Theme</source>
       <translation>主题</translation>
     </message>
     <message>
-      <location filename="../../ThemeSelectorWidget.cpp" line="167"/>
+      <location filename="../../ThemeSelectorWidget.cpp" line="254"/>
       <source>Looking for more themes? You can obtain them using &lt;a href="freecad:Std_AddonMgr"&gt;Addon Manager&lt;/a&gt;.</source>
-      <translation type="unfinished">Looking for more themes? You can obtain them using &lt;a href="freecad:Std_AddonMgr"&gt;Addon Manager&lt;/a&gt;.</translation>
+      <translation>寻找更多主题？您可以使用&lt;a href=“freecad:Std_AddonMgr”&gt;插件管理器&lt;/a&gt;获取。</translation>
     </message>
     <message>
-      <location filename="../../ThemeSelectorWidget.cpp" line="169"/>
+      <location filename="../../ThemeSelectorWidget.cpp" line="261"/>
       <source>FreeCAD Dark</source>
       <comment>Visual theme name</comment>
-      <translation type="unfinished">FreeCAD Dark</translation>
+      <translation>FreeCAD 深色</translation>
     </message>
     <message>
-      <location filename="../../ThemeSelectorWidget.cpp" line="170"/>
+      <location filename="../../ThemeSelectorWidget.cpp" line="262"/>
       <source>FreeCAD Light</source>
       <comment>Visual theme name</comment>
-      <translation type="unfinished">FreeCAD Light</translation>
+      <translation>FreeCAD 浅色</translation>
     </message>
     <message>
-      <location filename="../../ThemeSelectorWidget.cpp" line="171"/>
+      <location filename="../../ThemeSelectorWidget.cpp" line="263"/>
       <source>FreeCAD Classic</source>
       <comment>Visual theme name</comment>
-      <translation type="unfinished">FreeCAD Classic</translation>
+      <translation>FreeCAD 经典</translation>
+    </message>
+  </context>
+  <context>
+    <name>DlgStartPreferences</name>
+    <message>
+      <location filename="../../DlgStartPreferences.ui" line="14"/>
+      <source>General</source>
+      <translation>常规</translation>
+    </message>
+    <message>
+      <location filename="../../DlgStartPreferences.ui" line="20"/>
+      <source>Contents</source>
+      <translation>内容</translation>
+    </message>
+    <message>
+      <location filename="../../DlgStartPreferences.ui" line="26"/>
+      <location filename="../../DlgStartPreferences.ui" line="86"/>
+      <source>Show only FreeCAD files in additional folder</source>
+      <translation>仅在附加文件夹中显示 FreeCAD 文件</translation>
+    </message>
+    <message>
+      <location filename="../../DlgStartPreferences.ui" line="33"/>
+      <source>Show examples folder contents</source>
+      <translation>显示示例文件夹内容</translation>
+    </message>
+    <message>
+      <location filename="../../DlgStartPreferences.ui" line="40"/>
+      <source>Show additional folder contents</source>
+      <translation>显示附加文件夹内容</translation>
+    </message>
+    <message>
+      <location filename="../../DlgStartPreferences.ui" line="47"/>
+      <source>An optional custom folder to be displayed on the Start page.
+Multiple folders can be added using ";;" to separate paths.</source>
+      <translation>可选的自定义文件夹，显示在起始页上。
+可以使用“;;”分隔路径来添加多个文件夹。</translation>
+    </message>
+    <message>
+      <location filename="../../DlgStartPreferences.ui" line="64"/>
+      <source>Shows example files on the start page</source>
+      <translation>在起始页上显示示例文件</translation>
+    </message>
+    <message>
+      <location filename="../../DlgStartPreferences.ui" line="114"/>
+      <source>The start page is closed automatically when FreeCAD launches</source>
+      <translation>FreeCAD 启动时，起始页会自动关闭</translation>
+    </message>
+    <message>
+      <location filename="../../DlgStartPreferences.ui" line="108"/>
+      <source>Options</source>
+      <translation>选项</translation>
+    </message>
+    <message>
+      <location filename="../../DlgStartPreferences.ui" line="133"/>
+      <source>Close start page after loading</source>
+      <translation>加载后关闭开始页面</translation>
+    </message>
+  </context>
+  <context>
+    <name>QObject</name>
+    <message>
+      <location filename="../../AppStartGui.cpp" line="140"/>
+      <source>Start</source>
+      <translation>开始</translation>
+    </message>
+  </context>
+  <context>
+    <name>Start::DisplayedFilesModel</name>
+    <message>
+      <location filename="../../../App/DisplayedFilesModel.cpp" line="131"/>
+      <source>Created at:</source>
+      <translation>创建时间：</translation>
+    </message>
+    <message>
+      <location filename="../../../App/DisplayedFilesModel.cpp" line="132"/>
+      <source>Modified at:</source>
+      <translation>修改时间：</translation>
     </message>
   </context>
 </TS>

@@ -1,24 +1,24 @@
-# -*- coding: utf8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2017 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
@@ -34,16 +34,13 @@ translate = FreeCAD.Qt.translate
 class BIM_Slab:
 
     def __init__(self):
-        self.callback = None
-        self.view = None
+        self.observing = False
 
     def GetResources(self):
         return {
             "Pixmap": "BIM_Slab",
             "MenuText": QT_TRANSLATE_NOOP("BIM_Slab", "Slab"),
-            "ToolTip": QT_TRANSLATE_NOOP(
-                "BIM_Slab", "Creates a slab from a planar shape"
-            ),
+            "ToolTip": QT_TRANSLATE_NOOP("BIM_Slab", "Creates a slab from a planar shape"),
             "Accel": "S,B",
         }
 
@@ -52,54 +49,56 @@ class BIM_Slab:
         return v
 
     def Activated(self):
-        import DraftTools
-
-        self.removeCallback()
+        self.removeObserver()
         sel = FreeCADGui.Selection.getSelection()
         if sel:
             self.proceed()
         else:
             if hasattr(FreeCADGui, "draftToolBar"):
-                FreeCADGui.draftToolBar.selectUi()
-            FreeCAD.Console.PrintMessage(
-                translate("BIM", "Select a planar object") + "\n"
+                FreeCADGui.draftToolBar.selectUi(on_close_call=self.finish)
+            FreeCAD.Console.PrintMessage(translate("BIM", "Select a planar object") + "\n")
+            FreeCADGui.HintManager.show(
+                FreeCADGui.InputHint(
+                    translate("BIM", "%1 select a planar object"),
+                    FreeCADGui.UserInput.MouseLeft,
+                )
             )
-            FreeCAD.activeDraftCommand = self
-            self.view = FreeCADGui.ActiveDocument.ActiveView
-            self.callback = self.view.addEventCallback(
-                "SoEvent", DraftTools.selectObject
-            )
+            FreeCADGui.Selection.addObserver(self)
+            self.observing = True
 
-    def proceed(self):
-        self.removeCallback()
-        sel = FreeCADGui.Selection.getSelection()
-        if len(sel) == 1:
+    def addSelection(self, document, obj_name, _sub_name, _position):
+        obj = FreeCAD.getDocument(document).getObject(obj_name)
+        if obj:
+            self.proceed(obj)
+
+    def proceed(self, obj=None):
+        self.removeObserver()
+        if obj is None:
+            sel = FreeCADGui.Selection.getSelection()
+            obj = sel[0] if len(sel) == 1 else None
+        if obj:
             FreeCADGui.addModule("Arch")
             FreeCAD.ActiveDocument.openTransaction("Create Slab")
             FreeCADGui.doCommand(
-                "s = Arch.makeStructure(FreeCAD.ActiveDocument."
-                + sel[0].Name
-                + ",height=200)"
+                "s = Arch.makeStructure(FreeCAD.ActiveDocument." + obj.Name + ",height=200)"
             )
-            FreeCADGui.doCommand('s.Label = "' + translate("BIM", "Slab") + '"')
+            FreeCADGui.doCommand("s.Label = " + repr(translate("BIM", "Slab")))
             FreeCADGui.doCommand('s.IfcType = "Slab"')
             FreeCADGui.doCommand("s.Normal = FreeCAD.Vector(0,0,-1)")
             FreeCAD.ActiveDocument.commitTransaction()
             FreeCAD.ActiveDocument.recompute()
         self.finish()
 
-    def removeCallback(self):
-        if self.callback:
-            try:
-                self.view.removeEventCallback("SoEvent", self.callback)
-            except RuntimeError:
-                pass
-            self.callback = None
+    def removeObserver(self):
+        if self.observing:
+            FreeCADGui.Selection.removeObserver(self)
+            self.observing = False
 
     def finish(self):
-        self.removeCallback()
+        self.removeObserver()
+        FreeCADGui.HintManager.hide()
         if hasattr(FreeCADGui, "draftToolBar"):
             FreeCADGui.draftToolBar.offUi()
 
 
-FreeCADGui.addCommand('BIM_Slab', BIM_Slab())
+FreeCADGui.addCommand("BIM_Slab", BIM_Slab())

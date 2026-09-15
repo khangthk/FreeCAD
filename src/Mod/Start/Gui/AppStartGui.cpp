@@ -21,18 +21,20 @@
  *                                                                          *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <QString>
 #include <QTimer>
-#endif
 
+
+#include <App/Application.h>
 #include <Base/Console.h>
 #include <Base/Interpreter.h>
 #include <Base/PyObjectBase.h>
 #include <Gui/Language/Translator.h>
 #include <Gui/Command.h>
 #include <Gui/MainWindow.h>
+#include <Gui/Utilities.h>
+#include <Gui/WidgetFactory.h>
+#include "DlgStartPreferencesImp.h"
 
 
 #include <gsl/pointers>
@@ -71,27 +73,36 @@ class StartLauncher
 public:
     StartLauncher()
     {
+        if (Gui::isInternalGuiTestRun()) {
+            return;
+        }
+
         // QTimers don't fire until the event loop starts, which is our signal that the GUI is up
-        QTimer::singleShot(100, [this] {
-            Launch();
-        });
+        QTimer::singleShot(100, [this] { Launch(); });
     }
 
     void Launch()
     {
+        if (Gui::isInternalGuiTestRun()) {
+            return;
+        }
+
         auto hGrp = App::GetApplication().GetParameterGroupByPath(
-            "User parameter:BaseApp/Preferences/Mod/Start");
+            "User parameter:BaseApp/Preferences/Mod/Start"
+        );
         bool showOnStartup = hGrp->GetBool("ShowOnStartup", true);
         if (showOnStartup) {
             Gui::Application::Instance->commandManager().runCommandByName("Start_Start");
-            QTimer::singleShot(100, [this] {
-                EnsureLaunched();
-            });
+            QTimer::singleShot(100, [this] { EnsureLaunched(); });
         }
     }
 
     void EnsureLaunched()
     {
+        if (Gui::isInternalGuiTestRun()) {
+            return;
+        }
+
         // It's possible that "Start_Start" didn't result in the creation of an MDI window, if it
         // was called to early. This polls the views to make sure the view was created, and if it
         // was not, re-calls the command.
@@ -117,12 +128,16 @@ PyMOD_INIT_FUNC(StartGui)
     static StartGui::StartLauncher* launcher = new StartGui::StartLauncher();
     Q_UNUSED(launcher)
 
-    Base::Console().Log("Loading GUI of Start module... ");
+    Base::Console().log("Loading GUI of Start module… ");
     PyObject* mod = StartGui::initModule();
     auto manipulator = std::make_shared<StartGui::Manipulator>();
     Gui::WorkbenchManipulator::installManipulator(manipulator);
     loadStartResource();
-    Base::Console().Log("done\n");
+    StartGui::StartView::init();
+    Base::Console().log("done\n");
+
+    // register preferences pages
+    new Gui::PrefPageProducer<StartGui::DlgStartPreferencesImp>(QT_TRANSLATE_NOOP("QObject", "Start"));
 
     PyMOD_Return(mod);
 }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2004 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef MESHGUI_VIEWPROVIDER_MESH_CURVATURE_H
-#define MESHGUI_VIEWPROVIDER_MESH_CURVATURE_H
+#pragma once
 
 #include <App/DocumentObserver.h>
 #include <Base/Observer.h>
@@ -54,9 +55,9 @@ class PropertyCurvatureList;
 namespace MeshGui
 {
 
-/** The ViewProviderMeshCurvature class is associated to the mesh curvature feature. It allows to
- * display the most known types of curvatures, such as Gaussian curvature, mean curvature, minimum
- * and maximum curvature. Moreover a color bar is also added to the scene.
+/** The ViewProviderMeshCurvature class is associated to the mesh curvature feature. It allows one
+ * to display the most known types of curvatures, such as Gaussian curvature, mean curvature,
+ * minimum and maximum curvature. Moreover a color bar is also added to the scene.
  *
  * @author Werner Mayer
  */
@@ -90,7 +91,7 @@ public:
     /// Returns a list of all possible modes
     std::vector<std::string> getDisplayModes() const override;
     /// Updates the mesh feature representation
-    void updateData(const App::Property*) override;
+    void updateData(const App::Property* prop) override;
     /// Returns a pixmap for the associated feature type
     QIcon getIcon() const override;
     /// Once the color bar settinhs has been changed this method gets called to update the feature's
@@ -131,6 +132,3 @@ private:
 };
 
 }  // namespace MeshGui
-
-
-#endif  // MESHGUI_VIEWPROVIDER_MESH_CURVATURE_H

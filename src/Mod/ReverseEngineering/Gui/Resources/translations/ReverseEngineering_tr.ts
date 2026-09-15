@@ -4,73 +4,73 @@
   <context>
     <name>CmdApproxCylinder</name>
     <message>
-      <location filename="../../Command.cpp" line="248"/>
+      <location filename="../../Command.cpp" line="246"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="249"/>
+      <location filename="../../Command.cpp" line="247"/>
       <source>Cylinder</source>
       <translation>Silindir</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="250"/>
-      <source>Approximate a cylinder</source>
-      <translation>Bir silindir yaklaştırın</translation>
+      <location filename="../../Command.cpp" line="248"/>
+      <source>Approximates a cylinder</source>
+      <translation type="unfinished">Approximates a cylinder</translation>
     </message>
   </context>
   <context>
     <name>CmdApproxPlane</name>
     <message>
-      <location filename="../../Command.cpp" line="140"/>
+      <location filename="../../Command.cpp" line="141"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="141"/>
+      <location filename="../../Command.cpp" line="142"/>
       <source>Plane</source>
       <translation>Düzlem</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="142"/>
-      <source>Approximate a plane</source>
-      <translation>Bir düzlem yaklaştırın</translation>
+      <location filename="../../Command.cpp" line="143"/>
+      <source>Approximates a plane</source>
+      <translation type="unfinished">Approximates a plane</translation>
     </message>
   </context>
   <context>
     <name>CmdApproxPolynomial</name>
     <message>
-      <location filename="../../Command.cpp" line="364"/>
+      <location filename="../../Command.cpp" line="362"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="365"/>
-      <source>Polynomial surface</source>
-      <translation>Çokgensel yüzey</translation>
+      <location filename="../../Command.cpp" line="363"/>
+      <source>Polynomial Surface</source>
+      <translation type="unfinished">Polynomial Surface</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="366"/>
-      <source>Approximate a polynomial surface</source>
-      <translation>Bir çokgen yüzeyinin yaklaşık değeri</translation>
+      <location filename="../../Command.cpp" line="364"/>
+      <source>Approximates a polynomial surface</source>
+      <translation type="unfinished">Approximates a polynomial surface</translation>
     </message>
   </context>
   <context>
     <name>CmdApproxSphere</name>
     <message>
-      <location filename="../../Command.cpp" line="316"/>
+      <location filename="../../Command.cpp" line="314"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="317"/>
+      <location filename="../../Command.cpp" line="315"/>
       <source>Sphere</source>
       <translation>Küre</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="318"/>
-      <source>Approximate a sphere</source>
-      <translation>Bir kürenin yaklaşık değeri</translation>
+      <location filename="../../Command.cpp" line="316"/>
+      <source>Approximates a sphere</source>
+      <translation type="unfinished">Approximates a sphere</translation>
     </message>
   </context>
   <context>
@@ -82,120 +82,124 @@
     </message>
     <message>
       <location filename="../../Command.cpp" line="103"/>
-      <source>Approximate B-spline surface...</source>
-      <translation>Yaklaşık B-Spline yüzeyi...</translation>
+      <source>Approximate B-Spline Surface…</source>
+      <translation type="unfinished">Approximate B-Spline Surface…</translation>
     </message>
     <message>
       <location filename="../../Command.cpp" line="104"/>
-      <source>Approximate a B-spline surface</source>
-      <translation>Bir B-spline yüzeyinin yaklaşık değeri</translation>
+      <source>Approximates a B-spline surface</source>
+      <translation type="unfinished">Approximates a B-spline surface</translation>
     </message>
   </context>
   <context>
     <name>CmdMeshBoundary</name>
     <message>
-      <location filename="../../Command.cpp" line="536"/>
+      <location filename="../../Command.cpp" line="531"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="537"/>
-      <source>Wire from mesh boundary...</source>
-      <translation>Elek sınırından telle bağlayın...</translation>
+      <location filename="../../Command.cpp" line="532"/>
+      <source>Wire From Mesh Boundary…</source>
+      <translation type="unfinished">Wire From Mesh Boundary…</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="538"/>
-      <source>Create wire from mesh boundaries</source>
-      <translation>Elek sınırlarından tel oluşturun</translation>
+      <location filename="../../Command.cpp" line="533"/>
+      <source>Creates a wire from mesh boundaries</source>
+      <translation type="unfinished">Creates a wire from mesh boundaries</translation>
     </message>
   </context>
   <context>
     <name>CmdPoissonReconstruction</name>
     <message>
-      <location filename="../../Command.cpp" line="603"/>
+      <location filename="../../Command.cpp" line="596"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="604"/>
-      <source>Poisson...</source>
-      <translation>Poisson Dağılımına isim veren Poisson...</translation>
+      <location filename="../../Command.cpp" line="597"/>
+      <source>Poisson…</source>
+      <translation type="unfinished">Poisson…</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="605"/>
-      <source>Poisson surface reconstruction</source>
-      <translation>Poisson yüzeyi yeniden inşası</translation>
+      <location filename="../../Command.cpp" line="598"/>
+      <source>Performs Poisson surface reconstruction</source>
+      <translation type="unfinished">Performs Poisson surface reconstruction</translation>
     </message>
   </context>
   <context>
     <name>CmdSegmentation</name>
     <message>
-      <location filename="../../Command.cpp" line="422"/>
+      <location filename="../../Command.cpp" line="419"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="423"/>
-      <source>Mesh segmentation...</source>
-      <translation>Örgü bölütleme...</translation>
+      <location filename="../../Command.cpp" line="420"/>
+      <source>Mesh Segmentation…</source>
+      <translation type="unfinished">Mesh Segmentation…</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="424"/>
-      <source>Create mesh segments</source>
-      <translation>Kafes bölümleri oluştur</translation>
+      <location filename="../../Command.cpp" line="421"/>
+      <source>Creates separate mesh segments based on surface types</source>
+      <translation type="unfinished">Creates separate mesh segments based on surface types</translation>
     </message>
   </context>
   <context>
     <name>CmdSegmentationFromComponents</name>
     <message>
-      <location filename="../../Command.cpp" line="484"/>
+      <location filename="../../Command.cpp" line="481"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="485"/>
-      <source>From components</source>
-      <translation>Bileşenlerden</translation>
+      <location filename="../../Command.cpp" line="482"/>
+      <source>From Components</source>
+      <translation type="unfinished">From Components</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="486"/>
-      <source>Create mesh segments from components</source>
-      <translation>Bileşenlerden elek bölümleri oluşturun</translation>
+      <location filename="../../Command.cpp" line="483"/>
+      <source>Creates mesh segments from components</source>
+      <translation type="unfinished">Creates mesh segments from components</translation>
     </message>
   </context>
   <context>
     <name>CmdSegmentationManual</name>
     <message>
-      <location filename="../../Command.cpp" line="454"/>
+      <location filename="../../Command.cpp" line="451"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="455"/>
-      <source>Manual segmentation...</source>
-      <translation>Elle bölümleme...</translation>
+      <location filename="../../Command.cpp" line="452"/>
+      <source>Manual Segmentation…</source>
+      <translation type="unfinished">Manual Segmentation…</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="456"/>
-      <source>Create mesh segments manually</source>
-      <translation>El yoluyla elek bölümleri oluşturun</translation>
+      <location filename="../../Command.cpp" line="453"/>
+      <source>Creates mesh segments manually</source>
+      <translation type="unfinished">Creates mesh segments manually</translation>
     </message>
   </context>
   <context>
     <name>CmdViewTriangulation</name>
     <message>
-      <location filename="../../Command.cpp" line="638"/>
+      <location filename="../../Command.cpp" line="633"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="639"/>
-      <source>Structured point clouds</source>
-      <translation>Yapılandırılmış nokta bulutları</translation>
+      <location filename="../../Command.cpp" line="634"/>
+      <source>Structured Point Clouds</source>
+      <translation type="unfinished">Structured Point Clouds</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="640"/>
-      <location filename="../../Command.cpp" line="641"/>
+      <location filename="../../Command.cpp" line="635"/>
+      <source>Triangulates structured point clouds</source>
+      <translation type="unfinished">Triangulates structured point clouds</translation>
+    </message>
+    <message>
+      <location filename="../../Command.cpp" line="636"/>
       <source>Triangulation of structured point clouds</source>
       <translation>Yapılandırılmış nokta bulutlarının üçgenliği</translation>
     </message>
@@ -203,64 +207,54 @@
   <context>
     <name>Command</name>
     <message>
-      <location filename="../../Command.cpp" line="226"/>
+      <location filename="../../Command.cpp" line="224"/>
       <source>Fit plane</source>
       <translation>Düzleme sığdır</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="258"/>
+      <location filename="../../Command.cpp" line="256"/>
       <source>Fit cylinder</source>
       <translation>Silindire sığdır</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="326"/>
+      <location filename="../../Command.cpp" line="324"/>
       <source>Fit sphere</source>
       <translation>Küreye sığdır</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="375"/>
+      <location filename="../../Command.cpp" line="373"/>
       <source>Fit polynomial surface</source>
       <translation>Çokgensel yüzeye sığdır</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="650"/>
+      <location filename="../../Command.cpp" line="646"/>
       <source>View triangulation</source>
       <translation>Üçgenlemeyi göster</translation>
     </message>
     <message>
-      <location filename="../../FitBSplineSurface.cpp" line="154"/>
+      <location filename="../../FitBSplineSurface.cpp" line="160"/>
       <source>Placement</source>
       <translation>Yerleşim</translation>
     </message>
     <message>
-      <location filename="../../FitBSplineSurface.cpp" line="231"/>
-      <location filename="../../FitBSplineCurve.cpp" line="139"/>
+      <location filename="../../FitBSplineCurve.cpp" line="152"/>
+      <location filename="../../FitBSplineSurface.cpp" line="242"/>
       <source>Fit B-spline</source>
       <translation type="unfinished">Fit B-spline</translation>
     </message>
     <message>
-      <location filename="../../Poisson.cpp" line="83"/>
+      <location filename="../../Poisson.cpp" line="87"/>
       <source>Poisson reconstruction</source>
       <translation>Poisson yüzey yeniden oluşumu</translation>
     </message>
     <message>
-      <location filename="../../SegmentationManual.cpp" line="281"/>
+      <location filename="../../SegmentationManual.cpp" line="265"/>
       <source>Segmentation</source>
       <translation>Bölümlenme</translation>
     </message>
   </context>
   <context>
     <name>ReenGui::FitBSplineSurface</name>
-    <message>
-      <location filename="../../FitBSplineSurface.ui" line="14"/>
-      <source>Fit B-spline surface</source>
-      <translation>B-spline yüzeyini sığdır</translation>
-    </message>
-    <message>
-      <location filename="../../FitBSplineSurface.ui" line="20"/>
-      <source>u-Direction</source>
-      <translation>u-Yönü</translation>
-    </message>
     <message>
       <location filename="../../FitBSplineSurface.ui" line="26"/>
       <location filename="../../FitBSplineSurface.ui" line="93"/>
@@ -274,9 +268,19 @@
       <translation>Kontrol Noktaları</translation>
     </message>
     <message>
+      <location filename="../../FitBSplineSurface.ui" line="14"/>
+      <source>Fit B-Spline Surface</source>
+      <translation type="unfinished">Fit B-Spline Surface</translation>
+    </message>
+    <message>
+      <location filename="../../FitBSplineSurface.ui" line="20"/>
+      <source>U-Direction</source>
+      <translation type="unfinished">U-Direction</translation>
+    </message>
+    <message>
       <location filename="../../FitBSplineSurface.ui" line="87"/>
-      <source>v-Direction</source>
-      <translation>v-Yönü</translation>
+      <source>V-Direction</source>
+      <translation type="unfinished">V-Direction</translation>
     </message>
     <message>
       <location filename="../../FitBSplineSurface.ui" line="154"/>
@@ -300,18 +304,18 @@
     </message>
     <message>
       <location filename="../../FitBSplineSurface.ui" line="231"/>
-      <source>Create placement</source>
-      <translation>Yerleşim oluşturun</translation>
+      <source>Create Placement</source>
+      <translation type="unfinished">Create Placement</translation>
+    </message>
+    <message>
+      <location filename="../../FitBSplineSurface.ui" line="247"/>
+      <source>Total weight</source>
+      <translation type="unfinished">Total weight</translation>
     </message>
     <message>
       <location filename="../../FitBSplineSurface.ui" line="238"/>
       <source>Smoothing</source>
       <translation>Düzgünleştirme</translation>
-    </message>
-    <message>
-      <location filename="../../FitBSplineSurface.ui" line="247"/>
-      <source>Total Weight</source>
-      <translation>Toplam Ağırlık</translation>
     </message>
     <message>
       <location filename="../../FitBSplineSurface.ui" line="276"/>
@@ -332,20 +336,20 @@
   <context>
     <name>ReenGui::FitBSplineSurfaceWidget</name>
     <message>
-      <location filename="../../FitBSplineSurface.cpp" line="165"/>
-      <location filename="../../FitBSplineSurface.cpp" line="238"/>
-      <source>Input error</source>
-      <translation>Girdi hatası</translation>
+      <location filename="../../FitBSplineSurface.cpp" line="171"/>
+      <location filename="../../FitBSplineSurface.cpp" line="249"/>
+      <source>Input Error</source>
+      <translation>Giriş hatası</translation>
     </message>
     <message>
-      <location filename="../../FitBSplineSurface.cpp" line="206"/>
+      <location filename="../../FitBSplineSurface.cpp" line="215"/>
       <source>Wrong selection</source>
       <translation>Yanlış seçim</translation>
     </message>
     <message>
-      <location filename="../../FitBSplineSurface.cpp" line="207"/>
-      <source>Please select a single placement object to get local orientation.</source>
-      <translation>Yerel yönlendirme almak için lütfen yalnızca bir tane yerleşim nesnesi seçin.</translation>
+      <location filename="../../FitBSplineSurface.cpp" line="216"/>
+      <source>Select a single placement object to get the local orientation.</source>
+      <translation type="unfinished">Select a single placement object to get the local orientation.</translation>
     </message>
   </context>
   <context>
@@ -376,40 +380,40 @@
       <translation>Düğüm başına örnekler</translation>
     </message>
     <message>
-      <location filename="../../Poisson.cpp" line="90"/>
-      <source>Input error</source>
-      <translation>Girdi hatası</translation>
+      <location filename="../../Poisson.cpp" line="94"/>
+      <source>Input Error</source>
+      <translation>Giriş hatası</translation>
     </message>
   </context>
   <context>
     <name>Reen_ApproxSurface</name>
     <message>
-      <location filename="../../Command.cpp" line="82"/>
+      <location filename="../../Command.cpp" line="81"/>
       <location filename="../../Command.cpp" line="120"/>
-      <location filename="../../Command.cpp" line="618"/>
+      <location filename="../../Command.cpp" line="612"/>
       <source>Wrong selection</source>
       <translation>Yanlış seçim</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="83"/>
-      <source>Please select a point cloud.</source>
-      <translation type="unfinished">Please select a point cloud.</translation>
+      <location filename="../../Command.cpp" line="82"/>
+      <source>Select a point cloud.</source>
+      <translation type="unfinished">Select a point cloud.</translation>
     </message>
     <message>
       <location filename="../../Command.cpp" line="121"/>
-      <source>Please select a point cloud or mesh.</source>
-      <translation>Lütfen bir nokta bulutu veya kafes seçin.</translation>
+      <source>Select a point cloud or mesh.</source>
+      <translation type="unfinished">Select a point cloud or mesh.</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="619"/>
-      <source>Please select a single point cloud.</source>
-      <translation>Bir tek nokta bulutu seçiniz.</translation>
+      <location filename="../../Command.cpp" line="613"/>
+      <source>Select a single point cloud.</source>
+      <translation type="unfinished">Select a single point cloud.</translation>
     </message>
   </context>
   <context>
     <name>Reen_ViewTriangulation</name>
     <message>
-      <location filename="../../Command.cpp" line="672"/>
+      <location filename="../../Command.cpp" line="671"/>
       <source>View triangulation failed</source>
       <translation>Üçgenleme başarısız oldu</translation>
     </message>
@@ -418,8 +422,8 @@
     <name>ReverseEngineeringGui::Segmentation</name>
     <message>
       <location filename="../../Segmentation.ui" line="14"/>
-      <source>Mesh segmentation</source>
-      <translation>Örgü bölütleme</translation>
+      <source>Mesh Segmentation</source>
+      <translation type="unfinished">Mesh Segmentation</translation>
     </message>
     <message>
       <location filename="../../Segmentation.ui" line="20"/>
@@ -460,11 +464,6 @@
   <context>
     <name>ReverseEngineeringGui::SegmentationManual</name>
     <message>
-      <location filename="../../SegmentationManual.ui" line="14"/>
-      <source>Manual segmentation</source>
-      <translation>Manuel segmentasyon</translation>
-    </message>
-    <message>
       <location filename="../../SegmentationManual.ui" line="20"/>
       <source>Select</source>
       <translation>Seç</translation>
@@ -490,9 +489,14 @@
       <translation>'den az yüzler</translation>
     </message>
     <message>
+      <location filename="../../SegmentationManual.ui" line="14"/>
+      <source>Manual Mesh Segmentation</source>
+      <translation type="unfinished">Manual Mesh Segmentation</translation>
+    </message>
+    <message>
       <location filename="../../SegmentationManual.ui" line="98"/>
-      <source>Pick triangle</source>
-      <translation>Üçgeni seç</translation>
+      <source>Pick Triangle</source>
+      <translation type="unfinished">Pick Triangle</translation>
     </message>
     <message>
       <location filename="../../SegmentationManual.ui" line="105"/>
@@ -542,18 +546,18 @@
     </message>
     <message>
       <location filename="../../SegmentationManual.ui" line="281"/>
-      <source>Region options</source>
-      <translation>Bölge seçenekleri</translation>
+      <source>Region Options</source>
+      <translation type="unfinished">Region Options</translation>
+    </message>
+    <message>
+      <location filename="../../SegmentationManual.ui" line="297"/>
+      <source>Respect only triangles with screen-facing normals</source>
+      <translation type="unfinished">Respect only triangles with screen-facing normals</translation>
     </message>
     <message>
       <location filename="../../SegmentationManual.ui" line="287"/>
       <source>Respect only visible triangles</source>
       <translation>Yalnızca görünür üçgenlere saygı gösterin</translation>
-    </message>
-    <message>
-      <location filename="../../SegmentationManual.ui" line="297"/>
-      <source>Respect only triangles with normals facing screen</source>
-      <translation>Ekrana bakan normallere sahip yalnızca üçgenlere saygı gösterin</translation>
     </message>
     <message>
       <location filename="../../SegmentationManual.ui" line="310"/>
@@ -574,7 +578,7 @@
   <context>
     <name>ReverseEngineeringGui::TaskSegmentationManual</name>
     <message>
-      <location filename="../../SegmentationManual.cpp" line="352"/>
+      <location filename="../../SegmentationManual.cpp" line="335"/>
       <source>Create</source>
       <translation>Oluştur</translation>
     </message>
@@ -582,17 +586,37 @@
   <context>
     <name>Workbench</name>
     <message>
-      <location filename="../../Workbench.cpp" line="34"/>
+      <location filename="../../Workbench.cpp" line="35"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
+    </message>
+    <message>
+      <location filename="../../Workbench.cpp" line="36"/>
+      <source>&amp;Reverse Engineering</source>
+      <translation type="unfinished">&amp;Reverse Engineering</translation>
+    </message>
+    <message>
+      <location filename="../../Workbench.cpp" line="37"/>
+      <source>Surface Reconstruction</source>
+      <translation type="unfinished">Surface Reconstruction</translation>
+    </message>
+    <message>
+      <location filename="../../Workbench.cpp" line="38"/>
+      <source>Segmentation</source>
+      <translation>Bölümlenme</translation>
+    </message>
+    <message>
+      <location filename="../../Workbench.cpp" line="39"/>
+      <source>Approximation</source>
+      <translation type="unfinished">Approximation</translation>
     </message>
   </context>
   <context>
     <name>ReenGui::FitBSplineCurve</name>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="14"/>
-      <source>Fit B-spline surface</source>
-      <translation>B-spline yüzeyini sığdır</translation>
+      <source>Fit B-Spline Curve</source>
+      <translation type="unfinished">Fit B-Spline Curve</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="20"/>
@@ -616,8 +640,8 @@
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="47"/>
-      <source>Iso-Parametric</source>
-      <translation type="unfinished">Iso-Parametric</translation>
+      <source>Equidistant</source>
+      <translation type="unfinished">Equidistant</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="55"/>
@@ -632,37 +656,37 @@
     <message>
       <location filename="../../FitBSplineCurve.ui" line="96"/>
       <source>C0</source>
-      <translation type="unfinished">C0</translation>
+      <translation>C0</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="101"/>
       <source>G1</source>
-      <translation type="unfinished">G1</translation>
+      <translation>G1</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="106"/>
       <source>C1</source>
-      <translation type="unfinished">C1</translation>
+      <translation>C1</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="111"/>
       <source>G2</source>
-      <translation type="unfinished">G2</translation>
+      <translation>G2</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="116"/>
       <source>C2</source>
-      <translation type="unfinished">C2</translation>
+      <translation>C2</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="121"/>
       <source>C3</source>
-      <translation type="unfinished">C3</translation>
+      <translation>C3</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="126"/>
       <source>CN</source>
-      <translation type="unfinished">CN</translation>
+      <translation>CN</translation>
     </message>
     <message>
       <location filename="../../FitBSplineCurve.ui" line="134"/>
@@ -698,27 +722,27 @@
   <context>
     <name>CmdApproxCurve</name>
     <message>
-      <location filename="../../Command.cpp" line="69"/>
+      <location filename="../../Command.cpp" line="67"/>
       <source>Reverse Engineering</source>
       <translation>Tersine Mühendislik</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="70"/>
-      <source>Approximate B-spline curve...</source>
-      <translation type="unfinished">Approximate B-spline curve...</translation>
+      <location filename="../../Command.cpp" line="68"/>
+      <source>Approximate B-Spline Curve…</source>
+      <translation type="unfinished">Approximate B-Spline Curve…</translation>
     </message>
     <message>
-      <location filename="../../Command.cpp" line="71"/>
-      <source>Approximate a B-spline curve</source>
-      <translation type="unfinished">Approximate a B-spline curve</translation>
+      <location filename="../../Command.cpp" line="69"/>
+      <source>Approximates a B-spline curve</source>
+      <translation type="unfinished">Approximates a B-spline curve</translation>
     </message>
   </context>
   <context>
     <name>ReenGui::FitBSplineCurveWidget</name>
     <message>
-      <location filename="../../FitBSplineCurve.cpp" line="91"/>
-      <source>Input error</source>
-      <translation>Girdi hatası</translation>
+      <location filename="../../FitBSplineCurve.cpp" line="103"/>
+      <source>Input Error</source>
+      <translation>Giriş hatası</translation>
     </message>
   </context>
 </TS>

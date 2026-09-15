@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2016 Qingfeng Xia <qingfeng.xia()eng.ox.ac.uk>          *
 # *   Copyright (c) 2016 Bernd Hahnebach <bernd@bimstatik.org>              *
@@ -93,7 +95,7 @@ class ResultMechanical(base_fempythonobject.BaseFemPythonObject):
             "App::PropertyFloatList",
             "ReinforcementRatio_x",
             "NodeData",
-            "Reinforcement ratio x-direction",
+            "Reinforcement ratio in X-direction",
             True,
         )
         obj.setPropertyStatus("ReinforcementRatio_x", "LockDynamic")
@@ -101,7 +103,7 @@ class ResultMechanical(base_fempythonobject.BaseFemPythonObject):
             "App::PropertyFloatList",
             "ReinforcementRatio_y",
             "NodeData",
-            "Reinforcement ratio y-direction",
+            "Reinforcement ratio in Y-direction",
             True,
         )
         obj.setPropertyStatus("ReinforcementRatio_y", "LockDynamic")
@@ -109,7 +111,7 @@ class ResultMechanical(base_fempythonobject.BaseFemPythonObject):
             "App::PropertyFloatList",
             "ReinforcementRatio_z",
             "NodeData",
-            "Reinforcement ratio z-direction",
+            "Reinforcement ratio in Z-direction",
             True,
         )
         obj.setPropertyStatus("ReinforcementRatio_z", "LockDynamic")

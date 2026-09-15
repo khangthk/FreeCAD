@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2010 Juergen Riegel <juergen.riegel@web.de>             *
 # *   Copyright (c) 2018 Bernd Hahnebach <bernd@bimstatik.org>              *
@@ -40,16 +42,13 @@ if FreeCAD.GuiUp:
 
     Gui = FreeCADGui  # shortcut
 
-## \addtogroup FEM
-#  @{
-
 
 def exportMeshToTetGenPoly(meshToExport, filePath, beVerbose=1):
     """Export mesh to TetGen *.poly file format"""
     # ********** Part 1 - write node list to output file
     if beVerbose == 1:
         Console.PrintMessage("\nExport of mesh to TetGen file ...")
-    (allVertices, allFacets) = meshToExport.Topology
+    allVertices, allFacets = meshToExport.Topology
     f = open(filePath, "w")
     f.write("# This file was generated from FreeCAD geometry\n")
     f.write("# Part 1 - node list\n")

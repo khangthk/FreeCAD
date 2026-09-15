@@ -20,22 +20,24 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <boost/algorithm/string/predicate.hpp>
 #include <QAbstractItemView>
 #include <QContextMenuEvent>
 #include <QLineEdit>
 #include <QMenu>
 #include <QTextBlock>
-#endif
+#include <QGuiApplication>
+#include <QScreen>
+
 
 #include <App/Application.h>
 #include <App/Document.h>
 #include <App/DocumentObject.h>
 #include <App/ExpressionParser.h>
 #include <App/ObjectIdentifier.h>
+#include <Gui/Application.h>
+#include <Gui/MainWindow.h>
 #include <Base/Tools.h>
 #include <CXX/Extensions.hxx>
 
@@ -176,8 +178,8 @@ public:
     static const quint64 k_offsetProp = 0;
     static const quint64 k_offsetObj = k_offsetProp + k_numBitsProp;
     static const quint64 k_offsetContextualHierarchy = k_offsetObj + k_numBitsObj;
-    static const quint64 k_offsetDocuments =
-        k_offsetContextualHierarchy + k_numBitsContextualHierarchy;
+    static const quint64 k_offsetDocuments = k_offsetContextualHierarchy
+        + k_numBitsContextualHierarchy;
 
     static const quint64 k_maskProp = ((1ULL << k_numBitsProp) - 1);
     static const quint64 k_maskObj = ((1ULL << k_numBitsObj) - 1);
@@ -230,8 +232,8 @@ public:
             }
             else {
                 info.doc = ((d_enc >> k_offsetDocuments) & k_maskDocuments) - 1;
-                info.contextualHierarchy =
-                    ((d_enc >> k_offsetContextualHierarchy) & k_maskContextualHierarchy);
+                info.contextualHierarchy
+                    = ((d_enc >> k_offsetContextualHierarchy) & k_maskContextualHierarchy);
                 info.obj = ((d_enc >> k_offsetObj) & k_maskObj) - 1;
                 info.prop = ((d_enc >> k_offsetProp) & k_maskProp) - 1;
             }
@@ -259,8 +261,10 @@ public:
         QVariant variant;
         Info info = getInfo(index);
         _data(info, index.row(), &variant, nullptr, role == Qt::UserRole);
-        FC_TRACE(info.doc << "," << info.obj << "," << info.prop << "," << info.contextualHierarchy
-                          << "," << index.row() << ": " << variant.toString().toUtf8().constData());
+        FC_TRACE(
+            info.doc << "," << info.obj << "," << info.prop << "," << info.contextualHierarchy
+                     << "," << index.row() << ": " << variant.toString().toUtf8().constData()
+        );
         return variant;
     }
 
@@ -270,14 +274,55 @@ public:
         if (prop) {
             prop->getPaths(result);
             // need to filter out irrelevant paths (len 1, aka just this object identifier)
-            auto res = std::remove_if(result.begin(),
-                                      result.end(),
-                                      [](const App::ObjectIdentifier& path) -> bool {
-                                          return path.getComponents().empty();
-                                      });
+            auto res = std::remove_if(
+                result.begin(),
+                result.end(),
+                [](const App::ObjectIdentifier& path) -> bool {
+                    return path.getComponents().empty();
+                }
+            );
             result.erase(res, result.end());
         }
         return result;
+    }
+
+    // Store named object property list in cache for performance purposes,
+    // to avoid building it again for each requested index
+    std::vector<std::pair<const char*, App::Property*>>& getCachedPropertyNamedList(
+        DocumentObject* obj
+    ) const
+    {
+        if (!this->namedPropsCache.contains(obj)) {
+            auto& list = this->namedPropsCache[obj];
+            obj->getPropertyNamedList(list);
+
+            // If this object is a link-like object (App::Link, LinkGroup, a linked
+            // VarSet, etc.), also pull in the linked object's properties so that
+            // expressions like <<Link>>.SomeLinkedProp complete correctly.
+            App::DocumentObject* linked = obj->getLinkedObject(true);
+            if (linked && linked != obj) {
+                std::vector<std::pair<const char*, App::Property*>> linkedProps;
+                linked->getPropertyNamedList(linkedProps);
+
+                std::set<std::string> existingNames;
+                for (auto& p : list) {
+                    existingNames.insert(p.first);
+                }
+                for (auto& p : linkedProps) {
+                    // don't clobber a same-named property that already exists
+                    // directly on obj
+                    if (existingNames.insert(p.first).second) {
+                        list.push_back(p);
+                    }
+                }
+            }
+
+            FC_TRACE(
+                "Cached properties for " << obj->getNameInDocument() << " ("
+                                         << this->namedPropsCache[obj].size() << " props)"
+            );
+        }
+        return this->namedPropsCache[obj];
     }
 
     // The completion tree structure created takes into account the current document and object
@@ -305,7 +350,6 @@ public:
         int docSize = (int)docs.size() * 2;
         int objSize = 0;
         int propSize = 0;
-        std::vector<std::pair<const char*, App::Property*>> props;
         App::Document* doc = nullptr;
         App::DocumentObject* obj = nullptr;
         const char* propName = nullptr;
@@ -341,7 +385,7 @@ public:
             if (idx >= 0 && idx < objSize) {
                 obj = objs[idx / 2];
                 // if they are in the ignore list skip
-                if (inList.count(obj)) {
+                if (inList.contains(obj)) {
                     return;
                 }
             }
@@ -355,7 +399,7 @@ public:
                         row = idx;
                     }
                     // get the properties
-                    cobj->getPropertyNamedList(props);
+                    auto& props = this->getCachedPropertyNamedList(cobj);
                     propSize = (int)props.size();
 
                     // if this is an invalid index, bail out
@@ -385,7 +429,7 @@ public:
                 QString res;
                 // we resolved the property
                 if (propName) {
-                    res = QString::fromLatin1(propName);
+                    res = QString::fromUtf8(propName);
                     // resolve the property
                     if (sep && !noProperty && !retrieveSubPaths(prop).empty()) {
                         res += QLatin1Char('.');
@@ -411,7 +455,7 @@ public:
                         res = QString::fromUtf8(quote(doc->Label.getStrValue()).c_str());
                     }
                     else {
-                        res = QString::fromLatin1(doc->getName());
+                        res = QString::fromUtf8(doc->getName());
                     }
                     if (sep) {
                         res += QLatin1Char('#');
@@ -430,7 +474,7 @@ public:
             const auto& objs = doc->getObjects();
             objSize = (int)objs.size() * 2;
             // if invalid index, or in the ignore list bail out
-            if (idx < 0 || idx >= objSize || inList.count(obj)) {
+            if (idx < 0 || idx >= objSize || inList.contains(obj)) {
                 return;
             }
             obj = objs[idx / 2];
@@ -463,7 +507,7 @@ public:
         }
         if (!propName) {
             idx = info.prop < 0 ? row : info.prop;
-            obj->getPropertyNamedList(props);
+            auto& props = this->getCachedPropertyNamedList(obj);
             propSize = (int)props.size();
             // return if the property is invalid
             if (idx < 0 || idx >= propSize) {
@@ -478,7 +522,7 @@ public:
                     *count = propSize;
                 }
                 if (v) {
-                    QString res = QString::fromLatin1(propName);
+                    QString res = QString::fromUtf8(propName);
 
                     // check to see if we have accessible paths from this prop name?
                     if (sep && !retrieveSubPaths(prop).empty()) {
@@ -509,14 +553,13 @@ public:
                 auto str = paths[idx].getSubPathStr();
                 if (str.size() && (str[0] == '.' || str[0] == '#')) {
                     // skip the "."
-                    *v = QString::fromLatin1(str.c_str() + 1);
+                    *v = QString::fromStdString(str.substr(1));
                 }
                 else {
-                    *v = QString::fromLatin1(str.c_str());
+                    *v = QString::fromStdString(str);
                 }
             }
         }
-        return;
     }
 
     QModelIndex parent(const QModelIndex& index) const override
@@ -598,8 +641,7 @@ public:
                         //      element => [parent.row,-1,parent.row,1]
 
                         info.doc = parentInfo.doc;
-                        info.obj =
-                            -1;  // object information is determined by the DOC index actually
+                        info.obj = -1;  // object information is determined by the DOC index actually
                         info.prop = element.row();
                         info.contextualHierarchy = 1;
                     }
@@ -664,8 +706,10 @@ public:
         }
         int count = 0;
         _data(info, row, nullptr, &count);
-        FC_TRACE(info.doc << "," << info.obj << "," << info.prop << "," << info.contextualHierarchy
-                          << "," << row << " row count " << count);
+        FC_TRACE(
+            info.doc << "," << info.obj << "," << info.prop << "," << info.contextualHierarchy
+                     << "," << row << " row count " << count
+        );
         return count;
     }
 
@@ -675,6 +719,7 @@ public:
     }
 
 private:
+    mutable std::map<DocumentObject*, std::vector<std::pair<const char*, App::Property*>>> namedPropsCache;
     std::set<App::DocumentObject*> inList;
     std::string currentDoc;
     std::string currentObj;
@@ -690,10 +735,12 @@ const ExpressionCompleterModel::Info ExpressionCompleterModel::Info::root = {-1,
  * @param parent Parent object owning the completer.
  */
 
-ExpressionCompleter::ExpressionCompleter(const App::DocumentObject* currentDocObj,
-                                         QObject* parent,
-                                         bool noProperty,
-                                         bool checkInList)
+ExpressionCompleter::ExpressionCompleter(
+    const App::DocumentObject* currentDocObj,
+    QObject* parent,
+    bool noProperty,
+    bool checkInList
+)
     : QCompleter(parent)
     , currentObj(currentDocObj)
     , noProperty(noProperty)
@@ -753,9 +800,11 @@ QString ExpressionCompleter::pathFromIndex(const QModelIndex& index) const
     } while (parent.isValid());
 
     auto info = ExpressionCompleterModel::getInfo(index);
-    FC_TRACE("join path " << info.doc << "," << info.obj << "," << info.prop << ","
-                          << info.contextualHierarchy << "," << index.row() << ": "
-                          << res.toUtf8().constData());
+    FC_TRACE(
+        "join path " << info.doc << "," << info.obj << "," << info.prop << ","
+                     << info.contextualHierarchy << "," << index.row() << ": "
+                     << res.toUtf8().constData()
+    );
     return res;
 }
 
@@ -788,7 +837,7 @@ QStringList ExpressionCompleter::splitPath(const QString& input) const
                     stringList.back().resize(stringList.back().size() - trim.size());
                 }
                 while (stringListIter != stringList.end()) {
-                    resultList << Base::Tools::fromStdString(*stringListIter);
+                    resultList << QString::fromStdString(*stringListIter);
                     ++stringListIter;
                 }
             }
@@ -797,15 +846,17 @@ QStringList ExpressionCompleter::splitPath(const QString& input) const
                 if (!lastElem.empty()) {
                     // erase the separator
                     lastElem.erase(lastElem.begin());
-                    resultList << Base::Tools::fromStdString(lastElem);
+                    resultList << QString::fromStdString(lastElem);
                 }
                 else {
                     // add empty string to allow completion after "." or "#"
                     resultList << QString();
                 }
             }
-            FC_TRACE("split path " << path << " -> "
-                                   << resultList.join(QLatin1String("/")).toUtf8().constData());
+            FC_TRACE(
+                "split path " << path << " -> "
+                              << resultList.join(QLatin1String("/")).toUtf8().constData()
+            );
             return resultList;
         }
         catch (const Base::Exception& except) {
@@ -888,30 +939,50 @@ void ExpressionCompleter::slotUpdate(const QString& prefix, int pos)
     else if (auto itemView = popup()) {
         itemView->setVisible(false);
     }
+
+    Q_EMIT completerSlotUpdated();
 }
 
-ExpressionLineEdit::ExpressionLineEdit(QWidget* parent,
-                                       bool noProperty,
-                                       char checkPrefix,
-                                       bool checkInList)
+ExpressionValidator::ExpressionValidator(QObject* parent)
+    : QValidator(parent)
+{}
+
+void ExpressionValidator::fixup(QString& input) const
+{
+    if (input.startsWith(QLatin1String("="))) {
+        input = input.mid(1);
+    }
+}
+
+QValidator::State ExpressionValidator::validate(QString& input, int& pos) const
+{
+    if (input.startsWith(QLatin1String("="))) {
+        pos = 0;
+        return QValidator::Invalid;
+    }
+
+    return QValidator::Acceptable;
+}
+
+ExpressionLineEdit::ExpressionLineEdit(QWidget* parent, bool noProperty, char checkPrefix, bool checkInList)
     : QLineEdit(parent)
     , completer(nullptr)
     , block(true)
     , noProperty(noProperty)
     , exactMatch(false)
     , checkInList(checkInList)
-    , checkPrefix(checkPrefix)
 {
+    setPrefix(checkPrefix);
     connect(this, &QLineEdit::textEdited, this, &ExpressionLineEdit::slotTextChanged);
 }
 
 void ExpressionLineEdit::setPrefix(char prefix)
 {
     checkPrefix = prefix;
+    setValidator(checkPrefix == '=' ? nullptr : new ExpressionValidator(this));
 }
 
-void ExpressionLineEdit::setDocumentObject(const App::DocumentObject* currentDocObj,
-                                           bool _checkInList)
+void ExpressionLineEdit::setDocumentObject(const App::DocumentObject* currentDocObj, bool _checkInList)
 {
     checkInList = _checkInList;
     if (completer) {
@@ -925,18 +996,19 @@ void ExpressionLineEdit::setDocumentObject(const App::DocumentObject* currentDoc
         if (!exactMatch) {
             completer->setFilterMode(Qt::MatchContains);
         }
-        connect(completer,
-                qOverload<const QString&>(&QCompleter::activated),
-                this,
-                &ExpressionLineEdit::slotCompleteTextSelected);
-        connect(completer,
-                qOverload<const QString&>(&QCompleter::highlighted),
-                this,
-                &ExpressionLineEdit::slotCompleteTextHighlighted);
-        connect(this,
-                &ExpressionLineEdit::textChanged2,
-                completer,
-                &ExpressionCompleter::slotUpdate);
+        connect(
+            completer,
+            qOverload<const QString&>(&QCompleter::activated),
+            this,
+            &ExpressionLineEdit::slotCompleteTextSelected
+        );
+        connect(
+            completer,
+            qOverload<const QString&>(&QCompleter::highlighted),
+            this,
+            &ExpressionLineEdit::slotCompleteTextHighlighted
+        );
+        connect(this, &ExpressionLineEdit::textChanged2, completer, &ExpressionCompleter::slotUpdate);
     }
 }
 
@@ -954,6 +1026,11 @@ void ExpressionLineEdit::setExactMatch(bool enabled)
     if (completer) {
         completer->setFilterMode(exactMatch ? Qt::MatchStartsWith : Qt::MatchContains);
     }
+}
+
+ExpressionCompleter* ExpressionLineEdit::getCompleter(void)
+{
+    return this->completer;
 }
 
 bool ExpressionLineEdit::completerActive() const
@@ -978,7 +1055,7 @@ void ExpressionLineEdit::slotTextChanged(const QString& text)
     }
 }
 
-void ExpressionLineEdit::slotCompleteText(const QString& completionPrefix, bool isActivated)
+void ExpressionLineEdit::slotCompleteText(const QString& completionPrefix, ActivationMode mode)
 {
     int start, end;
     completer->getPrefixRange(start, end);
@@ -995,7 +1072,7 @@ void ExpressionLineEdit::slotCompleteText(const QString& completionPrefix, bool 
 
     // chain completions if we select an entry from the completer drop down
     // and that entry ends with '.' or '#'
-    if (isActivated) {
+    if (mode == ActivationMode::Activated) {
         std::string textToComplete = completionPrefix.toUtf8().constData();
         if (textToComplete.size()
             && (*textToComplete.crbegin() == '.' || *textToComplete.crbegin() == '#')) {
@@ -1007,12 +1084,12 @@ void ExpressionLineEdit::slotCompleteText(const QString& completionPrefix, bool 
 
 void ExpressionLineEdit::slotCompleteTextHighlighted(const QString& completionPrefix)
 {
-    slotCompleteText(completionPrefix, false);
+    slotCompleteText(completionPrefix, ActivationMode::Highlighted);
 }
 
 void ExpressionLineEdit::slotCompleteTextSelected(const QString& completionPrefix)
 {
-    slotCompleteText(completionPrefix, true);
+    slotCompleteText(completionPrefix, ActivationMode::Activated);
 }
 
 
@@ -1028,7 +1105,7 @@ void ExpressionLineEdit::contextMenuEvent(QContextMenuEvent* event)
 
     if (completer) {
         menu->addSeparator();
-        QAction* match = menu->addAction(tr("Exact match"));
+        QAction* match = menu->addAction(tr("Exact Match"));
         match->setCheckable(true);
         match->setChecked(completer->filterMode() == Qt::MatchStartsWith);
         QObject::connect(match, &QAction::toggled, this, &Gui::ExpressionLineEdit::setExactMatch);
@@ -1058,6 +1135,11 @@ void ExpressionTextEdit::setExactMatch(bool enabled)
     }
 }
 
+QSize ExpressionTextEdit::sizeHint() const
+{
+    return QSize(200, 30);
+}
+
 void ExpressionTextEdit::setDocumentObject(const App::DocumentObject* currentDocObj)
 {
     if (completer) {
@@ -1072,18 +1154,25 @@ void ExpressionTextEdit::setDocumentObject(const App::DocumentObject* currentDoc
         }
         completer->setWidget(this);
         completer->setCaseSensitivity(Qt::CaseInsensitive);
-        connect(completer,
-                qOverload<const QString&>(&QCompleter::activated),
-                this,
-                &ExpressionTextEdit::slotCompleteText);
-        connect(completer,
-                qOverload<const QString&>(&QCompleter::highlighted),
-                this,
-                &ExpressionTextEdit::slotCompleteText);
-        connect(this,
-                &ExpressionTextEdit::textChanged2,
-                completer,
-                &ExpressionCompleter::slotUpdate);
+        connect(
+            completer,
+            qOverload<const QString&>(&QCompleter::activated),
+            this,
+            &ExpressionTextEdit::slotCompleteTextSelected
+        );
+        connect(
+            completer,
+            qOverload<const QString&>(&QCompleter::highlighted),
+            this,
+            &ExpressionTextEdit::slotCompleteTextHighlighted
+        );
+        connect(this, &ExpressionTextEdit::textChanged2, completer, &ExpressionCompleter::slotUpdate);
+        connect(
+            completer,
+            &ExpressionCompleter::completerSlotUpdated,
+            this,
+            &ExpressionTextEdit::adjustCompleterToCursor
+        );
     }
 }
 
@@ -1103,11 +1192,12 @@ void ExpressionTextEdit::slotTextChanged()
 {
     if (!block) {
         QTextCursor cursor = textCursor();
+        completer->popup()->setVisible(false);  // hide the completer to avoid flickering
         Q_EMIT textChanged2(cursor.block().text(), cursor.positionInBlock());
     }
 }
 
-void ExpressionTextEdit::slotCompleteText(const QString& completionPrefix)
+void ExpressionTextEdit::slotCompleteText(const QString& completionPrefix, ActivationMode mode)
 {
     QTextCursor cursor = textCursor();
     int start, end;
@@ -1117,14 +1207,86 @@ void ExpressionTextEdit::slotCompleteText(const QString& completionPrefix)
         cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor, end - pos);
     }
     cursor.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor, end - start);
+
     Base::FlagToggler<bool> flag(block, false);
     cursor.insertText(completionPrefix);
     completer->updatePrefixEnd(cursor.positionInBlock());
+
+    // chain completions only when activated (Enter/Click), not when highlighted (arrow keys)
+    if (mode == ActivationMode::Activated) {
+        std::string textToComplete = completionPrefix.toUtf8().constData();
+        if (!textToComplete.empty()
+            && (*textToComplete.crbegin() == '.' || *textToComplete.crbegin() == '#')) {
+            completer->slotUpdate(cursor.block().text(), cursor.positionInBlock());
+        }
+    }
+}
+
+void ExpressionTextEdit::slotCompleteTextHighlighted(const QString& completionPrefix)
+{
+    slotCompleteText(completionPrefix, ActivationMode::Highlighted);
+}
+
+void ExpressionTextEdit::slotCompleteTextSelected(const QString& completionPrefix)
+{
+    slotCompleteText(completionPrefix, ActivationMode::Activated);
 }
 
 void ExpressionTextEdit::keyPressEvent(QKeyEvent* e)
 {
     Base::FlagToggler<bool> flag(block, true);
+
+    // Shift+Enter - insert a new line
+    if ((e->modifiers() & Qt::ShiftModifier)
+        && (e->key() == Qt::Key_Enter || e->key() == Qt::Key_Return)) {
+        this->setPlainText(this->toPlainText() + QLatin1Char('\n'));
+        this->moveCursor(QTextCursor::End);
+        if (completer) {
+            completer->popup()->setVisible(false);
+        }
+        e->accept();
+        return;
+    }
+
+    // handling if completer is visible
+    if (completer && completer->popup()->isVisible()) {
+        switch (e->key()) {
+            case Qt::Key_Enter:
+            case Qt::Key_Return:
+            case Qt::Key_Escape:
+            case Qt::Key_Backtab:
+                // default action
+                e->ignore();
+                return;
+
+            case Qt::Key_Tab:
+                // if no completion is selected, take top one
+                if (!completer->popup()->currentIndex().isValid()) {
+                    completer->popup()->setCurrentIndex(completer->popup()->model()->index(0, 0));
+                }
+                completer->setCurrentRow(completer->popup()->currentIndex().row());
+                slotCompleteText(completer->currentCompletion(), ActivationMode::Highlighted);
+
+                // refresh completion list
+                completer->setCompletionPrefix(completer->currentCompletion());
+                adjustCompleterToCursor();
+                if (completer->completionCount() == 1) {
+                    completer->popup()->setVisible(false);
+                }
+                e->accept();
+                return;
+
+            default:
+                break;
+        }
+    }
+
+    // Enter, Return or Tab - request default action
+    if (e->key() == Qt::Key_Enter || e->key() == Qt::Key_Return || e->key() == Qt::Key_Tab) {
+        e->ignore();
+        return;
+    }
+
     QPlainTextEdit::keyPressEvent(e);
 }
 
@@ -1132,7 +1294,7 @@ void ExpressionTextEdit::contextMenuEvent(QContextMenuEvent* event)
 {
     QMenu* menu = createStandardContextMenu();
     menu->addSeparator();
-    QAction* match = menu->addAction(tr("Exact match"));
+    QAction* match = menu->addAction(tr("Exact Match"));
 
     if (completer) {
         match->setCheckable(true);
@@ -1153,6 +1315,102 @@ void ExpressionTextEdit::contextMenuEvent(QContextMenuEvent* event)
     delete menu;
 }
 
+void ExpressionTextEdit::adjustCompleterToCursor()
+{
+    if (!completer || !completer->popup()) {
+        return;
+    }
+
+    const int completionsCount = completer->completionModel()->rowCount();
+    if (!completionsCount) {
+        return;
+    }
+
+    // get longest string width
+    int maxCompletionWidth = 0;
+    for (int i = 0; i < completionsCount; ++i) {
+        const QModelIndex index = completer->completionModel()->index(i, 0);
+        const QString element = completer->completionModel()->data(index).toString();
+        maxCompletionWidth = std::max(
+            maxCompletionWidth,
+            static_cast<int>(element.size()) * completer->popup()->fontMetrics().averageCharWidth()
+        );
+    }
+    if (maxCompletionWidth == 0) {
+        return;  // no completions available
+    }
+
+    const QPoint cursorPos = cursorRect(textCursor()).topLeft();
+    int posX = cursorPos.x();
+    int posY = cursorPos.y();
+
+    constexpr double popupLengthRatio = 0.6;  // popup shall not be longer than 0.6 of
+                                              // TextEdit length
+    const int widthLimit = static_cast<int>(this->viewport()->width() * popupLengthRatio);
+    completer->popup()->setMaximumWidth(widthLimit);
+    maxCompletionWidth = std::min(maxCompletionWidth, widthLimit);
+
+    QScreen* screen = QGuiApplication::primaryScreen();
+    // looking for screen on which popup appears
+    const int cursorGlobalY = mapToGlobal(cursorPos).y();
+    for (QScreen* elem : QGuiApplication::screens()) {
+        const int screenTopY = elem->geometry().top();
+        const int screenBottomY = elem->geometry().bottom();
+
+        if (cursorGlobalY >= screenTopY && cursorGlobalY < screenBottomY) {
+            screen = elem;
+            break;
+        }
+    }
+
+    constexpr double marginToScreen = 0.05;  // margin to screen as percent of screen
+                                             // height; keep 5% margin to screen edge
+    constexpr int rowsLimit = 20;            // max. count of rows that shall be shown at once
+
+    const int rowHeight = completer->popup()->fontMetrics().height();
+    int rowsToEdge = static_cast<int>(
+        (screen->geometry().bottom() * (1.0 - marginToScreen)
+         - (mapToGlobal(cursorPos).y() + rowHeight))
+        / rowHeight
+    );
+    const auto adjustHeight = [&rowHeight, &completionsCount](const int _rowsToEdge) -> int {
+        return std::min({
+            rowHeight * rowsLimit,            // up to 'rowsLimit' elements shall be shown at once
+            _rowsToEdge * rowHeight,          // or less limited to screen edge
+            completionsCount * rowHeight + 5  // or all, if only there are only few; 5 is magic
+                                              // number, somehow last entry is partly hovered
+        });
+    };
+
+    int adjustedPopupHeight = adjustHeight(rowsToEdge);
+
+    // vertical correction to cursor
+    if (rowsToEdge < 4) {
+        // display above cursor
+        rowsToEdge = static_cast<int>(
+            mapToGlobal(cursorPos).y() - screen->geometry().height() * marginToScreen
+        );
+        adjustedPopupHeight = adjustHeight(rowsToEdge);
+        posY -= adjustedPopupHeight;
+    }
+    else {
+        // display under cursor
+        posY += rowHeight;
+    }
+
+    const QSize completerSize {maxCompletionWidth + 40, adjustedPopupHeight};  // 40 is margin for
+                                                                               // scrollbar
+
+    // horizontal correction to cursor
+    if (posX + completerSize.width() > viewport()->width()) {
+        posX = viewport()->width() - completerSize.width();
+    }
+
+    completer->popup()->resize(completerSize);
+    completer->popup()->move(mapToGlobal(QPoint {posX, posY}));
+    completer->popup()->setVisible(true);
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 ExpressionParameter* ExpressionParameter::instance()
@@ -1163,15 +1421,17 @@ ExpressionParameter* ExpressionParameter::instance()
 
 bool ExpressionParameter::isCaseSensitive() const
 {
-    auto handle =
-        GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Expression");
+    auto handle = GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/Expression"
+    );
     return handle->GetBool("CompleterCaseSensitive", false);
 }
 
 bool ExpressionParameter::isExactMatch() const
 {
-    auto handle =
-        GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Expression");
+    auto handle = GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/Expression"
+    );
     return handle->GetBool("CompleterMatchExact", false);
 }
 

@@ -1,17 +1,4 @@
-include_directories(
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${COIN3D_INCLUDE_DIRS}
-    ${ZLIB_INCLUDE_DIR}
-    ${OCC_INCLUDE_DIR}
-    ${EIGEN3_INCLUDE_DIR}
-    ${PYTHON_INCLUDE_DIRS}
-    ${XercesC_INCLUDE_DIRS}
-)
-
-link_directories(${OCC_LIBRARY_DIR})
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 set(PathGui_LIBS
     Path
@@ -23,7 +10,11 @@ set (Path_TR_QRC ${CMAKE_CURRENT_BINARY_DIR}/Resources/Path_translation.qrc)
 qt_find_and_add_translation(QM_SRCS "Resources/translations/*_*.ts"
     ${CMAKE_CURRENT_BINARY_DIR}/Resources/translations)
 qt_create_resource_file(${Path_TR_QRC} ${QM_SRCS})
-qt_add_resources(PathResource_SRCS Resources/Path.qrc ${Path_TR_QRC})
+qt_add_resources(PathResource_SRCS
+    Resources/Path.qrc
+    ${Path_TR_QRC}
+    OPTIONS ${FREECAD_RCC_OPTIONS}
+)
 
 SOURCE_GROUP("Resources" FILES ${PathResource_SRCS})
 
@@ -38,7 +29,6 @@ SET(PathGui_SRCS_Module
     AppPathGui.cpp
     AppPathGuiPy.cpp
     Resources/Path.qrc
-    PreCompiled.cpp
     PreCompiled.h
     DlgSettingsPathColor.ui
     DlgSettingsPathColor.cpp
@@ -73,23 +63,34 @@ SET(PathGui_SRCS
     ${PathGui_SRCS_ViewProvider}
 )
 
-if(FREECAD_USE_PCH)
-    add_definitions(-D_PreComp_)
-    GET_MSVC_PRECOMPILED_SOURCE("PreCompiled.cpp" PCH_SRCS ${PathGui_SRCS})
-    ADD_MSVC_PRECOMPILED_HEADER(PathGui PreCompiled.h PreCompiled.cpp PCH_SRCS)
-endif(FREECAD_USE_PCH)
-
 SET(PathGuiIcon_SVG
     Resources/icons/CAMWorkbench.svg
 )
 
 add_library(PathGui SHARED ${PathGui_SRCS} ${PathGuiIcon_SVG})
+
+if(FREECAD_USE_PCH)
+    target_precompile_headers(PathGui PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_LIST_DIR}/PreCompiled.h">
+    )
+endif(FREECAD_USE_PCH)
+
+target_include_directories(
+    PathGui
+    PRIVATE
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
 target_link_libraries(PathGui ${PathGui_LIBS})
-if (FREECAD_WARN_ERROR)
-    target_compile_warn_error(PathGui)
+
+if (MSVC)
+    target_compile_options(PathGui PRIVATE /wd4273)
 endif()
 
-SET_BIN_DIR(PathGui PathGui /Mod/CAM)
+target_compile_warn_error(PathGui)
+
+SET_BIN_DIR(PathGui)
 SET_PYTHON_PREFIX_SUFFIX(PathGui)
 
 fc_copy_sources(PathGui "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}/Mod/CAM" ${PathGuiIcon_SVG})

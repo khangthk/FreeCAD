@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2021 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -60,12 +62,16 @@ def get_after_write_constraint():
 
 
 def write_meshdata_constraint(f, femobj, centrif_obj, ccxwriter):
+
     f.write(f"*ELSET,ELSET={centrif_obj.Name}\n")
-    if isinstance(femobj["FEMElements"], str):
-        f.write("{}\n".format(femobj["FEMElements"]))
-    else:
-        for e in femobj["FEMElements"]:
-            f.write(f"{e},\n")
+    for refs, elem, is_sub_el in femobj["CentrifElements"]:
+        if not is_sub_el:
+            for e in elem:
+                f.write(f"{e},\n")
+
+    # use all elements if there are no references
+    if not femobj["CentrifElements"]:
+        f.write(f"{ccxwriter.ccx_eall}\n")
 
 
 def write_constraint(f, femobj, centrif_obj, ccxwriter):

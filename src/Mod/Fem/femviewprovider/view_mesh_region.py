@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2016 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -39,4 +41,4 @@ class VPMeshRegion(view_base_femmeshelement.VPBaseFemMeshElement):
     """
 
     def setEdit(self, vobj, mode=0):
-        super().setEdit(vobj, mode, task_mesh_region._TaskPanel)
+        return super().setEdit(vobj, mode, task_mesh_region._TaskPanel)

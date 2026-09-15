@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2021 edi                                                *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Gui/BitmapFactory.h>
 
@@ -112,7 +113,7 @@ void TaskSelectLineAttributes::changeEvent(QEvent *e)
 
 void TaskSelectLineAttributes::setUiEdit()
 {
-    setWindowTitle(tr("Select line attributes"));
+    setWindowTitle(tr("Select Line Attributes"));
     int lineStyle = LineFormat::getCurrentLineFormat().getStyle();
     // line numbering starts at 1, not 0
     DrawGuiUtil::loadLineStyleChoices(ui->cbLineStyle, m_lineGenerator);
@@ -121,9 +122,9 @@ void TaskSelectLineAttributes::setUiEdit()
     }
 
     // TODO: how to handle translation of a string with arg parameters in it?
-    ui->rbThin->setText(QString::fromUtf8("Thin %1").arg(QString::number(TechDraw::LineGroup::getDefaultWidth("Thin"))));
-    ui->rbMiddle->setText(QString::fromUtf8("Middle %1").arg(QString::number(TechDraw::LineGroup::getDefaultWidth("Graphic"))));
-    ui->rbThick->setText(QString::fromUtf8("Thick %1").arg(QString::number(TechDraw::LineGroup::getDefaultWidth("Thick"))));
+    ui->rbThin->setText(QStringLiteral("Thin %1").arg(QString::number(TechDraw::LineGroup::getDefaultWidth("Thin"))));
+    ui->rbMiddle->setText(QStringLiteral("Middle %1").arg(QString::number(TechDraw::LineGroup::getDefaultWidth("Graphic"))));
+    ui->rbThick->setText(QStringLiteral("Thick %1").arg(QString::number(TechDraw::LineGroup::getDefaultWidth("Thick"))));
 
     double lineWidth = LineFormat::getCurrentLineFormat().getWidth();
     if (lineWidth <= TechDraw::LineGroup::getDefaultWidth("Thin")) {
@@ -164,10 +165,7 @@ bool TaskSelectLineAttributes::accept()
         LineFormat::getCurrentLineFormat().setWidth(TechDraw::LineGroup::getDefaultWidth("Graphic"));
     }
 
-    QColor qTemp = ui->cbColor->color();
-    App::Color temp;
-    temp.set(qTemp.redF(), qTemp.greenF(), qTemp.blueF(), 1.0 - qTemp.alphaF());
-    LineFormat::getCurrentLineFormat().setColor(temp);
+    LineFormat::getCurrentLineFormat().setQColor(ui->cbColor->color());
 
     double cascadeSpacing = ui->sbSpacing->value();
     activeDimAttributes.setCascadeSpacing(cascadeSpacing);

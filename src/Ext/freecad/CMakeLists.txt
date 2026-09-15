@@ -1,15 +1,8 @@
-if (${PYTHON_VERSION_STRING} VERSION_LESS "3.10")
-    # deprecated distutils package still required for ubuntu 20.04 and similar
-    # see https://bugs.launchpad.net/ubuntu/+source/python3.8/+bug/2039511
-    # TODO: remove this once we drop support for 20.04
-    EXECUTE_PROCESS(COMMAND ${PYTHON_EXECUTABLE} -c
-        "from distutils.sysconfig import get_python_lib; print(get_python_lib(plat_specific=True))"
-        OUTPUT_VARIABLE python_libs OUTPUT_STRIP_TRAILING_WHITESPACE )
-else()
-    EXECUTE_PROCESS(COMMAND ${PYTHON_EXECUTABLE} -c
-        "from sysconfig import get_path; print(get_path('purelib'))"
-        OUTPUT_VARIABLE python_libs OUTPUT_STRIP_TRAILING_WHITESPACE )
-endif()
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+EXECUTE_PROCESS(COMMAND ${Python3_EXECUTABLE} -c
+    "from sysconfig import get_path; print(get_path('purelib'))"
+    OUTPUT_VARIABLE python_libs OUTPUT_STRIP_TRAILING_WHITESPACE )
 
 SET(PYTHON_MAIN_DIR ${python_libs})
 
@@ -27,6 +20,7 @@ endif()
 configure_file(__init__.py.template ${NAMESPACE_INIT})
 
 set(EXT_FILES
+    deprecation.py
     freecad_doc.py
     module_io.py
     part.py
@@ -35,6 +29,7 @@ set(EXT_FILES
     sketcher.py
     UiTools.py
     utils.py
+    utils_zip.py
 )
 
 foreach (it ${EXT_FILES})

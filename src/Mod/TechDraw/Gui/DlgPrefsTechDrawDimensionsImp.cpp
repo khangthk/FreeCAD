@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Author: WandererFan <wandererfan@gmail.com>                           *
@@ -22,9 +24,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#include <Base/Tools.h>
 #include <App/Application.h>
 
 #include "DlgPrefsTechDrawDimensionsImp.h"
@@ -68,6 +68,9 @@ void DlgPrefsTechDrawDimensionsImp::saveSettings()
     ui->pdsbGapISO->onSave();
     ui->pdsbGapASME->onSave();
     ui->pdsbLineSpacingFactorISO->onSave();
+    ui->cbSnapDims->onSave();
+    ui->dsbTextFactor->onSave();
+    ui->dsbChainFactor->onSave();
 
     enum
     {
@@ -148,9 +151,9 @@ void DlgPrefsTechDrawDimensionsImp::loadSettings()
     ui->plsb_ArrowSize->onRestore();
 
     DrawGuiUtil::loadArrowBox(ui->pcbArrow);
-    ui->pcbArrow->setCurrentIndex(prefArrowStyle());
+    ui->pcbArrow->setCurrentIndex(static_cast<int>(prefArrowStyle()));
 
-    ui->leFormatSpec->setText(Base::Tools::fromStdString(Preferences::formatSpec()));
+    ui->leFormatSpec->setText(QString::fromStdString(Preferences::formatSpec()));
     ui->leFormatSpec->onRestore();
 
     ui->pdsbGapISO->onRestore();
@@ -188,6 +191,10 @@ void DlgPrefsTechDrawDimensionsImp::loadSettings()
     bool Radius = hGrp->GetBool("DimensioningRadius", true);
     index = Diameter ? (Radius ? 0 : 1) : 2;
     ui->radiusDiameterMode->setCurrentIndex(index);
+
+    ui->cbSnapDims->onRestore();
+    ui->dsbTextFactor->onRestore();
+    ui->dsbChainFactor->onRestore();
 }
 
 void DlgPrefsTechDrawDimensionsImp::dimensioningModeChanged(int index)
@@ -226,7 +233,7 @@ void DlgPrefsTechDrawDimensionsImp::resetSettingsToDefaults()
     PreferencePage::resetSettingsToDefaults();
 }
 
-int DlgPrefsTechDrawDimensionsImp::prefArrowStyle() const
+TechDraw::ArrowType DlgPrefsTechDrawDimensionsImp::prefArrowStyle() const
 {
     return PreferencesGui::dimArrowStyle();
 }

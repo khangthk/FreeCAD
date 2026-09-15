@@ -21,15 +21,14 @@
  *                                                                         *
  **************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
+
 #include <Inventor/nodes/SoCoordinate3.h>
 #include <Inventor/nodes/SoIndexedFaceSet.h>
 #include <Inventor/nodes/SoMaterial.h>
 #include <Inventor/nodes/SoSwitch.h>
 #include <Inventor/nodes/SoTexture2.h>
 #include <Inventor/nodes/SoTexture3.h>
-#endif
+
 
 #include "ViewProviderTextureExtension.h"
 #include <Gui/BitmapFactory.h>
@@ -48,14 +47,18 @@ ViewProviderTextureExtension::ViewProviderTextureExtension()
 
     pcSwitchAppearance = new SoSwitch;
     pcSwitchAppearance->ref();
+    pcSwitchAppearance->setName("SwitchAppearance");
     pcSwitchTexture = new SoSwitch;
     pcSwitchTexture->ref();
+    pcSwitchTexture->setName("SwitchTexture");
 
     pcShapeTexture2D = new SoTexture2;
     pcShapeTexture2D->ref();
+    pcShapeTexture2D->setName("ShapeTexture2D");
 
     pcTextureGroup3D = new SoGroup;
     pcTextureGroup3D->ref();
+    pcTextureGroup3D->setName("TextureGroup3D");
 }
 
 void ViewProviderTextureExtension::setup(SoMaterial* pcShapeMaterial)
@@ -87,11 +90,12 @@ SoGroup* ViewProviderTextureExtension::getTextureGroup3D() const
     return pcTextureGroup3D;
 }
 
-void ViewProviderTextureExtension::setCoinAppearance(SoMaterial* pcShapeMaterial, const App::Material& source)
+void ViewProviderTextureExtension::setCoinAppearance(
+    SoMaterial* pcShapeMaterial,
+    const App::Material& source
+)
 {
-#if 0
     if (!source.image.empty()) {
-        Base::Console().Log("setCoinAppearance(Texture)\n");
         activateTexture2D();
 
         QByteArray by = QByteArray::fromBase64(QString::fromStdString(source.image).toUtf8());
@@ -100,26 +104,20 @@ void ViewProviderTextureExtension::setCoinAppearance(SoMaterial* pcShapeMaterial
         SoSFImage texture;
         Gui::BitmapFactory().convert(image, texture);
         pcShapeTexture2D->image = texture;
-    } else {
-        Base::Console().Log("setCoinAppearance(Material)\n");
+    }
+    else {
         activateMaterial();
     }
-#endif
-    activateMaterial();
 
     // Always set the material for items such as lines that don't support textures
-    pcShapeMaterial->ambientColor.setValue(source.ambientColor.r,
-                                           source.ambientColor.g,
-                                           source.ambientColor.b);
-    pcShapeMaterial->diffuseColor.setValue(source.diffuseColor.r,
-                                           source.diffuseColor.g,
-                                           source.diffuseColor.b);
-    pcShapeMaterial->specularColor.setValue(source.specularColor.r,
-                                            source.specularColor.g,
-                                            source.specularColor.b);
-    pcShapeMaterial->emissiveColor.setValue(source.emissiveColor.r,
-                                            source.emissiveColor.g,
-                                            source.emissiveColor.b);
+    pcShapeMaterial->ambientColor
+        .setValue(source.ambientColor.r, source.ambientColor.g, source.ambientColor.b);
+    pcShapeMaterial->diffuseColor
+        .setValue(source.diffuseColor.r, source.diffuseColor.g, source.diffuseColor.b);
+    pcShapeMaterial->specularColor
+        .setValue(source.specularColor.r, source.specularColor.g, source.specularColor.b);
+    pcShapeMaterial->emissiveColor
+        .setValue(source.emissiveColor.r, source.emissiveColor.g, source.emissiveColor.b);
     pcShapeMaterial->shininess.setValue(source.shininess);
     pcShapeMaterial->transparency.setValue(source.transparency);
 }
@@ -160,10 +158,13 @@ ViewProviderFaceTexture::ViewProviderFaceTexture()
     // Support for textured faces
     pcShapeTexture3D = new SoTexture3;
     pcShapeTexture3D->ref();
+    pcShapeTexture3D->setName("ShapeTexture3D");
     pcShapeCoordinates = new SoCoordinate3;
     pcShapeCoordinates->ref();
+    pcShapeCoordinates->setName("ShapeCoordinates");
     pcShapeFaceset = new SoIndexedFaceSet;
     pcShapeFaceset->ref();
+    pcShapeFaceset->setName("ShapeFaceset");
 }
 
 ViewProviderFaceTexture::~ViewProviderFaceTexture()

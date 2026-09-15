@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Luke Parry <l.parry@warwick.ac.uk>                 *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef DrawProjGroupItem_h_
-#define DrawProjGroupItem_h_
+#pragma once
 
 #include <gp_Ax2.hxx>
 
@@ -34,17 +35,6 @@
 
 namespace TechDraw
 {
-
-enum ProjItemType{ Front,
-          Left,
-          Right,
-          Rear,
-          Top,
-          Bottom,
-          FrontTopLeft,
-          FrontTopRight,
-          FrontBottomLeft,
-          FrontBottomRight };
 
 class DrawProjGroup;
 
@@ -94,15 +84,14 @@ public:
     DrawPage* findParentPage() const override;
     std::vector<DrawPage*> findAllParentPages() const override;
 
-protected:
-    void onChanged(const App::Property* prop) override;
     bool isLocked() const override;
     bool showLock() const override;
+
+protected:
+    void onChanged(const App::Property* prop) override;
 
 private:
     static const char* TypeEnums[];
 };
 
 } //namespace TechDraw
-
-#endif

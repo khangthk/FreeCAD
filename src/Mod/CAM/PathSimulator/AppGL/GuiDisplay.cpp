@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2024 Shai Seger <shaise at gmail>                       *
  *                                                                         *
@@ -21,291 +23,193 @@
  ***************************************************************************/
 
 #include "GuiDisplay.h"
+
+#include "ui_GuiDisplay.h"
+#include <cmath>
+#include <limits>
+
+// include this last as the defines can mess up other includes
 #include "OpenGlWrapper.h"
-#include "MillSimulation.h"
-#include <cstddef>
 
-using namespace MillSim;
-
-GuiItem guiItems[] = {
-    {eGuiItemSlider, 0, 0, 240, -36, 0},
-    {eGuiItemThumb, 0, 0, 328, -50, 1},
-    {eGuiItemPause, 0, 0, 40, -50, 'P', true},
-    {eGuiItemPlay, 0, 0, 40, -50, 'S', false},
-    {eGuiItemSingleStep, 0, 0, 80, -50, 'T'},
-    {eGuiItemFaster, 0, 0, 120, -50, 'F'},
-    {eGuiItemRotate, 0, 0, -140, -50, ' ', false, GUIITEM_CHECKABLE},
-    {eGuiItemCharXImg, 0, 0, 160, -50, 0, false, 0},  // 620
-    {eGuiItemChar0Img, 0, 0, 200, -50, 0, false, 0},
-    {eGuiItemChar1Img, 0, 0, 185, -50, 0, false, 0},
-    {eGuiItemChar4Img, 0, 0, 180, -50, 0, true, 0},
-    {eGuiItemPath, 0, 0, -100, -50, 'L', false, GUIITEM_CHECKABLE},
-    {eGuiItemAmbientOclusion, 0, 0, -60, -50, 'A', false, GUIITEM_CHECKABLE},
-    {eGuiItemView, 0, 0, -180, -50, 'V', false},
-};
-
-#define NUM_GUI_ITEMS (sizeof(guiItems) / sizeof(GuiItem))
-#define TEX_SIZE 256
-
-std::vector<std::string> guiFileNames = {"Slider.png",
-                                         "Thumb.png",
-                                         "Pause.png",
-                                         "Play.png",
-                                         "SingleStep.png",
-                                         "Faster.png",
-                                         "Rotate.png",
-                                         "X.png",
-                                         "0.png",
-                                         "1.png",
-                                         "4.png",
-                                         "Path.png",
-                                         "AmbientOclusion.png",
-                                         "View.png"};
-
-void GuiDisplay::UpdateProjection()
+namespace CAMSimulator
 {
-    mat4x4 projmat;
-    // mat4x4 viewmat;
-    mat4x4_ortho(projmat, 0, gWindowSizeW, gWindowSizeH, 0, -1, 1);
-    mShader.Activate();
-    mShader.UpdateProjectionMat(projmat);
+
+GuiDisplay::GuiDisplay(QWidget* parent)
+    : QWidget(parent)
+    , ui(new Ui_GuiDisplay)
+{
+    ui->setupUi(this);
+
+    playing = true;
+    setPlaying(false);
+
+    speed = 0;
+    setSpeed(1);
+
+    connect(ui->slowerButton, &QToolButton::clicked, this, &GuiDisplay::onSlowerFasterButtonClicked);
+    connect(ui->fasterButton, &QToolButton::clicked, this, &GuiDisplay::onSlowerFasterButtonClicked);
+    connect(ui->viewAllButton, &QToolButton::clicked, this, &GuiDisplay::viewAll);
+    connect(ui->rotateButton, &QToolButton::toggled, this, &GuiDisplay::rotateEnableChanged);
+    connect(ui->pathButton, &QToolButton::toggled, this, &GuiDisplay::pathVisibleChanged);
+    connect(ui->ssaoButton, &QToolButton::toggled, this, &GuiDisplay::ssaoEnableChanged);
 }
 
-bool GuiDisplay::GenerateGlItem(GuiItem* guiItem)
+GuiDisplay::~GuiDisplay()
 {
-    Vertex2D verts[4];
-    int x = guiItem->texItem.tx;
-    int y = guiItem->texItem.ty;
-    int w = guiItem->texItem.w;
-    int h = guiItem->texItem.h;
-
-    verts[0] = {0, (float)h, mTexture.getTexX(x), mTexture.getTexY(y + h)};
-    verts[1] = {(float)w, (float)h, mTexture.getTexX(x + w), mTexture.getTexY(y + h)};
-    verts[2] = {0, 0, mTexture.getTexX(x), mTexture.getTexY(y)};
-    verts[3] = {(float)w, 0, mTexture.getTexX(x + w), mTexture.getTexY(y)};
-
-    // vertex buffer
-    glGenBuffers(1, &(guiItem->vbo));
-    glBindBuffer(GL_ARRAY_BUFFER, guiItem->vbo);
-    glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(Vertex2D), verts, GL_STATIC_DRAW);
-
-    // glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_SHORT, nullptr);
-    //  vertex array
-    glGenVertexArrays(1, &(guiItem->vao));
-    glBindVertexArray(guiItem->vao);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex2D), (void*)offsetof(Vertex2D, x));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1,
-                          2,
-                          GL_FLOAT,
-                          GL_FALSE,
-                          sizeof(Vertex2D),
-                          (void*)offsetof(Vertex2D, tx));
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIbo);
-    glBindVertexArray(0);
-
-    return true;
+    delete ui;
 }
 
-void GuiDisplay::DestroyGlItem(GuiItem* guiItem)
+void GuiDisplay::resizeEvent(QResizeEvent* event)
 {
-    GLDELETE_BUFFER((guiItem->vbo));
-    GLDELETE_VERTEXARRAY((guiItem->vao));
+    QWidget::resizeEvent(event);
+    setMask(childrenRegion());
 }
 
-bool GuiDisplay::InitGui()
+void GuiDisplay::setPlaying(bool b)
 {
-    if (guiInitiated) {
-        return true;
-    }
-    // index buffer
-    glGenBuffers(1, &mIbo);
-    GLshort indices[6] = {0, 2, 3, 0, 3, 1};
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIbo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(GLushort), indices, GL_STATIC_DRAW);
-    TextureLoader tLoader(":/gl_simulator/", guiFileNames, TEX_SIZE);
-    unsigned int* buffer = tLoader.GetRawData();
-    if (buffer == nullptr) {
-        return false;
-    }
-    mTexture.LoadImage(buffer, TEX_SIZE, TEX_SIZE);
-    for (unsigned int i = 0; i < NUM_GUI_ITEMS; i++) {
-        guiItems[i].texItem = *tLoader.GetTextureItem(i);
-        GenerateGlItem(&(guiItems[i]));
-    }
-
-    mThumbStartX = guiItems[eGuiItemSlider].posx() - guiItems[eGuiItemThumb].texItem.w / 2;
-    mThumbMaxMotion = (float)guiItems[eGuiItemSlider].texItem.w;
-
-    // init shader
-    mShader.CompileShader("GuiDisplay", (char*)VertShader2DTex, (char*)FragShader2dTex);
-    mShader.UpdateTextureSlot(0);
-
-    UpdateSimSpeed(1);
-    UpdateProjection();
-    guiInitiated = true;
-    return true;
-}
-
-void GuiDisplay::ResetGui()
-{
-    mShader.Destroy();
-    for (unsigned int i = 0; i < NUM_GUI_ITEMS; i++) {
-        DestroyGlItem(&(guiItems[i]));
-    }
-    mTexture.DestroyTexture();
-    GLDELETE_BUFFER(mIbo);
-    guiInitiated = false;
-}
-
-void GuiDisplay::RenderItem(int itemId)
-{
-    GuiItem* item = &(guiItems[itemId]);
-    if (item->hidden) {
+    if (b == playing) {
         return;
     }
-    mat4x4 model;
-    mat4x4_translate(model, (float)item->posx(), (float)item->posy(), 0);
-    mShader.UpdateModelMat(model, nullptr);
-    if (item == mPressedItem) {
-        mShader.UpdateObjColor(mPressedColor);
-    }
-    else if (item->mouseOver) {
-        mShader.UpdateObjColor(mHighlightColor);
-    }
-    else if (itemId > 1 && item->actionKey == 0) {
-        mShader.UpdateObjColor(mTextColor);
-    }
-    else if (item->flags & GUIITEM_CHECKED) {
-        mShader.UpdateObjColor(mToggleColor);
-    }
-    else {
-        mShader.UpdateObjColor(mStdColor);
-    }
 
-    glBindVertexArray(item->vao);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIbo);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
+    playing = b;
+
+    const auto icon = playing ? ":/gl_simulator/Pause.png" : ":/gl_simulator/Play.png";
+    ui->playButton->setIcon(QIcon(QString::fromUtf8(icon)));
 }
 
-void GuiDisplay::MouseCursorPos(int x, int y)
+void GuiDisplay::on_playButton_clicked()
 {
-    mMouseOverItem = nullptr;
-    for (unsigned int i = 0; i < NUM_GUI_ITEMS; i++) {
-        GuiItem* g = &(guiItems[i]);
-        if (g->actionKey == 0) {
-            continue;
-        }
-        bool mouseCursorContained = x > g->posx() && x < (g->posx() + g->texItem.w) && y > g->posy()
-            && y < (g->posy() + g->texItem.h);
-
-        g->mouseOver = !g->hidden && mouseCursorContained;
-
-        if (g->mouseOver) {
-            mMouseOverItem = g;
-        }
-    }
+    setPlaying(!playing);
+    Q_EMIT play(playing);
 }
 
-void MillSim::GuiDisplay::HandleActionItem(GuiItem* guiItem)
+void GuiDisplay::on_singleStepButton_clicked()
 {
-    if (guiItem->actionKey >= ' ') {
-        if (guiItem->flags & GUIITEM_CHECKABLE) {
-            guiItem->flags ^= GUIITEM_CHECKED;
-        }
-        bool isChecked = (guiItem->flags & GUIITEM_CHECKED) != 0;
-        mMillSim->HandleGuiAction(guiItem->name, isChecked);
-    }
+    setPlaying(false);
+    Q_EMIT singleStep();
 }
 
-void GuiDisplay::MousePressed(int button, bool isPressed, bool isSimRunning)
+void GuiDisplay::setSpeed(int s)
 {
-    if (button == MS_MOUSE_LEFT) {
-        if (isPressed) {
-            if (mMouseOverItem != nullptr) {
-                mPressedItem = mMouseOverItem;
-                HandleActionItem(mPressedItem);
-            }
-        }
-        else  // button released
-        {
-            UpdatePlayState(isSimRunning);
-            if (mPressedItem != nullptr) {
-                MouseCursorPos(mPressedItem->posx() + 1, mPressedItem->posy() + 1);
-                mPressedItem = nullptr;
-            }
-        }
-    }
-}
-
-void GuiDisplay::MouseDrag(int /* buttons */, int dx, int /* dy */)
-{
-    if (mPressedItem == nullptr) {
+    if (s == speed) {
         return;
     }
-    if (mPressedItem->name == eGuiItemThumb) {
-        int newx = mPressedItem->posx() + dx;
-        if (newx < mThumbStartX) {
-            newx = mThumbStartX;
+
+    speed = s;
+    ui->speedLabel->setText(tr("x%1").arg(speed));
+}
+
+static const std::vector<int> speeds = {1, 2, 5, 10, 25, 50};
+
+std::vector<int>::const_iterator findNearestSpeed(int speed)
+{
+    int dist = std::numeric_limits<int>::max();
+    auto ret = speeds.cend();
+
+    for (auto it = speeds.cbegin(); it != speeds.cend(); it++) {
+        const int curdist = std::abs(*it - speed);
+        if (curdist < dist) {
+            dist = curdist;
+            ret = it;
         }
-        if (newx > ((int)mThumbMaxMotion + mThumbStartX)) {
-            newx = (int)mThumbMaxMotion + mThumbStartX;
-        }
-        if (newx != mPressedItem->posx()) {
-            mMillSim->SetSimulationStage((float)(newx - mThumbStartX) / mThumbMaxMotion);
-            mPressedItem->setPosx(newx);
-        }
+    }
+
+    return ret;
+}
+
+void GuiDisplay::onSlowerFasterButtonClicked()
+{
+    auto it = findNearestSpeed(speed);
+
+    const bool slower = sender() == ui->slowerButton;
+    const bool faster = !slower;
+
+    if (slower && it != speeds.begin()) {
+        it--;
+    }
+    else if (faster && it != (speeds.end() - 1)) {
+        it++;
+    }
+
+    setSpeed(*it);
+    Q_EMIT speedChanged(*it);
+}
+
+void GuiDisplay::setStage(float f, int total)
+{
+    ui->stageSlider->setMaximum(total);
+    ui->stageSlider->setValue(f * total);
+}
+
+void GuiDisplay::on_stageSlider_sliderMoved(int value)
+{
+    const float f = (float)value / ui->stageSlider->maximum();
+    Q_EMIT stageChanged(f);
+}
+
+void GuiDisplay::setStockVisible(bool b)
+{
+    stockVisible = b;
+
+    QSignalBlocker blocker(ui->stockModelButton);
+    ui->stockModelButton->setChecked(stockVisible && baseVisible);
+}
+
+void GuiDisplay::setBaseVisible(bool b)
+{
+    baseVisible = b;
+
+    QSignalBlocker blocker(ui->stockModelButton);
+    ui->stockModelButton->setChecked(stockVisible && baseVisible);
+}
+
+void GuiDisplay::on_stockModelButton_clicked()
+{
+    // stock -> base -> both
+    //   ^---------------'
+
+    bool sv = false;
+    bool bv = false;
+
+    if (stockVisible == baseVisible) {
+        sv = true;
+        bv = false;
+    }
+    else if (!baseVisible) {
+        sv = false;
+        bv = true;
+    }
+    else if (!stockVisible) {
+        sv = true;
+        bv = true;
+    }
+
+    if (sv != stockVisible) {
+        setStockVisible(sv);
+        Q_EMIT stockVisibleChanged(sv);
+    }
+
+    if (bv != baseVisible) {
+        setBaseVisible(bv);
+        Q_EMIT baseVisibleChanged(bv);
     }
 }
 
-void GuiDisplay::UpdatePlayState(bool isRunning)
+void GuiDisplay::setRotateEnabled(bool b)
 {
-    guiItems[eGuiItemPause].hidden = !isRunning;
-    guiItems[eGuiItemPlay].hidden = isRunning;
+    ui->rotateButton->setChecked(b);
 }
 
-void MillSim::GuiDisplay::UpdateSimSpeed(int speed)
+void GuiDisplay::setPathVisible(bool b)
 {
-    guiItems[eGuiItemChar0Img].hidden = speed == 1;
-    guiItems[eGuiItemChar1Img].hidden = speed == 40;
-    guiItems[eGuiItemChar4Img].hidden = speed != 40;
+    QSignalBlocker blocker(ui->pathButton);
+    ui->pathButton->setChecked(b);
 }
 
-void MillSim::GuiDisplay::HandleKeyPress(int key)
+void GuiDisplay::setSsaoEnabled(bool b)
 {
-    for (unsigned int i = 0; i < NUM_GUI_ITEMS; i++) {
-        GuiItem* g = &(guiItems[i]);
-        if (g->actionKey == key) {
-            HandleActionItem(g);
-        }
-    }
+    QSignalBlocker blocker(ui->ssaoButton);
+    ui->ssaoButton->setChecked(b);
 }
 
-bool MillSim::GuiDisplay::IsChecked(eGuiItems item)
-{
-    return (guiItems[item].flags & GUIITEM_CHECKED) != 0;
-}
-
-void MillSim::GuiDisplay::UpdateWindowScale()
-{
-    UpdateProjection();
-}
-
-void GuiDisplay::Render(float progress)
-{
-    if (mPressedItem == nullptr || mPressedItem->name != eGuiItemThumb) {
-        guiItems[eGuiItemThumb].setPosx((int)(mThumbMaxMotion * progress) + mThumbStartX);
-    }
-    glDisable(GL_CULL_FACE);
-    glDisable(GL_DEPTH_TEST);
-
-    mTexture.Activate();
-    mShader.Activate();
-    mShader.UpdateTextureSlot(0);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    for (int i = 0; i < (int)NUM_GUI_ITEMS; i++) {
-        RenderItem(i);
-    }
-}
+}  // namespace CAMSimulator

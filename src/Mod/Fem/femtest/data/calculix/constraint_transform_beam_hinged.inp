@@ -3257,8 +3257,8 @@ Evolumes
 
 ***********************************************************
 ** constraints displacement node sets
-** FemConstraintDisplacment
-*NSET,NSET=FemConstraintDisplacment
+** Displacement
+*NSET,NSET=Displacement
 4,
 5,
 7,
@@ -3436,8 +3436,8 @@ Evolumes
 
 ***********************************************************
 ** constraints transform node sets
-** FemConstraintTransform1
-*NSET,NSET=CylinFemConstraintTransform1
+** Transform1
+*NSET,NSET=CylinTransform1
 5,
 8,
 82,
@@ -3525,8 +3525,8 @@ Evolumes
 295,
 296,
 2089,
-** FemConstraintTransform2
-*NSET,NSET=CylinFemConstraintTransform2
+** Transform2
+*NSET,NSET=CylinTransform2
 4,
 7,
 69,
@@ -3626,6 +3626,8 @@ Evolumes
 *MATERIAL, NAME=FemMaterial
 *ELASTIC
 210000,0.3
+*EXPANSION, ZERO=0
+0
 
 ***********************************************************
 ** Sections
@@ -3633,11 +3635,11 @@ Evolumes
 
 ***********************************************************
 ** Transform Constraints
-** FemConstraintTransform1
-*TRANSFORM, NSET=CylinFemConstraintTransform1, TYPE=C
+** Transform1
+*TRANSFORM, NSET=CylinTransform1, TYPE=C
 10,5,10,10,6,10
-** FemConstraintTransform2
-*TRANSFORM, NSET=CylinFemConstraintTransform2, TYPE=C
+** Transform2
+*TRANSFORM, NSET=CylinTransform2, TYPE=C
 190,5,10,190,6,10
 
 ***********************************************************
@@ -3648,16 +3650,16 @@ Evolumes
 
 ***********************************************************
 ** Displacement constraint applied
-** FemConstraintDisplacment
+** Displacement
 *BOUNDARY
-FemConstraintDisplacment,1,1,0.0
+Displacement,1,1,0
 
 
 ***********************************************************
 ** constraints pressure element face loads
-** FemConstraintPressure
+** Pressure
 *DLOAD
-** FemConstraintPressure: face load
+** CompoundFilter.Face8
 1384,P3,10.0
 1394,P2,10.0
 1397,P2,10.0
@@ -3785,7 +3787,7 @@ U
 S, E
 ** outputs --> dat file
 ** reaction forces for Constraint displacement constraining translation
-*NODE PRINT, NSET=FemConstraintDisplacment, TOTALS=ONLY
+*NODE PRINT, NSET=Displacement, TOTALS=ONLY
 RF
 
 *OUTPUT, FREQUENCY=1

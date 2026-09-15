@@ -21,12 +21,10 @@
  *                                                                          *
  ***************************************************************************/
 
-#ifndef ASSEMBLYGUI_PRECOMPILED_H
-#define ASSEMBLYGUI_PRECOMPILED_H
+#pragma once
 
 #include <FCConfig.h>
 
-#ifdef _PreComp_
 
 // STL
 #include <algorithm>
@@ -41,17 +39,9 @@
 #include <boost/core/ignore_unused.hpp>
 
 // Qt
-#ifndef __QtAll__
 #include <Gui/QtAll.h>
-#endif
 
 #include <QWidgetAction>
 
 // all of Inventor
-#ifndef __InventorAll__
 #include <Gui/InventorAll.h>
-#endif
-
-#endif  //_PreComp_
-
-#endif  // ASSEMBLYGUI_PRECOMPILED_H

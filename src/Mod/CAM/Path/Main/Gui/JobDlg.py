@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2018 sliptonic <shopinthewoods@gmail.com>               *
 # *                                                                         *
@@ -29,6 +30,7 @@ import Path.Base.Util as PathUtil
 import Path.Main.Job as PathJob
 import Path.Main.Stock as PathStock
 import glob
+import json
 import os
 
 translate = FreeCAD.Qt.translate
@@ -56,41 +58,135 @@ class JobCreate:
     DataObject = QtCore.Qt.ItemDataRole.UserRole
 
     def __init__(self, parent=None, sel=None):
-        # Warn user if current schema doesn't use minute for time in velocity
-        if not Path.Preferences.suppressVelocity():
-            schemes = FreeCAD.Units.listSchemas()
-            for idx, val in enumerate(schemes):
-                if FreeCAD.ActiveDocument.UnitSystem == FreeCAD.Units.listSchemas(idx):
-                    current_schema = FreeCAD.Units.listSchemas(idx)
-                    if idx not in [2, 3, 6]:
-                        msg = translate(
-                            "CAM_Job",
-                            "The currently selected unit schema: \n     '{}' for this document\n Does not use 'minutes' for velocity values. \n \nCNC machines require feed rate to be expressed in \nunit/minute. To ensure correct G-code: \nSelect a minute-based schema in preferences.\nFor example:\n    'Metric, Small Parts & CNC'\n    'US Customary'\n    'Imperial Decimal'",
-                        ).format(current_schema)
-                        header = translate("CAM_Job", "Warning")
-                        msgbox = QtGui.QMessageBox(QtGui.QMessageBox.Warning, header, msg)
-
-                        msgbox.addButton(translate("CAM_Job", "Ok"), QtGui.QMessageBox.AcceptRole)
-                        msgbox.addButton(
-                            translate("CAM_Job", "Don't Show This Anymore"),
-                            QtGui.QMessageBox.ActionRole,
-                        )
-                        if msgbox.exec_() == 1:
-                            from Path.Preferences import preferences
-
-                            preferences().SetBool("WarningSuppressVelocity", True)
-
         self.dialog = FreeCADGui.PySideUic.loadUi(":/panels/DlgJobCreate.ui")
         self.itemsSolid = QtGui.QStandardItem(translate("CAM_Job", "Solids"))
         self.items2D = QtGui.QStandardItem(translate("CAM_Job", "2D"))
         self.itemsJob = QtGui.QStandardItem(translate("CAM_Job", "Jobs"))
         self.dialog.templateGroup.hide()
         self.dialog.modelGroup.hide()
+
         # debugging support
         self.candidates = None
         self.delegate = None
         self.index = None
         self.model = None
+
+        self._setupUnitSchema()
+
+    def _schemaUsesMinutes(self, schema_id):
+        """Return True if the given unit schema expresses velocity in /min."""
+        try:
+            q = FreeCAD.Units.Quantity(1, FreeCAD.Units.Velocity)
+            r = FreeCAD.Units.schemaTranslate(q, schema_id)
+            return "/min" in r[2]
+        except (IndexError, TypeError):
+            return False
+
+    # Colors for the unit-schema combobox: green = minute-based (safe);
+    # red = per-second (unsafe).
+    _SCHEMA_SAFE_BG = QtGui.QColor(76, 175, 80)
+    _SCHEMA_SAFE_FG = QtGui.QColor(0, 0, 0)
+    _SCHEMA_UNSAFE_BG = QtGui.QColor(192, 57, 43)
+    _SCHEMA_UNSAFE_FG = QtGui.QColor(255, 255, 255)
+
+    class _ColoredComboDelegate(QtGui.QStyledItemDelegate):
+        """Combobox item delegate that explicitly fills each row from the
+        model's BackgroundRole brush. The native popup style ignores
+        BackgroundRole; this delegate paints it before the text."""
+
+        def paint(self, painter, option, index):
+            bg = index.data(QtCore.Qt.BackgroundRole)
+            if bg is not None:
+                if not isinstance(bg, QtGui.QBrush):
+                    bg = QtGui.QBrush(bg)
+                painter.save()
+                painter.fillRect(option.rect, bg)
+                painter.restore()
+            super().paint(painter, option, index)
+
+    def _setupUnitSchema(self):
+        """Populate the unit-schema combobox in the create dialog.
+
+        Lists every schema returned by FreeCAD.Units.listSchemas(). Minute-based
+        schemas are shown black-on-green (safe); per-second schemas are shown
+        white-on-red (unsafe). The closed combobox restyles itself on selection
+        change so the displayed item matches its dropdown coloring. The selected
+        schema is applied only if the user clicks OK (see exec_)."""
+        keys = FreeCAD.Units.listSchemas()
+        labels = []
+        for i in range(len(keys)):
+            try:
+                labels.append(FreeCAD.Units.listSchemas(i))
+            except (IndexError, TypeError):
+                labels.append(keys[i])
+
+        current_label = FreeCAD.ActiveDocument.UnitSystem if FreeCAD.ActiveDocument else labels[0]
+
+        combo = self.dialog.unitSchemaCombo
+        # Force a custom delegate that explicitly paints BackgroundRole on every
+        # dropdown row (the native style ignores model background brushes).
+        combo.setItemDelegate(self._ColoredComboDelegate(combo))
+        combo.clear()
+        for i, label in enumerate(labels):
+            uses_minutes = self._schemaUsesMinutes(i)
+            combo.addItem(label, label)
+            if uses_minutes:
+                bg, fg = self._SCHEMA_SAFE_BG, self._SCHEMA_SAFE_FG
+                tip = translate("CAM_Job", "Velocity expressed per minute (recommended for G-code)")
+            else:
+                bg, fg = self._SCHEMA_UNSAFE_BG, self._SCHEMA_UNSAFE_FG
+                tip = translate(
+                    "CAM_Job",
+                    "Velocity expressed per second. Unsafe for G-code feed rates.",
+                )
+            row = combo.count() - 1
+            combo.setItemData(row, QtGui.QBrush(bg), QtCore.Qt.BackgroundRole)
+            combo.setItemData(row, QtGui.QBrush(fg), QtCore.Qt.ForegroundRole)
+            combo.setItemData(row, tip, QtCore.Qt.ToolTipRole)
+
+        # Default selection: the document's current schema, by label match.
+        idx = combo.findData(current_label)
+        if idx < 0:
+            for i in range(len(labels)):
+                if self._schemaUsesMinutes(i):
+                    idx = i
+                    break
+        if idx < 0:
+            idx = 0
+        combo.setCurrentIndex(idx)
+
+        combo.currentIndexChanged.connect(self._updateUnitSchemaStatus)
+        self._updateUnitSchemaStatus()
+
+    def _updateUnitSchemaStatus(self):
+        """Restyle the closed combobox to match the selected item's colors."""
+        combo = self.dialog.unitSchemaCombo
+        idx = combo.currentIndex()
+        if idx < 0:
+            combo.setStyleSheet("")
+            return
+        if self._schemaUsesMinutes(idx):
+            bg, fg = self._SCHEMA_SAFE_BG, self._SCHEMA_SAFE_FG
+        else:
+            bg, fg = self._SCHEMA_UNSAFE_BG, self._SCHEMA_UNSAFE_FG
+        combo.setStyleSheet(
+            "QComboBox { background-color: %s; color: %s; }" % (bg.name(), fg.name())
+        )
+
+    def _applySelectedSchema(self):
+        """Apply the selected unit schema to the active document. Called on OK."""
+        if not FreeCAD.ActiveDocument:
+            return
+        label = self.dialog.unitSchemaCombo.currentData()
+        if not label:
+            return
+        if FreeCAD.ActiveDocument.UnitSystem == label:
+            return
+        try:
+            FreeCAD.ActiveDocument.UnitSystem = label
+            FreeCAD.ActiveDocument.recompute()
+        except Exception as e:
+            Path.Log.warning("Failed to set unit schema: %s" % e)
 
     def setupTitle(self, title):
         self.dialog.setWindowTitle(title)
@@ -121,9 +217,11 @@ class JobCreate:
 
         for base in self.candidates:
             if (
-                not base in jobResources
+                base not in jobResources
                 and not PathJob.isResourceClone(job, base, None)
                 and not hasattr(base, "StockType")
+                and base.ViewObject.ShowInTree
+                and base.TypeId != "App::DocumentObjectGroup"
             ):
                 item0 = QtGui.QStandardItem()
                 item1 = QtGui.QStandardItem()
@@ -242,6 +340,31 @@ class JobCreate:
         self.index = index
         editor.valueChanged.connect(self.item1ValueChanged)
 
+    def _loadTemplateDescription(self, filepath, name):
+        """Return a tooltip-ready description for a job template.
+
+        Reads the canonical PathJob.JobTemplate.Description key ('Desc') from
+        the JSON. If absent or empty, falls back to a synthesized description
+        of the form '<name> (YYYY-MM-DD)' using the file's modification time."""
+        if not filepath:
+            return ""
+        try:
+            with open(filepath, "r") as fp:
+                data = json.load(fp)
+            desc = data.get(PathJob.JobTemplate.Description, "") or ""
+        except Exception:
+            desc = ""
+        if desc:
+            return desc
+        try:
+            import datetime
+
+            mtime = os.path.getmtime(filepath)
+            stamp = datetime.date.fromtimestamp(mtime).isoformat()
+            return "%s (%s)" % (name, stamp)
+        except Exception:
+            return name
+
     def setupTemplate(self):
         templateFiles = []
         for path in Path.Preferences.searchPaths():
@@ -249,6 +372,11 @@ class JobCreate:
                 f.replace("\\", "/") for f in self.templateFilesIn(path)
             ]  # Standardize slashes used across os platforms
             templateFiles.extend(cleanPaths)
+
+        selectTemplate = Path.Preferences.defaultJobTemplate()
+        if os.path.isfile(selectTemplate):
+            if selectTemplate not in templateFiles:
+                templateFiles.insert(0, selectTemplate)
 
         template = {}
         for tFile in templateFiles:
@@ -261,13 +389,19 @@ class JobCreate:
                     name = basename + " (%s)" % i
             Path.Log.track(name, tFile)
             template[name] = tFile
-        selectTemplate = Path.Preferences.defaultJobTemplate()
+
         index = 0
-        self.dialog.jobTemplate.addItem(translate("CAM_Job", "<none>"), "")
+        none_label = translate("CAM_Job", "(none)")
+        self.dialog.jobTemplate.addItem(none_label, "")
+        self.dialog.jobTemplate.setItemData(0, "", QtCore.Qt.ToolTipRole)
         for name in sorted(template):
             if template[name] == selectTemplate:
                 index = self.dialog.jobTemplate.count()
             self.dialog.jobTemplate.addItem(name, template[name])
+            tooltip = self._loadTemplateDescription(template[name], name)
+            self.dialog.jobTemplate.setItemData(
+                self.dialog.jobTemplate.count() - 1, tooltip, QtCore.Qt.ToolTipRole
+            )
         self.dialog.jobTemplate.setCurrentIndex(index)
         self.dialog.templateGroup.show()
 
@@ -308,6 +442,8 @@ class JobCreate:
         self.model.dataChanged.connect(self.updateData)
         rc = self.dialog.exec_()
         self.model.dataChanged.disconnect()
+        if rc == 1:
+            self._applySelectedSchema()
         return rc
 
 
@@ -331,6 +467,11 @@ class JobTemplateExport:
 
     def updateUI(self):
         job = self.job
+        # Description: pre-fill from the Job's own Description field. Editing
+        # this field overrides only what gets written to the template; the
+        # running Job's Description is untouched until the user edits it on
+        # the General tab.
+        self.dialog.templateDescriptionEdit.setPlainText(getattr(job, "Description", "") or "")
         if job.PostProcessor:
             ppHint = "%s %s %s" % (
                 job.PostProcessor,
@@ -414,6 +555,10 @@ class JobTemplateExport:
         )
         for i in range(self.dialog.toolsList.count()):
             self.dialog.toolsList.item(i).setCheckState(state)
+
+    def description(self):
+        """Return the (possibly edited) description to write to the template."""
+        return self.dialog.templateDescriptionEdit.toPlainText().strip()
 
     def includePostProcessing(self):
         return self.dialog.postProcessingGroup.isChecked()

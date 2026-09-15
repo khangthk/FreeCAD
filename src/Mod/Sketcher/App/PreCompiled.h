@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2008 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -20,23 +22,21 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef __PRECOMPILED__
-#define __PRECOMPILED__
+#pragma once
 
 #include <FCConfig.h>
 
-#ifdef _MSC_VER
-#pragma warning(disable : 4251)
-#endif
-
-#ifdef _PreComp_
 
 // standard
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <memory>
+#include <ranges>
 #include <sstream>
+#include <string>
 #include <vector>
 
 // Qt
@@ -53,12 +53,12 @@
 #include <boost/random.hpp>
 #include <boost/range/adaptor/map.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include <boost_geometry.hpp>
+#include <boost/geometry.hpp>
 
 // OpenCasCade
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
-#include <BRepAlgoAPI_Section.hxx>
+#include <Mod/Part/App/FCBRepAlgoAPI_Section.h>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakeVertex.hxx>
@@ -74,6 +74,7 @@
 #include <GC_MakeCircle.hxx>
 #include <GeomAPI_ProjectPointOnCurve.hxx>
 #include <GeomAPI_ProjectPointOnSurf.hxx>
+#include <GeomConvert.hxx>
 #include <GeomConvert_BSplineCurveKnotSplitting.hxx>
 #include <GeomLProp_CLProps.hxx>
 #include <Geom_BSplineCurve.hxx>
@@ -106,11 +107,6 @@
 #include <gp_Pln.hxx>
 #include <gp_Pnt.hxx>
 
-#elif defined(FC_OS_WIN32)
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#endif  // _PreComp_
-
+#ifdef FC_OS_WIN32
+# include <windows.h>
 #endif

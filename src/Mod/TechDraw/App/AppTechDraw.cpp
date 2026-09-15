@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2007 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -18,7 +20,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Base/Console.h>
 #include <Base/Interpreter.h>
@@ -82,7 +83,7 @@ PyMOD_INIT_FUNC(TechDraw)
         PyMOD_Return(nullptr);
     }
     PyObject* mod = TechDraw::initModule();
-    Base::Console().Log("Loading TechDraw module... done\n");
+    Base::Console().log("Loading TechDraw module… done\n");
 
     TechDraw::DrawPage            ::init();
     TechDraw::DrawView            ::init();

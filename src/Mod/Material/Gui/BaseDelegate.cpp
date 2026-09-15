@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Carter <dcarter@david.carter.ca>             *
  *                                                                         *
@@ -19,8 +21,6 @@
  *                                                                         *
  **************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <QColorDialog>
 #include <QDesktopServices>
 #include <QIODevice>
@@ -32,7 +32,7 @@
 #include <QTextStream>
 #include <QVariant>
 #include <limits>
-#endif
+
 
 #include <App/Application.h>
 #include <Base/Interpreter.h>
@@ -72,24 +72,17 @@ QString BaseDelegate::getStringValue(const QModelIndex& index) const
     return propertyValue;
 }
 
-QRgb BaseDelegate::parseColor(const QString& color) const
+Color BaseDelegate::parseColor(const QString& color) const
 {
     QString trimmed = color;
-    trimmed.replace(QRegularExpression(QString::fromStdString("\\(([^<]*)\\)")),
-                    QString::fromStdString("\\1"));
-    QStringList parts = trimmed.split(QString::fromStdString(","));
+    trimmed.replace(QRegularExpression(QStringLiteral("\\(([^<]*)\\)")),
+                    QStringLiteral("\\1"));
+    QStringList parts = trimmed.split(QStringLiteral(","));
     if (parts.length() < 3) {
-        return qRgba(0, 0, 0, 255);
+        return Color();
     }
-    int red = parts.at(0).toDouble() * 255;
-    int green = parts.at(1).toDouble() * 255;
-    int blue = parts.at(2).toDouble() * 255;
-    int alpha = 255;
-    if (parts.length() > 3) {
-        alpha = parts.at(3).toDouble() * 255;
-    }
-
-    return qRgba(red, green, blue, alpha);
+    return Color(parts.at(0).toDouble(), parts.at(1).toDouble(), parts.at(2).toDouble(),
+                 parts.length() > 3 ? parts.at(3).toDouble() : 1.0);
 }
 
 void BaseDelegate::paintQuantity(QPainter* painter,
@@ -103,15 +96,13 @@ void BaseDelegate::paintQuantity(QPainter* painter,
         painter->drawText(option.rect, 0, QString());
     }
     else {
+        QString text;
         QVariant item = getValue(index);
         auto quantity = item.value<Base::Quantity>();
         if (quantity.isValid()) {
-            QString text = quantity.getUserString();
-            painter->drawText(option.rect, 0, text);
+            text = QString::fromStdString(quantity.getUserString());
         }
-        else {
-            painter->drawText(option.rect, 0, QString());
-        }
+        painter->drawText(option.rect, 0, text);
     }
 
     painter->restore();
@@ -128,7 +119,7 @@ void BaseDelegate::paintImage(QPainter* painter,
     QImage img;
     if (!propertyValue.isEmpty()) {
         QByteArray by = QByteArray::fromBase64(propertyValue.toUtf8());
-        img = QImage::fromData(by, "PNG").scaled(64, 64, Qt::KeepAspectRatio);
+        img = QImage::fromData(by).scaled(64, 64, Qt::KeepAspectRatio);
     }
     QRect target(option.rect);
     if (target.width() > target.height()) {
@@ -166,23 +157,21 @@ void BaseDelegate::paintColor(QPainter* painter,
     auto propertyValue = getStringValue(index);
     painter->save();
 
-    QColor color;
-    color.setRgba(qRgba(0, 0, 0, 255));  // Black border
     int left = option.rect.left() + 2;
     int width = option.rect.width() - 4;
     if (option.rect.width() > 75) {
         left += (option.rect.width() - 75) / 2;
         width = 71;
     }
-    painter->fillRect(left, option.rect.top() + 2, width, option.rect.height() - 4, QBrush(color));
+    painter->fillRect(left, option.rect.top() + 2, width, option.rect.height() - 4, QBrush(Qt::black));
 
-    color.setRgba(parseColor(propertyValue));
     left = option.rect.left() + 5;
     width = option.rect.width() - 10;
     if (option.rect.width() > 75) {
         left += (option.rect.width() - 75) / 2;
         width = 65;
     }
+    auto color = parseColor(propertyValue).asValue<QColor>();
     painter->fillRect(left, option.rect.top() + 5, width, option.rect.height() - 10, QBrush(color));
 
     painter->restore();
@@ -196,7 +185,7 @@ void BaseDelegate::paintList(QPainter* painter,
 
     painter->save();
 
-    QImage list(QString::fromStdString(":/icons/list.svg"));
+    QImage list(QStringLiteral(":/icons/list.svg"));
     QRect target(option.rect);
     if (target.width() > target.height()) {
         target.setWidth(target.height());
@@ -217,7 +206,7 @@ void BaseDelegate::paintMultiLineString(QPainter* painter,
 
     painter->save();
 
-    QImage table(QString::fromStdString(":/icons/multiline.svg"));
+    QImage table(QStringLiteral(":/icons/multiline.svg"));
     QRect target(option.rect);
     if (target.width() > target.height()) {
         target.setWidth(target.height());
@@ -238,7 +227,7 @@ void BaseDelegate::paintArray(QPainter* painter,
 
     painter->save();
 
-    QImage table(QString::fromStdString(":/icons/table.svg"));
+    QImage table(QStringLiteral(":/icons/table.svg"));
     QRect target(option.rect);
     if (target.width() > target.height()) {
         target.setWidth(target.height());
@@ -416,7 +405,7 @@ BaseDelegate::createWidget(QWidget* parent, const QVariant& item, const QModelIn
     if (type == Materials::MaterialValue::Integer) {
         auto spinner = new Gui::UIntSpinBox(parent);
         spinner->setMinimum(0);
-        spinner->setMaximum(UINT_MAX);
+        spinner->setMaximum(std::numeric_limits<unsigned>::max());
         spinner->setValue(item.toUInt());
         widget = spinner;
     }
@@ -437,7 +426,7 @@ BaseDelegate::createWidget(QWidget* parent, const QVariant& item, const QModelIn
     }
     else if (type == Materials::MaterialValue::Boolean) {
         auto combo = new Gui::PrefComboBox(parent);
-        combo->insertItem(0, QString::fromStdString(""));
+        combo->insertItem(0, QStringLiteral(""));
         combo->insertItem(1, tr("False"));
         combo->insertItem(2, tr("True"));
         combo->setCurrentText(item.toString());

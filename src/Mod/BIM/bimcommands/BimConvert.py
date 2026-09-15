@@ -1,29 +1,28 @@
-# -*- coding: utf8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2017 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 """The BIM Convert command"""
-
 
 import FreeCAD
 import FreeCADGui
@@ -37,9 +36,7 @@ class BIM_Convert:
         return {
             "Pixmap": "Arch_Component",
             "MenuText": QT_TRANSLATE_NOOP("BIM_Convert", "Convert to BIM"),
-            "ToolTip": QT_TRANSLATE_NOOP(
-                "BIM_Convert", "Converts any object to a BIM component"
-            ),
+            "ToolTip": QT_TRANSLATE_NOOP("BIM_Convert", "Converts any object to a BIM component"),
         }
 
     def IsActive(self):
@@ -56,6 +53,7 @@ class BIM_Convert_TaskPanel:
 
     def __init__(self, objs):
         from PySide import QtGui
+
         self.types = [
             "Wall",
             "Structure",
@@ -93,9 +91,9 @@ class BIM_Convert_TaskPanel:
             FreeCAD.ActiveDocument.commitTransaction()
             FreeCAD.ActiveDocument.recompute()
         if idx:
-            from DraftGui import todo
+            from draftutils import todo
 
-            todo.delay(FreeCADGui.Control.closeDialog, None)
+            todo.ToDo.delay(FreeCADGui.Control.closeDialog, None)
         return True
 
 

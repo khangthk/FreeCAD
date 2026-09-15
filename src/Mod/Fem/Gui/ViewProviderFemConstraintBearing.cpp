@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jan Rheinländer                                    *
  *                                <jrheinlaender[at]users.sourceforge.net> *
@@ -21,13 +23,11 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <Inventor/SbRotation.h>
 #include <Inventor/SbVec3f.h>
 #include <Inventor/nodes/SoSeparator.h>
-#endif
+
 
 #include "Gui/Control.h"
 #include "FemGuiTools.h"
@@ -67,10 +67,10 @@ bool ViewProviderFemConstraintBearing::setEdit(int ModNum)
 void ViewProviderFemConstraintBearing::updateData(const App::Property* prop)
 {
     // Gets called whenever a property of the attached object changes
-    Fem::ConstraintBearing* pcConstraint = static_cast<Fem::ConstraintBearing*>(this->getObject());
+    Fem::ConstraintBearing* pcConstraint = this->getObject<Fem::ConstraintBearing>();
 
     if (prop == &pcConstraint->References) {
-        Base::Console().Error("\n");  // enable a breakpoint here
+        Base::Console().error("\n");  // enable a breakpoint here
     }
 
     if (prop == &pcConstraint->BasePoint) {
@@ -88,9 +88,9 @@ void ViewProviderFemConstraintBearing::updateData(const App::Property* prop)
         SbRotation rot(SbVec3f(0, -1, 0), dir);
 
         GuiTools::createPlacement(pShapeSep, b, rot);
-        pShapeSep->addChild(GuiTools::createFixed(radius / 2,
-                                                  radius / 2 * 1.5,
-                                                  pcConstraint->AxialFree.getValue()));
+        pShapeSep->addChild(
+            GuiTools::createFixed(radius / 2, radius / 2 * 1.5, pcConstraint->AxialFree.getValue())
+        );
     }
     else if (prop == &pcConstraint->AxialFree) {
         if (pShapeSep->getNumChildren() > 0) {
@@ -106,11 +106,13 @@ void ViewProviderFemConstraintBearing::updateData(const App::Property* prop)
 
             GuiTools::updatePlacement(pShapeSep, 0, b, rot);
             const SoSeparator* sep = static_cast<SoSeparator*>(pShapeSep->getChild(2));
-            GuiTools::updateFixed(sep,
-                                  0,
-                                  radius / 2,
-                                  radius / 2 * 1.5,
-                                  pcConstraint->AxialFree.getValue());
+            GuiTools::updateFixed(
+                sep,
+                0,
+                radius / 2,
+                radius / 2 * 1.5,
+                pcConstraint->AxialFree.getValue()
+            );
         }
     }
 

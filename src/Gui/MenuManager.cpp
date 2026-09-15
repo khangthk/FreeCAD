@@ -20,12 +20,11 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
-# include <QApplication>
-# include <QMenu>
-# include <QMenuBar>
-#endif
+
+#include <QApplication>
+#include <QMenu>
+#include <QMenuBar>
+
 
 #include "MenuManager.h"
 #include "Application.h"
@@ -62,7 +61,7 @@ std::string MenuItem::command() const
 
 bool MenuItem::hasItems() const
 {
-    return _items.count() > 0;
+    return !_items.isEmpty();
 }
 
 MenuItem* MenuItem::findItem(const std::string& name)
@@ -103,8 +102,7 @@ MenuItem* MenuItem::copy() const
     auto root = new MenuItem;
     root->setCommand(command());
 
-    for (auto& item : _items)
-    {
+    for (auto& item : _items) {
         root->appendItem(item->copy());
     }
 
@@ -135,10 +133,10 @@ bool MenuItem::insertItem(MenuItem* before, MenuItem* item)
 MenuItem* MenuItem::afterItem(MenuItem* item) const
 {
     int pos = _items.indexOf(item);
-    if (pos < 0 || pos+1 == _items.size()) {
+    if (pos < 0 || pos + 1 == _items.size()) {
         return nullptr;
     }
-    return _items.at(pos+1);
+    return _items.at(pos + 1);
 }
 
 void MenuItem::removeItem(MenuItem* item)
@@ -157,14 +155,14 @@ void MenuItem::clear()
     _items.clear();
 }
 
-MenuItem& MenuItem::operator << (const std::string& command)
+MenuItem& MenuItem::operator<<(const std::string& command)
 {
     auto item = new MenuItem(this);
     item->setCommand(command);
     return *this;
 }
 
-MenuItem& MenuItem::operator << (MenuItem* item)
+MenuItem& MenuItem::operator<<(MenuItem* item)
 {
     appendItem(item);
     return *this;
@@ -177,11 +175,11 @@ QList<MenuItem*> MenuItem::getItems() const
 
 // -----------------------------------------------------------
 
-MenuManager* MenuManager::_instance=nullptr;
+MenuManager* MenuManager::_instance = nullptr;
 
 MenuManager* MenuManager::getInstance()
 {
-    if ( !_instance ) {
+    if (!_instance) {
         _instance = new MenuManager;
     }
     return _instance;
@@ -200,30 +198,11 @@ MenuManager::~MenuManager() = default;
 void MenuManager::setup(MenuItem* menuItems) const
 {
     if (!menuItems) {
-        return; // empty menu bar
+        return;  // empty menu bar
     }
 
     QMenuBar* menuBar = getMainWindow()->menuBar();
 
-#if 0
-#if defined(FC_OS_MACOSX) && QT_VERSION >= 0x050900
-    // Unknown Qt macOS bug observed with Qt >= 5.9.4 causes random crashes when viewing reused top level menus.
-    menuBar->clear();
-#endif
-
-    // On Kubuntu 18.10 global menu has issues with FreeCAD 0.18 menu bar.
-    // Optional parameter, clearing the menu bar, can be set as a workaround.
-    // Clearing the menu bar can cause issues, when trying to access menu bar through Python.
-    // https://forum.freecad.org/viewtopic.php?f=10&t=30340&start=440#p289330
-    if (App::GetApplication().GetParameterGroupByPath
-        ("User parameter:BaseApp/Preferences/MainWindow")->GetBool("ClearMenuBar",false)) {
-        menuBar->clear();
-    }
-#else
-    // In addition to the reason described in the above comments, there is
-    // another more subtle one that's making clearing menu bar a necessity for
-    // all platforms.
-    //
     // By right, it should be fine for more than one command action having the
     // same shortcut but in different workbench. It should not require manual
     // conflict resolving in this case, as the action in an inactive workbench
@@ -243,11 +222,9 @@ void MenuManager::setup(MenuItem* menuItems) const
     // Clearing the menu bar, and recreate it every time when switching
     // workbench with only the active actions can solve this problem.
     menuBar->clear();
-#endif
 
     QList<QAction*> actions = menuBar->actions();
-    for (auto& item : menuItems->getItems())
-    {
+    for (auto& item : menuItems->getItems()) {
         // search for the menu action
         QAction* action = findAction(actions, QString::fromLatin1(item->command().c_str()));
         if (!action) {
@@ -260,8 +237,7 @@ void MenuManager::setup(MenuItem* menuItems) const
             else {
                 // create a new menu
                 std::string menuName = item->command();
-                QMenu* menu = menuBar->addMenu(
-                    QApplication::translate("Workbench", menuName.c_str()));
+                QMenu* menu = menuBar->addMenu(QApplication::translate("Workbench", menuName.c_str()));
                 action = menu->menuAction();
                 menu->setObjectName(QString::fromLatin1(menuName.c_str()));
                 action->setObjectName(QString::fromLatin1(menuName.c_str()));
@@ -291,7 +267,7 @@ void MenuManager::setup(MenuItem* menuItems) const
     }
 
     // enable update again
-    //menuBar->setUpdatesEnabled(true);
+    // menuBar->setUpdatesEnabled(true);
 }
 
 void MenuManager::setup(MenuItem* item, QMenu* menu) const
@@ -300,7 +276,8 @@ void MenuManager::setup(MenuItem* item, QMenu* menu) const
     QList<QAction*> actions = menu->actions();
     for (auto& item : item->getItems()) {
         // search for the menu item
-        QList<QAction*> used_actions = findActions(actions, QString::fromLatin1(item->command().c_str()));
+        QList<QAction*> used_actions
+            = findActions(actions, QString::fromLatin1(item->command().c_str()));
         if (used_actions.isEmpty()) {
             if (item->command() == "Separator") {
                 QAction* action = menu->addSeparator();
@@ -312,7 +289,9 @@ void MenuManager::setup(MenuItem* item, QMenu* menu) const
                 if (item->hasItems()) {
                     // Creste a submenu
                     std::string menuName = item->command();
-                    QMenu* submenu = menu->addMenu(QApplication::translate("Workbench", menuName.c_str()));
+                    QMenu* submenu = menu->addMenu(
+                        QApplication::translate("Workbench", menuName.c_str())
+                    );
                     QAction* action = submenu->menuAction();
                     submenu->setObjectName(QString::fromLatin1(item->command().c_str()));
                     action->setObjectName(QString::fromLatin1(item->command().c_str()));
@@ -326,7 +305,7 @@ void MenuManager::setup(MenuItem* item, QMenu* menu) const
                     // Check if action was added successfully
                     if (mgr.addTo(item->command().c_str(), menu)) {
                         QList<QAction*> acts = menu->actions();
-                        for (int i=count; i < acts.count(); i++) {
+                        for (int i = count; i < acts.count(); i++) {
                             QAction* act = acts[i];
                             // set the menu user data
                             act->setData(QString::fromLatin1(item->command().c_str()));
@@ -380,14 +359,10 @@ void MenuManager::retranslate(QMenu* menu) const
     QByteArray menuName = menu->menuAction()->data().toByteArray();
     Command* cmd = mgr.getCommandByName(menuName);
     if (cmd) {
-        menu->setTitle(
-            QApplication::translate(cmd->className(),
-                                    cmd->getMenuText()));
+        menu->setTitle(QApplication::translate(cmd->className(), cmd->getMenuText()));
     }
     else {
-        menu->setTitle(
-            QApplication::translate("Workbench",
-                                    (const char*)menuName));
+        menu->setTitle(QApplication::translate("Workbench", (const char*)menuName));
     }
     for (auto& action : menu->actions()) {
         if (action->menu()) {
@@ -404,7 +379,7 @@ QAction* MenuManager::findAction(const QList<QAction*>& acts, const QString& ite
         }
     }
 
-    return nullptr; // no item with the user data found
+    return nullptr;  // no item with the user data found
 }
 
 QList<QAction*> MenuManager::findActions(const QList<QAction*>& acts, const QString& item) const
@@ -432,7 +407,7 @@ QList<QAction*> MenuManager::findActions(const QList<QAction*>& acts, const QStr
     return used;
 }
 
-void MenuManager::setupContextMenu(MenuItem* item, QMenu &menu) const
+void MenuManager::setupContextMenu(MenuItem* item, QMenu& menu) const
 {
     setup(item, &menu);
 }

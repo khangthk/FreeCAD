@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2006 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *   Copyright (c) 2015 Eivind Kvedalen <eivind@kvedalen.name>             *
@@ -21,7 +23,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <App/Application.h>
 #include <App/Document.h>
@@ -65,6 +66,20 @@ public:
     }
 
 private:
+    void load(App::Document* pcDoc, const std::string& Name)
+    {
+        try {
+            Base::FileInfo file(Name);
+            auto filename = file.fileNamePure();
+            auto* pcSheet = pcDoc->addObject<Spreadsheet::Sheet>(filename.c_str());
+
+            pcSheet->importFromFile(Name, '\t', '"', '\\');
+            pcSheet->execute();
+        }
+        catch (const Base::Exception& e) {
+            throw Py::RuntimeError(e.what());
+        }
+    }
     Py::Object open(const Py::Tuple& args)
     {
         char* Name;
@@ -75,19 +90,10 @@ private:
         std::string EncodedName = std::string(Name);
         PyMem_Free(Name);
 
-        try {
-            Base::FileInfo file(EncodedName);
-            App::Document* pcDoc =
-                App::GetApplication().newDocument(DocName ? DocName : QT_TR_NOOP("Unnamed"));
-            Spreadsheet::Sheet* pcSheet = static_cast<Spreadsheet::Sheet*>(
-                pcDoc->addObject("Spreadsheet::Sheet", file.fileNamePure().c_str()));
-
-            pcSheet->importFromFile(EncodedName, '\t', '"', '\\');
-            pcSheet->execute();
-        }
-        catch (const Base::Exception& e) {
-            throw Py::RuntimeError(e.what());
-        }
+        App::Document* pcDoc = App::GetApplication().newDocument(
+            DocName ? DocName : QT_TR_NOOP("Unnamed")
+        );
+        load(pcDoc, EncodedName);
 
         return Py::None();
     }
@@ -102,18 +108,11 @@ private:
         std::string EncodedName = std::string(Name);
         PyMem_Free(Name);
 
-        try {
-            Base::FileInfo file(EncodedName);
-            App::Document* pcDoc = Gui::Application::Instance->activeDocument()->getDocument();
-            Spreadsheet::Sheet* pcSheet = static_cast<Spreadsheet::Sheet*>(
-                pcDoc->addObject("Spreadsheet::Sheet", file.fileNamePure().c_str()));
-
-            pcSheet->importFromFile(EncodedName, '\t', '"', '\\');
-            pcSheet->execute();
+        App::Document* pcDoc = App::GetApplication().getDocument(DocName);
+        if (!pcDoc) {
+            pcDoc = App::GetApplication().newDocument(DocName ? DocName : QT_TR_NOOP("Unnamed"));
         }
-        catch (const Base::Exception& e) {
-            throw Py::RuntimeError(e.what());
-        }
+        load(pcDoc, EncodedName);
 
         return Py::None();
     }
@@ -149,12 +148,13 @@ PyMOD_INIT_FUNC(SpreadsheetGui)
 
     // register preference page
     new Gui::PrefPageProducer<SpreadsheetGui::DlgSettingsImp>(
-        QT_TRANSLATE_NOOP("QObject", "Spreadsheet"));
+        QT_TRANSLATE_NOOP("QObject", "Spreadsheet")
+    );
 
     // add resources and reloads the translators
     loadSpreadsheetResource();
 
     PyObject* mod = SpreadsheetGui::initModule();
-    Base::Console().Log("Loading GUI of Spreadsheet module... done\n");
+    Base::Console().log("Loading GUI of Spreadsheet module… done\n");
     PyMOD_Return(mod);
 }

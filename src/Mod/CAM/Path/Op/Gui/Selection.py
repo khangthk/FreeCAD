@@ -1,39 +1,42 @@
-# -*- coding: utf-8 -*-
-# ***************************************************************************
-# *   Copyright (c) 2015 Dan Falck <ddfalck@gmail.com>                      *
-# *   Copyright (c) 2021 Schildkroet                                        *
-# *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
-# *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
-# *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
-# *                                                                         *
-# ***************************************************************************
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-FileCopyrightText: 2015 Dan Falck <ddfalck@gmail.com>
+# SPDX-FileCopyrightText: 2021 Schildkroet
+# SPDX-FileNotice: Part of the FreeCAD project.
 
-"""Selection gates and observers to control selectability while building Path operations """
+################################################################################
+#                                                                              #
+#   FreeCAD is free software: you can redistribute it and/or modify            #
+#   it under the terms of the GNU Lesser General Public License as             #
+#   published by the Free Software Foundation, either version 2.1              #
+#   of the License, or (at your option) any later version.                     #
+#                                                                              #
+#   FreeCAD is distributed in the hope that it will be useful,                 #
+#   but WITHOUT ANY WARRANTY; without even the implied warranty                #
+#   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    #
+#   See the GNU Lesser General Public License for more details.                #
+#                                                                              #
+#   You should have received a copy of the GNU Lesser General Public           #
+#   License along with FreeCAD. If not, see https://www.gnu.org/licenses       #
+#                                                                              #
+################################################################################
+
+"""Selection gates and observers to control selectability while building Path operations"""
 
 import FreeCAD
 import FreeCADGui
+import Part
 import Path
-import Path.Base.Drillable as Drillable
+from Path.Base.Drillable import isDrillable
 import math
 
-Path.Log.setLevel(Path.Log.Level.INFO, Path.Log.thisModule())
-Path.Log.trackModule(Path.Log.thisModule())
+if False:
+    Path.Log.setLevel(Path.Log.Level.DEBUG, Path.Log.thisModule())
+    Path.Log.trackModule(Path.Log.thisModule())
+else:
+    Path.Log.setLevel(Path.Log.Level.INFO, Path.Log.thisModule())
 
 
-class PathBaseGate(object):
+class PathBaseGate:
     pass
 
 
@@ -129,7 +132,40 @@ class DRILLGate(PathBaseGate):
         subobj = shape.getElement(sub)
         if subobj.ShapeType not in ["Edge", "Face"]:
             return False
-        return Drillable.isDrillable(shape, subobj, vector=None, allowPartial=True)
+        return isDrillable(shape, subobj, vector=None, allowPartial=True)
+
+
+class HELIXGate(PathBaseGate):
+    def allow(self, doc, obj, sub):
+        try:
+            shape = obj.Shape
+        except Exception:
+            return False
+
+        if not sub or sub[0:4] not in ("Edge", "Face"):
+            return False
+
+        subShape = shape.getElement(sub)
+        if isDrillable(shape, subShape, vector=None, allowPartial=True):
+            return True
+        if subShape.ShapeType == "Edge":
+            return isinstance(subShape.Curve, Part.Circle)
+        if subShape.ShapeType == "Face":
+            return isinstance(subShape.Surface, (Part.Cylinder, Part.Cone))
+
+        return False
+
+
+class TAPGate(PathBaseGate):
+    def allow(self, doc, obj, sub):
+        Path.Log.debug("obj: {} sub: {}".format(obj, sub))
+        if not hasattr(obj, "Shape"):
+            return False
+        shape = obj.Shape
+        subobj = shape.getElement(sub)
+        if subobj.ShapeType not in ["Edge", "Face"]:
+            return False
+        return isDrillable(shape, subobj, vector=None)
 
 
 class FACEGate(PathBaseGate):
@@ -155,28 +191,30 @@ class FACEGate(PathBaseGate):
         return isFace
 
 
-class PROFILEGate(PathBaseGate):
+class FLUTEGate(PathBaseGate):
     def allow(self, doc, obj, sub):
         if sub and sub[0:4] == "Edge":
             return True
+        if sub and sub[0:4] == "Face":
+            return True
+        return False
 
+
+class PROFILEGate(PathBaseGate):
+    def allow(self, doc, obj, sub):
         try:
             obj = obj.Shape
         except Exception:
             return False
 
-        if obj.ShapeType == "Compound":
-            if sub and sub[0:4] == "Face":
-                return True
-
-        elif obj.ShapeType == "Face":
+        if not sub:
             return True
-
-        elif obj.ShapeType == "Solid":
-            if sub and sub[0:4] == "Face":
-                return True
-
-        elif obj.ShapeType == "Wire":
+        if sub.startswith("Edge"):
+            return True
+        if sub.startswith("Face"):
+            return True
+        if sub.startswith("Vertex"):
+            # required for setStartPoint
             return True
 
         return False
@@ -184,28 +222,22 @@ class PROFILEGate(PathBaseGate):
 
 class POCKETGate(PathBaseGate):
     def allow(self, doc, obj, sub):
-
-        pocketable = False
         try:
             obj = obj.Shape
         except Exception:
             return False
 
-        if obj.ShapeType == "Edge":
-            pocketable = False
+        if not sub:
+            return False
+        if sub.startswith("Edge"):
+            return True
+        if sub.startswith("Face"):
+            return True
+        if sub.startswith("Vertex"):
+            # required for setStartPoint
+            return True
 
-        elif obj.ShapeType == "Face":
-            pocketable = True
-
-        elif obj.ShapeType == "Solid":
-            if sub and sub[0:4] == "Face":
-                pocketable = True
-
-        elif obj.ShapeType == "Compound":
-            if sub and sub[0:4] == "Face":
-                pocketable = True
-
-        return pocketable
+        return False
 
 
 class ADAPTIVEGate(PathBaseGate):
@@ -236,7 +268,7 @@ class TURNGate(PathBaseGate):
         if hasattr(obj, "Shape") and sub:
             shape = obj.Shape
             subobj = shape.getElement(sub)
-            return Drillable.isDrillable(shape, subobj, vector=None)
+            return isDrillable(shape, subobj, vector=None)
         else:
             return False
 
@@ -268,6 +300,18 @@ def drillselect():
     FreeCADGui.Selection.addSelectionGate(DRILLGate())
     if not Path.Preferences.suppressSelectionModeWarning():
         FreeCAD.Console.PrintWarning("Drilling Select Mode\n")
+
+
+def helixselect():
+    FreeCADGui.Selection.addSelectionGate(HELIXGate())
+    if not Path.Preferences.suppressSelectionModeWarning():
+        FreeCAD.Console.PrintWarning("Helix Select Mode\n")
+
+
+def tapselect():
+    FreeCADGui.Selection.addSelectionGate(TAPGate())
+    if not Path.Preferences.suppressSelectionModeWarning():
+        FreeCAD.Console.PrintWarning("Tapping Select Mode\n")
 
 
 def engraveselect():
@@ -304,6 +348,12 @@ def adaptiveselect():
     FreeCADGui.Selection.addSelectionGate(ADAPTIVEGate())
     if not Path.Preferences.suppressSelectionModeWarning():
         FreeCAD.Console.PrintWarning("Adaptive Select Mode\n")
+
+
+def fluteselect():
+    FreeCADGui.Selection.addSelectionGate(FLUTEGate())
+    if not Path.Preferences.suppressSelectionModeWarning():
+        FreeCAD.Console.PrintWarning("Flute Select Mode\n")
 
 
 def slotselect():
@@ -349,9 +399,11 @@ def select(op):
     opsel["Contour"] = contourselect  # deprecated
     opsel["Deburr"] = chamferselect
     opsel["Drilling"] = drillselect
+    opsel["Tapping"] = tapselect
     opsel["Engrave"] = engraveselect
-    opsel["Helix"] = drillselect
+    opsel["Helix"] = helixselect
     opsel["MillFace"] = pocketselect
+    opsel["MillFacing"] = pocketselect
     opsel["Pocket"] = pocketselect
     opsel["Pocket 3D"] = pocketselect
     opsel["Pocket3D"] = pocketselect  # deprecated
@@ -359,8 +411,11 @@ def select(op):
     opsel["Profile Edges"] = eselect  # deprecated
     opsel["Profile Faces"] = fselect  # deprecated
     opsel["Profile"] = profileselect
+    opsel["Flute"] = fluteselect
     opsel["Slot"] = slotselect
+    opsel["RotarySurface"] = surfaceselect
     opsel["Surface"] = surfaceselect
+    opsel["PlanarSurface"] = surfaceselect
     opsel["Waterline"] = surfaceselect
     opsel["Adaptive"] = adaptiveselect
     opsel["Vcarve"] = vcarveselect

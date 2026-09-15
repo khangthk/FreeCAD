@@ -1,19 +1,4 @@
-include_directories(
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_BINARY_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${COIN3D_INCLUDE_DIRS}
-    ${ZLIB_INCLUDE_DIR}
-    ${OCC_INCLUDE_DIR}
-    ${EIGEN3_INCLUDE_DIR}
-    ${PYTHON_INCLUDE_DIRS}
-    ${XercesC_INCLUDE_DIRS}
-
-)
-
-link_directories(${OCC_LIBRARY_DIR})
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 set(CAMSimulator_LIBS
     Path
@@ -26,7 +11,7 @@ set(CAMSimulator_LIBS
 )
 
 SET(CAMSimulator_SRCS_Python
-    CAMSimPy.xml
+    CAMSim.pyi
     CAMSimPyImp.cpp
 )
 
@@ -38,7 +23,6 @@ SET(CAMSimulator_SRCS_Module
     CAMSimPyImp.cpp
     DlgCAMSimulator.cpp
     DlgCAMSimulator.h
-    PreCompiled.cpp
     PreCompiled.h
 )
 
@@ -59,6 +43,7 @@ SET(CAMSimulator_SRCS_Core
     MillPathSegment.h
     MillSimulation.cpp
     MillSimulation.h
+    OpenGlWrapper.cpp
     OpenGlWrapper.h
     Shader.cpp
     Shader.h
@@ -74,11 +59,19 @@ SET(CAMSimulator_SRCS_Core
     Texture.h
     TextureLoader.cpp
     TextureLoader.h
+    ViewCAMSimulator.cpp
+    ViewCAMSimulator.h
+    Dummy3DViewer.cpp
+    Dummy3DViewer.h
+    TopoShapeViewProvider.cpp
+    TopoShapeViewProvider.h
+    CAMSettings.cpp
+    CAMSettings.h
+    View3DSettings.cpp
+    View3DSettings.h
 )
 
-
-generate_from_xml(CAMSimPy)
-
+generate_from_py(CAMSim)
 
 SOURCE_GROUP("Module" FILES ${CAMSimulator_SRCS_Module})
 SOURCE_GROUP("Python" FILES ${CAMSimulator_SRCS_Python})
@@ -94,19 +87,27 @@ SET(CAMSimulator_SRCS
     ${CAMSimulator_SRCS_Core}
 )
 
+add_library(CAMSimulator SHARED ${CAMSimulator_SRCS})
+target_include_directories(
+    CAMSimulator
+    PRIVATE
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_BINARY_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+target_link_libraries(CAMSimulator ${CAMSimulator_LIBS})
+
 if(FREECAD_USE_PCH)
-    add_definitions(-D_PreComp_)
-    GET_MSVC_PRECOMPILED_SOURCE("PreCompiled.cpp" PCH_SRCS ${CAMSimulator_SRCS_precomp})
-    ADD_MSVC_PRECOMPILED_HEADER(CAMSimulator PreCompiled.h PreCompiled.cpp PCH_SRCS)
+    target_precompile_headers(CAMSimulator PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_LIST_DIR}/PreCompiled.h">
+    )
+    set_source_files_properties(${CAMSimulator_SRCS_Core} PROPERTIES SKIP_PRECOMPILE_HEADERS TRUE)
 endif(FREECAD_USE_PCH)
 
-add_library(CAMSimulator SHARED ${CAMSimulator_SRCS})
-target_link_libraries(CAMSimulator ${CAMSimulator_LIBS})
-if (FREECAD_WARN_ERROR)
-    target_compile_warn_error(CAMSimulator)
-endif()
+target_compile_warn_error(CAMSimulator)
 
-SET_BIN_DIR(CAMSimulator CAMSimulator /Mod/CAM)
+SET_BIN_DIR(CAMSimulator)
 SET_PYTHON_PREFIX_SUFFIX(CAMSimulator)
 
 INSTALL(TARGETS CAMSimulator DESTINATION ${CMAKE_INSTALL_LIBDIR})

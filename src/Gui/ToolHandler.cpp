@@ -20,15 +20,12 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <cmath>
 
 #include <QGuiApplication>
 #include <QPainter>
 
 #include <Inventor/events/SoKeyboardEvent.h>
-#endif  // #ifndef _PreComp_
 
 #include <Base/Console.h>
 #include <Base/Exception.h>
@@ -41,6 +38,7 @@
 #include "View3DInventorViewer.h"
 
 #include "ToolHandler.h"
+#include "InputHint.h"
 
 using namespace Gui;
 
@@ -48,7 +46,7 @@ using namespace Gui;
 
 QString ToolHandler::getCrosshairCursorSVGName() const
 {
-    return QString::fromLatin1("None");
+    return QStringLiteral("None");
 }
 
 bool ToolHandler::activate()
@@ -59,6 +57,7 @@ bool ToolHandler::activate()
         oldCursor = cw->cursor();
 
         updateCursor();
+        updateHint();
 
         this->preActivated();
         this->activated();
@@ -74,6 +73,8 @@ void ToolHandler::deactivate()
     this->postDeactivated();
 
     unsetCursor();
+
+    Gui::MainWindow::getInstance()->hideHints();
 }
 
 //**************************************************************************
@@ -82,8 +83,9 @@ void ToolHandler::deactivate()
 unsigned long ToolHandler::getCrosshairColor()
 {
     unsigned long color = 0xFFFFFFFF;  // white
-    ParameterGrp::handle hGrp =
-        App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/View"
+    );
     color = hGrp->GetUnsigned("CursorCrosshairColor", color);
     // from rgba to rgb
     color = (color >> 8) & 0xFFFFFF;
@@ -108,10 +110,12 @@ void ToolHandler::setCrosshairCursor(const char* svgName)
     setCrosshairCursor(cursorName);
 }
 
-void ToolHandler::setSvgCursor(const QString& cursorName,
-                                     int x,
-                                     int y,
-                                     const std::map<unsigned long, unsigned long>& colorMapping)
+void ToolHandler::setSvgCursor(
+    const QString& cursorName,
+    int x,
+    int y,
+    const std::map<unsigned long, unsigned long>& colorMapping
+)
 {
     // The TechDraw_Pointer_*.svg icons have a default size of 64x64. When directly creating
     // them with a size of 32x32 they look very bad.
@@ -120,7 +124,7 @@ void ToolHandler::setSvgCursor(const QString& cursorName,
     //
     qreal pRatio = devicePixelRatio();
     bool isRatioOne = (pRatio == 1.0);
-    qreal defaultCursorSize = isRatioOne ? 64 : 32;
+    qreal cursorSize = isRatioOne ? 64 : 32;
     qreal hotX = x;
     qreal hotY = y;
 #if !defined(Q_OS_WIN32) && !defined(Q_OS_MACOS)
@@ -129,15 +133,15 @@ void ToolHandler::setSvgCursor(const QString& cursorName,
         hotY *= pRatio;
     }
 #endif
-    qreal cursorSize = defaultCursorSize * pRatio;
 
-    QPixmap pointer = Gui::BitmapFactory().pixmapFromSvg(cursorName.toStdString().c_str(),
-                                                         QSizeF(cursorSize, cursorSize),
-                                                         colorMapping);
+    QPixmap pointer = Gui::BitmapFactory().pixmapFromSvg(
+        cursorName.toStdString().c_str(),
+        QSizeF {cursorSize, cursorSize},
+        colorMapping
+    );
     if (isRatioOne) {
         pointer = pointer.scaled(32, 32);
     }
-    pointer.setDevicePixelRatio(pRatio);
     setCursor(pointer, hotX, hotY, false);
 }
 
@@ -195,17 +199,14 @@ void ToolHandler::addCursorTail(std::vector<QPixmap>& pixmaps)
     int newIconWidth = baseCursorWidth + tailWidth;
     int newIconHeight = baseCursorHeight;
 
-    QPixmap newIcon(newIconWidth, newIconHeight);
+    QPixmap newIcon(newIconWidth * pixelRatio, newIconHeight * pixelRatio);
+    newIcon.setDevicePixelRatio(pixelRatio);
     newIcon.fill(Qt::transparent);
 
     QPainter qp;
     qp.begin(&newIcon);
 
-    qp.drawPixmap(QPointF(0, 0),
-                    baseIcon.scaled(baseCursorWidth * pixelRatio,
-                                    baseCursorHeight * pixelRatio,
-                                    Qt::KeepAspectRatio,
-                                    Qt::SmoothTransformation));
+    qp.drawPixmap(QPointF(0, 0), baseIcon);
 
     // Iterate through pixmaps and them to the cursor pixmap
     qreal currentIconX = baseCursorWidth;
@@ -213,7 +214,7 @@ void ToolHandler::addCursorTail(std::vector<QPixmap>& pixmaps)
 
     for (auto& icon : pixmaps) {
         currentIconY = baseCursorHeight - icon.height();
-        qp.drawPixmap(QPointF(currentIconX, currentIconY), icon);
+        qp.drawPixmap(QPointF(currentIconX, currentIconY) / pixelRatio, icon);
         currentIconX += icon.width();
     }
 
@@ -230,9 +231,19 @@ void ToolHandler::updateCursor()
 {
     auto cursorstring = getCrosshairCursorSVGName();
 
-    if (cursorstring != QString::fromLatin1("None")) {
+    if (cursorstring != QStringLiteral("None")) {
         setCrosshairCursor(cursorstring);
     }
+}
+
+std::list<InputHint> ToolHandler::getToolHints() const
+{
+    return {};
+}
+
+void ToolHandler::updateHint() const
+{
+    Gui::getMainWindow()->showHints(getToolHints());
 }
 
 void ToolHandler::applyCursor()
@@ -281,7 +292,7 @@ void ToolHandler::setWidgetCursor(QCursor cursor)
 Gui::View3DInventorViewer* ToolHandler::getViewer()
 {
     Gui::MDIView* view = Gui::getMainWindow()->activeWindow();
-    if (view && view->isDerivedFrom(Gui::View3DInventor::getClassTypeId())) {
+    if (view && view->isDerivedFrom<Gui::View3DInventor>()) {
         return static_cast<Gui::View3DInventor*>(view)->getViewer();
     }
     return nullptr;

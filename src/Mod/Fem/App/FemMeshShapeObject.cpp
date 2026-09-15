@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jürgen Riegel <FreeCAD@juergen-riegel.net>         *
  *                                                                         *
@@ -20,11 +22,9 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <SMESH_Mesh.hxx>
-#endif
+
 
 #include <App/FeaturePythonPyImp.h>
 #include <App/GeoFeaturePy.h>
@@ -46,7 +46,8 @@ FemMeshShapeBaseObject::FemMeshShapeBaseObject()
         (nullptr),
         "FEM Mesh",
         Prop_None,
-        "Geometry object, the mesh is made from. The geometry object has to have a Shape.");
+        "Geometry object, the mesh is made from. The geometry object has to have a Shape."
+    );
 
     Shape.setScope(LinkScope::Global);
 }

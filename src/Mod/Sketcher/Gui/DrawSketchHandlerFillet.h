@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2022 Abdullah Tahiri <abdullah.tahiri.yo@gmail.com>     *
  *                                                                         *
@@ -20,18 +22,16 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef SKETCHERGUI_DrawSketchHandlerFillet_H
-#define SKETCHERGUI_DrawSketchHandlerFillet_H
+#pragma once
 
 #include <Gui/Notifications.h>
-#include <Gui/SelectionFilter.h>
+#include <Gui/Selection/SelectionFilter.h>
 #include <Gui/Command.h>
 #include <Gui/CommandT.h>
 
 #include <Mod/Sketcher/App/SketchObject.h>
 
 #include "DrawSketchHandler.h"
-#include "GeometryCreationMode.h"
 #include "Utils.h"
 #include "ViewProviderSketch.h"
 
@@ -39,8 +39,6 @@ using namespace Sketcher;
 
 namespace SketcherGui
 {
-
-extern GeometryCreationMode geometryCreationMode;  // defined in CommandCreateGeo.cpp
 
 class FilletSelection: public Gui::SelectionFilterGate
 {
@@ -57,7 +55,7 @@ public:
         if (pObj != this->object) {
             return false;
         }
-        if (!sSubName || sSubName[0] == '\0') {
+        if (Base::Tools::isNullOrEmpty(sSubName)) {
             return false;
         }
         std::string element(sSubName);
@@ -75,12 +73,21 @@ public:
             std::vector<int> GeoIdList;
             std::vector<Sketcher::PointPos> PosIdList;
             Sketch->getDirectlyCoincidentPoints(VtId, GeoIdList, PosIdList);
+            GeoIdList = Sketch->chooseFilletsEdges(GeoIdList);
             if (GeoIdList.size() == 2 && GeoIdList[0] >= 0 && GeoIdList[1] >= 0) {
                 const Part::Geometry* geom1 = Sketch->getGeometry(GeoIdList[0]);
                 const Part::Geometry* geom2 = Sketch->getGeometry(GeoIdList[1]);
                 if (geom1->is<Part::GeomLineSegment>() && geom2->is<Part::GeomLineSegment>()) {
                     return true;
                 }
+                // TODO: This could return true for any curve as long as
+                // int SketchObject::fillet(int GeoId, PointPos PosId, double radius, bool trim,
+                // bool createCorner, bool chamfer) evaluates two correct points that can be bound
+                // by an arc created using GeomArcOfCircle* createFilletGeometry(const Geometry*
+                // geo1, const Geometry* geo2, const Base::Vector3d& refPnt1, const Base::Vector3d&
+                // refPnt2, double radius, int& pos1, int& pos2, bool& reverse, Base::Vector3d&
+                // cornerPoint) See int SketchObject::fillet(int GeoId, PointPos PosId, double
+                // radius, bool trim, bool createCorner, bool chamfer)
             }
         }
         return false;
@@ -100,18 +107,19 @@ enum class FilletConstructionMethod
     End  // Must be the last one
 };
 
-}
+}  // namespace ConstructionMethods
 
-using DSHFilletController =
-    DrawSketchDefaultWidgetController<DrawSketchHandlerFillet,
-                                      StateMachines::TwoSeekEnd,
-                                      /*PAutoConstraintSize =*/0,
-                                      /*OnViewParametersT =*/OnViewParameters<0, 0>,  // NOLINT
-                                      /*WidgetParametersT =*/WidgetParameters<0, 0>,  // NOLINT
-                                      /*WidgetCheckboxesT =*/WidgetCheckboxes<1, 1>,  // NOLINT
-                                      /*WidgetComboboxesT =*/WidgetComboboxes<1, 1>,  // NOLINT
-                                      ConstructionMethods::FilletConstructionMethod,
-                                      /*bool PFirstComboboxIsConstructionMethod =*/true>;
+using DSHFilletController = DrawSketchDefaultWidgetController<
+    DrawSketchHandlerFillet,
+    StateMachines::TwoSeekEnd,
+    /*PAutoConstraintSize =*/0,
+    /*OnViewParametersT =*/OnViewParameters<0, 0>,  // NOLINT
+    /*WidgetParametersT =*/WidgetParameters<0, 0>,  // NOLINT
+    /*WidgetCheckboxesT =*/WidgetCheckboxes<1, 1>,  // NOLINT
+    /*WidgetComboboxesT =*/WidgetComboboxes<1, 1>,  // NOLINT
+    /*WidgetLineEditsT =*/WidgetLineEdits<0, 0>,
+    ConstructionMethods::FilletConstructionMethod,
+    /*bool PFirstComboboxIsConstructionMethod =*/true>;
 
 using DSHFilletControllerBase = DSHFilletController::ControllerBase;
 
@@ -119,6 +127,8 @@ using DrawSketchHandlerFilletBase = DrawSketchControllableHandler<DSHFilletContr
 
 class DrawSketchHandlerFillet: public DrawSketchHandlerFilletBase
 {
+    Q_DECLARE_TR_FUNCTIONS(SketcherGui::DrawSketchHandlerFillet)
+
     friend DSHFilletController;
     friend DSHFilletControllerBase;
 
@@ -164,14 +174,14 @@ private:
             int GeoId;
             PointPos PosId = PointPos::none;
             obj->getGeoVertexIndex(vtId, GeoId, PosId);
-            const Part::Geometry* geom = obj->getGeometry(GeoId);
-            if (isLineSegment(*geom) && (PosId == PointPos::start || PosId == PointPos::end)) {
+            if (PosId == PointPos::start || PosId == PointPos::end) {
 
                 // guess fillet radius
                 double radius = -1;
                 std::vector<int> GeoIdList;
                 std::vector<Sketcher::PointPos> PosIdList;
                 obj->getDirectlyCoincidentPoints(GeoId, PosId, GeoIdList, PosIdList);
+                GeoIdList = obj->chooseFilletsEdges(GeoIdList);
                 if (GeoIdList.size() == 2 && GeoIdList[0] >= 0 && GeoIdList[1] >= 0) {
                     const Part::Geometry* geo1 = obj->getGeometry(GeoIdList[0]);
                     const Part::Geometry* geo2 = obj->getGeometry(GeoIdList[1]);
@@ -203,34 +213,36 @@ private:
                 int filletGeoId = getHighestCurveIndex() + (isChamfer ? 2 : 1);
                 // create fillet at point
                 try {
-                    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create fillet"));
-                    Gui::cmdAppObjectArgs(obj,
-                                          "fillet(%d,%d,%f,%s,%s,%s)",
-                                          GeoId,
-                                          static_cast<int>(PosId),
-                                          radius,
-                                          "True",
-                                          preserveCorner ? "True" : "False",
-                                          isChamfer ? "True" : "False");
+                    openCommand(QT_TRANSLATE_NOOP("Command", "Create fillet"));
+                    Gui::cmdAppObjectArgs(
+                        obj,
+                        "fillet(%d,%d,%f,%s,%s,%s)",
+                        GeoId,
+                        static_cast<int>(PosId),
+                        radius,
+                        "True",
+                        preserveCorner ? "True" : "False",
+                        isChamfer ? "True" : "False"
+                    );
 
                     if (construction) {
                         Gui::cmdAppObjectArgs(obj, "toggleConstruction(%d) ", filletGeoId);
                     }
 
-                    Gui::Command::commitCommand();
+                    commitCommand();
                 }
                 catch (const Base::Exception& e) {
                     Gui::NotifyUserError(
                         obj,
                         QT_TRANSLATE_NOOP("Notifications", "Failed to create fillet"),
-                        e.what());
-                    Gui::Command::abortCommand();
+                        e.what()
+                    );
+                    abortCommand();
                 }
 
                 tryAutoRecomputeIfNotSolve(obj);
-            }
-        }
-
+            }  // end if curve endpoint
+        }  // end if vertex
         else {
             Base::Vector3d refPnt1(firstPos.x, firstPos.y, 0.f);
             Base::Vector3d refPnt2(secondPos.x, secondPos.y, 0.f);
@@ -238,8 +250,8 @@ private:
             const Part::Geometry* geo1 = obj->getGeometry(geoId1);
             const Part::Geometry* geo2 = obj->getGeometry(geoId2);
 
-            construction =
-                GeometryFacade::getConstruction(geo1) && GeometryFacade::getConstruction(geo2);
+            construction = GeometryFacade::getConstruction(geo1)
+                && GeometryFacade::getConstruction(geo2);
 
             double radius = 0;
 
@@ -249,6 +261,7 @@ private:
                 auto* line2 = static_cast<const Part::GeomLineSegment*>(geo2);
 
                 radius = Part::suggestFilletRadius(line1, line2, refPnt1, refPnt2);
+
                 if (radius < 0) {
                     return;
                 }
@@ -258,7 +271,7 @@ private:
 
             // create fillet between lines
             try {
-                Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create fillet"));
+                openCommand(QT_TRANSLATE_NOOP("Command", "Create fillet"));
                 Gui::cmdAppObjectArgs(
                     obj,
                     "fillet(%d,%d,App.Vector(%f,%f,0),App.Vector(%f,%f,0),%f,%s,%s,%s)",
@@ -271,24 +284,25 @@ private:
                     radius,
                     "True",
                     preserveCorner ? "True" : "False",
-                    isChamfer ? "True" : "False");
-                Gui::Command::commitCommand();
+                    isChamfer ? "True" : "False"
+                );
+                commitCommand();
             }
             catch (const Base::CADKernelError& e) {
                 if (e.getTranslatable()) {
-                    Gui::TranslatedUserError(sketchgui,
-                                             QObject::tr("CAD Kernel Error"),
-                                             QObject::tr(e.getMessage().c_str()));
+                    Gui::TranslatedUserError(
+                        sketchgui,
+                        tr("CAD Kernel Error"),
+                        tr(e.getMessage().c_str())
+                    );
                 }
                 Gui::Selection().clearSelection();
-                Gui::Command::abortCommand();
+                abortCommand();
             }
             catch (const Base::ValueError& e) {
-                Gui::TranslatedUserError(sketchgui,
-                                         QObject::tr("Value Error"),
-                                         QObject::tr(e.getMessage().c_str()));
+                Gui::TranslatedUserError(sketchgui, tr("Value Error"), tr(e.getMessage().c_str()));
                 Gui::Selection().clearSelection();
-                Gui::Command::abortCommand();
+                abortCommand();
             }
 
             tryAutoRecompute(obj);
@@ -314,18 +328,18 @@ private:
 
         if (constructionMethod() == DrawSketchHandlerFillet::ConstructionMethod::Fillet) {
             if (preserveCorner) {
-                return QString::fromLatin1("Sketcher_Pointer_Create_PointFillet");
+                return QStringLiteral("Sketcher_Pointer_Create_PointFillet");
             }
             else {
-                return QString::fromLatin1("Sketcher_Pointer_Create_Fillet");
+                return QStringLiteral("Sketcher_Pointer_Create_Fillet");
             }
         }
         else {
             if (preserveCorner) {
-                return QString::fromLatin1("Sketcher_Pointer_Create_PointChamfer");
+                return QStringLiteral("Sketcher_Pointer_Create_PointChamfer");
             }
             else {
-                return QString::fromLatin1("Sketcher_Pointer_Create_Chamfer");
+                return QStringLiteral("Sketcher_Pointer_Create_Chamfer");
             }
         }
     }
@@ -347,7 +361,7 @@ private:
 
     QString getToolWidgetText() const override
     {
-        return QString(QObject::tr("Fillet/Chamfer parameters"));
+        return QString(tr("Fillet/Chamfer Parameters"));
     }
 
     bool canGoToNextMode() override
@@ -394,7 +408,8 @@ private:
                         ss.str().c_str(),
                         onSketchPos.x,
                         onSketchPos.y,
-                        0.f);
+                        0.f
+                    );
                     moveToNextMode();
                 }
             }
@@ -402,6 +417,7 @@ private:
                 moveToNextMode();
             }
         }
+        updateHint();
     }
 
 
@@ -409,6 +425,34 @@ private:
     bool preserveCorner;
     int vtId, geoId1, geoId2;
     Base::Vector2d firstPos, secondPos;
+
+public:
+    std::list<Gui::InputHint> getToolHints() const override
+    {
+        using enum Gui::InputHint::UserInput;
+
+        const Gui::InputHint switchModeHint {.message = tr("%1 switch mode"), .sequences = {KeyM}};
+        const Gui::InputHint preserveCornerHint {
+            .message = tr("%1 toggle preserve corner"),
+            .sequences = {KeyU}
+        };
+
+        return Gui::lookupHints<SelectMode>(
+            state(),
+            {
+                {.state = SelectMode::SeekFirst,
+                 .hints
+                 = {{tr("%1 pick first edge or point"), {MouseLeft}},
+                    switchModeHint,
+                    preserveCornerHint}},
+                {.state = SelectMode::SeekSecond,
+                 .hints
+                 = {{tr("%1 pick second edge"), {MouseLeft}}, switchModeHint, preserveCornerHint}},
+                {.state = SelectMode::End,
+                 .hints = {{tr("%1 create fillet"), {MouseLeft}}, switchModeHint, preserveCornerHint}},
+            }
+        );
+    }
 };
 
 template<>
@@ -421,23 +465,30 @@ void DSHFilletController::configureToolWidget()
         toolWidget->setComboboxItemIcon(
             WCombobox::FirstCombo,
             0,
-            Gui::BitmapFactory().iconFromTheme("Sketcher_CreateFillet"));
+            Gui::BitmapFactory().iconFromTheme("Sketcher_CreateFillet")
+        );
         toolWidget->setComboboxItemIcon(
             WCombobox::FirstCombo,
             1,
-            Gui::BitmapFactory().iconFromTheme("Sketcher_CreateChamfer"));
+            Gui::BitmapFactory().iconFromTheme("Sketcher_CreateChamfer")
+        );
 
         toolWidget->setCheckboxLabel(
             WCheckbox::FirstBox,
-            QApplication::translate("TaskSketcherTool_c1_fillet", "Preserve corner (U)"));
+            QApplication::translate("TaskSketcherTool_c1_fillet", "Preserve corner (U)")
+        );
         toolWidget->setCheckboxToolTip(
             WCheckbox::FirstBox,
-            QApplication::translate("TaskSketcherTool_c1_fillet",
-                                    "Preserves intersection point and most constraints"));
+            QApplication::translate(
+                "TaskSketcherTool_c1_fillet",
+                "Preserves intersection point and most constraints"
+            )
+        );
 
         toolWidget->setCheckboxIcon(
             WCheckbox::FirstBox,
-            Gui::BitmapFactory().iconFromTheme("Sketcher_CreatePointFillet"));
+            Gui::BitmapFactory().iconFromTheme("Sketcher_CreatePointFillet")
+        );
     }
     syncCheckboxToHandler(WCheckbox::FirstBox, handler->preserveCorner);
 }
@@ -457,6 +508,3 @@ void DSHFilletController::adaptDrawingToCheckboxChange(int checkboxindex, bool v
 }
 
 }  // namespace SketcherGui
-
-
-#endif  // SKETCHERGUI_DrawSketchHandlerFillet_H

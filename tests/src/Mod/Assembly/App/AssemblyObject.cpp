@@ -9,7 +9,7 @@
 #include <App/Expression.h>
 #include <App/ObjectIdentifier.h>
 #include <Mod/Assembly/App/AssemblyObject.h>
-#include <Mod/Assembly/App/JointGroup.h>
+#include <Mod/Assembly/App/Groups.h>
 #include <src/App/InitApplication.h>
 
 class AssemblyObjectTest: public ::testing::Test
@@ -24,10 +24,8 @@ protected:
     {
         _docName = App::GetApplication().getUniqueDocumentName("test");
         auto _doc = App::GetApplication().newDocument(_docName.c_str(), "testUser");
-        _assemblyObj =
-            static_cast<Assembly::AssemblyObject*>(_doc->addObject("Assembly::AssemblyObject"));
-        _jointGroupObj = static_cast<Assembly::JointGroup*>(
-            _assemblyObj->addObject("Assembly::JointGroup", "jointGroupTest"));
+        _assemblyObj = _doc->addObject<Assembly::AssemblyObject>();
+        _jointGroupObj = _assemblyObj->addObject<Assembly::JointGroup>("jointGroupTest");
     }
 
     void TearDown() override

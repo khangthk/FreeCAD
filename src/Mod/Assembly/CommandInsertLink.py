@@ -36,11 +36,38 @@ import UtilsAssembly
 import Preferences
 import CommandCreateJoint
 
-# translate = App.Qt.translate
-
 __title__ = "Assembly Command Insert Component"
 __author__ = "Ondsel"
 __url__ = "https://www.freecad.org"
+
+
+tooltip = QT_TRANSLATE_NOOP(
+    "Assembly_InsertLink",
+    "<p>Inserts a component into the active assembly. This will create dynamic links to parts, bodies, primitives, and assemblies. To insert external components, make sure that the file is <b>open in the current session</b></p>"
+    "<ul>"
+    "<li>Insert by left clicking items in the list.</li>"
+    "<li>Remove by right clicking items in the list.</li>"
+    "<li>Press shift to add several instances of the component while clicking on the view.</li>"
+    "</ul>",
+)
+
+
+class CommandGroupInsert:
+    def GetCommands(self):
+        return ("Assembly_InsertLink", "Assembly_InsertNewPart")
+
+    def GetResources(self):
+        """Set icon, menu and tooltip."""
+
+        return {
+            "Pixmap": "Assembly_InsertLink",
+            "MenuText": QT_TRANSLATE_NOOP("Assembly_Insert", "Insert Component"),
+            "ToolTip": tooltip,
+            "CmdType": "ForEdit",
+        }
+
+    def IsActive(self):
+        return UtilsAssembly.isAssemblyCommandActive()
 
 
 class CommandInsertLink:
@@ -52,23 +79,7 @@ class CommandInsertLink:
             "Pixmap": "Assembly_InsertLink",
             "MenuText": QT_TRANSLATE_NOOP("Assembly_InsertLink", "Insert Component"),
             "Accel": "I",
-            "ToolTip": "<p>"
-            + QT_TRANSLATE_NOOP(
-                "Assembly_InsertLink",
-                "Insert a component into the active assembly. This will create dynamic links to parts, bodies, primitives, and assemblies. To insert external components, make sure that the file is <b>open in the current session</b>",
-            )
-            + "</p><p><ul><li>"
-            + QT_TRANSLATE_NOOP("Assembly_InsertLink", "Insert by left clicking items in the list.")
-            + "</li><li>"
-            + QT_TRANSLATE_NOOP(
-                "Assembly_InsertLink", "Remove by right clicking items in the list."
-            )
-            + "</li><li>"
-            + QT_TRANSLATE_NOOP(
-                "Assembly_InsertLink",
-                "Press shift to add several instances of the component while clicking on the view.",
-            )
-            + "</li></ul></p>",
+            "ToolTip": tooltip,
             "CmdType": "ForEdit",
         }
 
@@ -84,6 +95,14 @@ class CommandInsertLink:
         Gui.Control.showDialog(self.panel)
 
 
+class InsertLinkObserver:
+    def __init__(self, callback):
+        self.callback = callback
+
+    def slotDeletedObject(self, obj):
+        self.callback(obj)
+
+
 class TaskAssemblyInsertLink(QtCore.QObject):
     def __init__(self, assembly, view):
         super().__init__()
@@ -91,6 +110,7 @@ class TaskAssemblyInsertLink(QtCore.QObject):
         self.assembly = assembly
         self.view = view
         self.doc = App.ActiveDocument
+        self.showHidden = False
 
         self.form = Gui.PySideUic.loadUi(":/panels/TaskAssemblyInsertLink.ui")
         self.form.installEventFilter(self)
@@ -98,6 +118,7 @@ class TaskAssemblyInsertLink(QtCore.QObject):
 
         pref = Preferences.preferences()
         self.form.CheckBox_ShowOnlyParts.setChecked(pref.GetBool("InsertShowOnlyParts", False))
+        self.form.CheckBox_RigidSubAsm.setChecked(pref.GetBool("InsertRigidSubAssemblies", True))
 
         # Actions
         self.form.openFileButton.clicked.connect(self.openFiles)
@@ -114,21 +135,33 @@ class TaskAssemblyInsertLink(QtCore.QObject):
         self.groundedObj = None
 
         self.insertionStack = []  # used to handle cancellation of insertions.
+        self.doc_item_map = {}
 
         self.buildPartList()
 
-        App.setActiveTransaction("Insert Component")
+        Gui.ActiveDocument.openCommand("Insert Component")
+
+        # Listen for external deletions to keep the list in sync
+        self.docObserver = InsertLinkObserver(self.onObjectDeleted)
+        App.addDocumentObserver(self.docObserver)
 
     def accept(self):
         self.deactivated()
 
-        # if self.partMoving:
-        #    self.endMove()
         Gui.addModule("UtilsAssembly")
         commands = "assembly = UtilsAssembly.activeAssembly()\n"
         for insertionItem in self.insertionStack:
             object = insertionItem["addedObject"]
             translation = insertionItem["translation"]
+
+            # Check if object.Name & object.LinkedObject.Name exists
+            if (
+                not hasattr(object, "Name")
+                or not hasattr(object, "LinkedObject")
+                or not hasattr(object.LinkedObject, "Name")
+            ):
+                continue
+
             commands = commands + (
                 f'item = assembly.newObject("App::Link", "{object.Name}")\n'
                 f'item.LinkedObject = App.ActiveDocument.getObject("{object.LinkedObject.Name}")\n'
@@ -137,7 +170,7 @@ class TaskAssemblyInsertLink(QtCore.QObject):
 
             if translation != App.Vector():
                 commands = commands + (
-                    f"item.Placement.base = App.Vector({translation.x}."
+                    f"item.Placement.base = App.Vector({translation.x},"
                     f"{translation.y},"
                     f"{translation.z})\n"
                 )
@@ -150,33 +183,48 @@ class TaskAssemblyInsertLink(QtCore.QObject):
             )
 
         Gui.doCommandSkip(commands[:-1])  # Get rid of last \n
-        App.closeActiveTransaction()
+        Gui.ActiveDocument.commitCommand()
         return True
 
     def reject(self):
         self.deactivated()
 
-        # if self.partMoving:
-        #    self.dismissPart()
-
-        App.closeActiveTransaction(True)
+        Gui.ActiveDocument.abortCommand()
         return True
 
     def deactivated(self):
+        if hasattr(self, "docObserver") and self.docObserver:
+            App.removeDocumentObserver(self.docObserver)
+            self.docObserver = None
+
         pref = Preferences.preferences()
         pref.SetBool("InsertShowOnlyParts", self.form.CheckBox_ShowOnlyParts.isChecked())
+        pref.SetBool("InsertRigidSubAssemblies", self.form.CheckBox_RigidSubAsm.isChecked())
         Gui.Selection.clearSelection()
 
     def buildPartList(self):
         self.form.partList.clear()
+        self.doc_item_map.clear()
 
         docList = App.listDocuments().values()
+        if len(docList) > 20:
+            collapse = True
+        else:
+            collapse = False
 
         for doc in docList:
             # Create a new tree item for the document
             docItem = QtGui.QTreeWidgetItem()
-            docItem.setText(0, doc.Label + ".FCStd")
-            docItem.setIcon(0, QIcon.fromTheme("add", QIcon(":/icons/Document.svg")))
+            itemName = doc.Label
+            icon = QIcon.fromTheme("add", QIcon(":/icons/Document.svg"))
+            if doc.Partial:
+                itemName = (
+                    itemName + " (" + QT_TRANSLATE_NOOP("Assembly_Insert", "Partially loaded") + ")"
+                )
+                icon = self.createDisabledIcon(icon)
+            docItem.setText(0, itemName)
+            docItem.setIcon(0, icon)
+            self.doc_item_map[docItem] = doc
 
             if not any(
                 (child.isDerivedFrom("Part::Feature") or child.isDerivedFrom("App::Part"))
@@ -195,6 +243,9 @@ class TaskAssemblyInsertLink(QtCore.QObject):
                     if obj in self.assembly.InListRecursive:
                         continue  # Prevent dependency loop.
                         # For instance if asm1/asm2 with asm2 active, we don't want to have asm1 in the list
+
+                    if not obj.ViewObject.ShowInTree and not self.showHidden:
+                        continue
 
                     if (
                         obj.isDerivedFrom("Part::Feature")
@@ -233,7 +284,10 @@ class TaskAssemblyInsertLink(QtCore.QObject):
 
             guiDoc = Gui.getDocument(doc.Name)
             process_objects(guiDoc.TreeRootObjects, docItem)
-            self.form.partList.expandAll()
+            if collapse:
+                self.form.partList.collapseAll()
+            else:
+                self.form.partList.expandToDepth(0)
 
         self.adjustTreeWidgetSize()
 
@@ -308,9 +362,6 @@ class TaskAssemblyInsertLink(QtCore.QObject):
             item.setExpanded(not item.isExpanded())
             return
 
-        # if self.partMoving:
-        #    self.endMove()
-
         # check that the current document had been saved or that it's the same document as that of the selected part
         if not self.doc == selectedPart.Document:
             if self.doc.FileName == "":
@@ -353,7 +404,13 @@ class TaskAssemblyInsertLink(QtCore.QObject):
                 print(selectedPart.Document.Name)
                 documentItem.setText(0, f"{newDocName}.FCStd")"""
 
-        addedObject = self.assembly.newObject("App::Link", selectedPart.Label)
+        if selectedPart.isDerivedFrom("Assembly::AssemblyObject"):
+            objType = "Assembly::AssemblyLink"
+        else:
+            objType = "App::Link"
+
+        addedObject = self.assembly.newObject(objType, selectedPart.Label)
+
         # set placement of the added object to the center of the screen.
         view = Gui.activeView()
         x, y = view.getSize()
@@ -394,15 +451,16 @@ class TaskAssemblyInsertLink(QtCore.QObject):
 
         self.prevScreenCenter = screenCenter
 
+        # We turn it flexible after changing the position so that it uses the logic in
+        # AssemblyLink::onChanged to handle positioning correctly.
+        if selectedPart.isDerivedFrom("Assembly::AssemblyObject"):
+            addedObject.Rigid = self.form.CheckBox_RigidSubAsm.isChecked()
+
         # highlight the link
         Gui.Selection.clearSelection()
         Gui.Selection.addSelection(self.doc.Name, addedObject.Name, "")
 
-        # Start moving the part if user brings mouse on view
-        # self.initMove()
-
         item.setSelected(False)
-        # self.form.partList.setItemSelected(item, False)
 
         if len(self.insertionStack) == 1 and not UtilsAssembly.isAssemblyGrounded():
             self.handleFirstInsertion()
@@ -414,13 +472,11 @@ class TaskAssemblyInsertLink(QtCore.QObject):
         if fixPartPref == 0:  # unset
             msgBox = QtWidgets.QMessageBox()
             msgBox.setWindowTitle("Ground Part?")
-            msgBox.setText(
-                "Do you want to ground the first inserted part automatically?\nYou need at least one grounded part in your assembly."
-            )
+            msgBox.setText("Do you want to ground the first inserted part automatically?")
             msgBox.setIcon(QtWidgets.QMessageBox.Question)
 
             yesButton = msgBox.addButton("Yes", QtWidgets.QMessageBox.YesRole)
-            noButton = msgBox.addButton("No", QtWidgets.QMessageBox.NoRole)
+            noButton = msgBox.addButton("No", QtWidgets.QMessageBox.RejectRole)
             yesAlwaysButton = msgBox.addButton("Always", QtWidgets.QMessageBox.YesRole)
             noAlwaysButton = msgBox.addButton("Never", QtWidgets.QMessageBox.NoRole)
 
@@ -443,9 +499,44 @@ class TaskAssemblyInsertLink(QtCore.QObject):
             if len(self.insertionStack) != 1:
                 return
 
-            self.groundedObj = self.insertionStack[0]["addedObject"]
+            targetObj = self.insertionStack[0]["addedObject"]
+
+            # If the object is a flexible AssemblyLink, we should ground its internal 'base' part
+            if targetObj.isDerivedFrom("Assembly::AssemblyLink") and not targetObj.Rigid:
+                linkedAsm = targetObj.LinkedObject
+                if linkedAsm and hasattr(linkedAsm, "Group"):
+                    srcGrounded = None
+                    # Attempt to find the grounded joint in the source assembly
+                    # We look for a joint where JointType is 'Grounded'
+                    for obj in linkedAsm.InListRecursive:
+                        if hasattr(obj, "ObjectToGround"):
+                            srcGrounded = obj.ObjectToGround
+                            break
+
+                    # Search the sub-assembly group for the link pointing to the source grounded object
+                    # Fallback to the first valid part if no grounded joint was found in source
+                    candidate = None
+                    for child in targetObj.Group:
+                        if not candidate and (
+                            child.isDerivedFrom("App::Link") or child.isDerivedFrom("Part::Feature")
+                        ):
+                            candidate = child
+
+                        if (
+                            srcGrounded
+                            and hasattr(child, "LinkedObject")
+                            and child.LinkedObject == srcGrounded
+                        ):
+                            candidate = child
+                            break
+
+                    if not candidate:  # Nothing to ground
+                        return
+
+                    targetObj = candidate
+
+            self.groundedObj = targetObj
             self.groundedJoint = CommandCreateJoint.createGroundedJoint(self.groundedObj)
-            # self.endMove()
 
     def increment_counter(self, item):
         text = item.text(0)
@@ -478,24 +569,6 @@ class TaskAssemblyInsertLink(QtCore.QObject):
 
             item.setText(0, new_text)
 
-    # def initMove(self):
-    #    self.callbackMove = self.view.addEventCallback("SoLocation2Event", self.moveMouse)
-    #    self.callbackClick = self.view.addEventCallback("SoMouseButtonEvent", self.clickMouse)
-    #    self.callbackKey = self.view.addEventCallback("SoKeyboardEvent", self.KeyboardEvent)
-    #    self.partMoving = True
-
-    # def endMove(self):
-    #    self.view.removeEventCallback("SoLocation2Event", self.callbackMove)
-    #    self.view.removeEventCallback("SoMouseButtonEvent", self.callbackClick)
-    #    self.view.removeEventCallback("SoKeyboardEvent", self.callbackKey)
-    #    self.partMoving = False
-    #    self.doc.recompute()
-    #    # Gui.Selection.removeSelectionGate()
-
-    # def moveMouse(self, info):
-    #    newPos = self.view.getPoint(*info["Position"])
-    #    self.insertionStack[-1]["addedObject"].Placement.Base = newPos
-
     """def clickMouse(self, info):
         if info["Button"] == "BUTTON1" and info["State"] == "DOWN":
             Gui.Selection.clearSelection()
@@ -523,50 +596,91 @@ class TaskAssemblyInsertLink(QtCore.QObject):
         elif info["Button"] == "BUTTON2" and info["State"] == "DOWN":
             self.dismissPart()"""
 
-    # 3D view keyboard handler
-    # def KeyboardEvent(self, info):
-    #    if info["State"] == "UP" and info["Key"] == "ESCAPE":
-    #        self.dismissPart()
-
-    # def dismissPart(self):
-    #    self.endMove()
-    #    stack_item = self.insertionStack.pop()
-    #    self.totalTranslation -= stack_item["translation"]
-    #    UtilsAssembly.removeObjAndChilds(stack_item["addedObject"])
-    #    self.decrement_counter(stack_item["item"])
-
     # Taskbox keyboard event handler
     def eventFilter(self, watched, event):
-        # if watched == self.form and event.type() == QtCore.QEvent.KeyPress:
-        #    if event.key() == QtCore.Qt.Key_Escape and self.partMoving:
-        #        self.dismissPart()
-        #        return True  # Consume the event
 
         if event.type() == QtCore.QEvent.ContextMenu and watched is self.form.partList:
             item = watched.itemAt(event.pos())
 
             if item:
+                if item.parent() is None:
+                    doc = self.doc_item_map.get(item)
+                    if doc and doc.Partial:
+                        menu = QtWidgets.QMenu()
+                        load_action_text = QT_TRANSLATE_NOOP(
+                            "Assembly_Insert", "Fully load document"
+                        )
+                        load_action = menu.addAction(load_action_text)
+                        load_action.triggered.connect(lambda: self.fullyLoadDocument(doc))
+                        menu.exec_(event.globalPos())
+                        return True  # Event was handled
+
                 # Iterate through the insertionStack in reverse
                 for i in reversed(range(len(self.insertionStack))):
                     stack_item = self.insertionStack[i]
 
                     if stack_item["item"] == item:
-                        # if self.partMoving:
-                        #    self.endMove()
-
-                        self.totalTranslation -= stack_item["translation"]
                         obj = stack_item["addedObject"]
-                        if self.groundedObj == obj:
-                            self.groundedJoint.Document.removeObject(self.groundedJoint.Name)
-                        UtilsAssembly.removeObjAndChilds(obj)
 
-                        self.decrement_counter(item)
-                        del self.insertionStack[i]
-                        self.form.partList.setItemSelected(item, False)
+                        # ONLY remove the object from the document.
+                        # The Observer (onObjectDeleted) will handle the rest.
+                        if obj and obj.Document:
+                            UtilsAssembly.removeObjAndChilds(obj)
 
                         return True
+            else:
+                menu = QtWidgets.QMenu()
+
+                # Add the checkbox action
+                showHiddenAction = QtWidgets.QAction("Show objects hidden in tree view", menu)
+                showHiddenAction.setCheckable(True)
+                showHiddenAction.setChecked(self.showHidden)
+
+                # Connect the action to toggle `self.showHidden`
+                showHiddenAction.toggled.connect(self.toggleShowHidden)
+                menu.addAction(showHiddenAction)
+                menu.exec_(event.globalPos())
+                return True
 
         return super().eventFilter(watched, event)
+
+    def fullyLoadDocument(self, doc_to_load):
+        """Closes and re-opens a document to load it fully."""
+        if not doc_to_load.FileName:
+            return
+
+        # Save UI state
+        scrollbar = self.form.partList.verticalScrollBar()
+        scroll_position = scrollbar.value()
+
+        # Perform the reload
+        App.open(doc_to_load.FileName)
+        App.setActiveDocument(self.doc.Name)
+
+        # Refresh the UI
+        self.buildPartList()
+
+        # Restore UI state
+        scrollbar.setValue(scroll_position)
+
+    def createDisabledIcon(self, icon):
+        if icon.isNull():
+            return QIcon()
+
+        # Get a pixmap from the icon at a standard size
+        pixmap = icon.pixmap(icon.actualSize(QtCore.QSize(16, 16)))
+
+        # Ask the application's style to generate a disabled version of the pixmap
+        style = QtWidgets.QApplication.style()
+        disabled_pixmap = style.generatedIconPixmap(
+            QtGui.QIcon.Disabled, pixmap, QtWidgets.QStyleOption()
+        )
+
+        return QIcon(disabled_pixmap)
+
+    def toggleShowHidden(self, checked):
+        self.showHidden = checked
+        self.buildPartList()
 
     def getTranslationVec(self, part):
         bb = part.Shape.BoundBox
@@ -576,6 +690,42 @@ class TaskAssemblyInsertLink(QtCore.QObject):
             translation = 10
         return App.Vector(translation, translation, translation)
 
+    def onObjectDeleted(self, obj):
+        """
+        Handles cleanup when an object is deleted (via Right Click OR Tree View).
+        """
+        # Iterate backwards to safely delete
+        for i in reversed(range(len(self.insertionStack))):
+            stack_item = self.insertionStack[i]
+
+            if stack_item["addedObject"] == obj:
+                # 1. Revert translation
+                self.totalTranslation -= stack_item["translation"]
+
+                # 2. Update UI counter
+                item = stack_item["item"]
+                self.decrement_counter(item)
+
+                # 3. Handle Grounded Joint cleanup
+                if self.groundedObj == obj:
+                    if self.groundedJoint:
+                        try:
+                            # Remove the joint if it still exists
+                            if self.groundedJoint.Document:
+                                self.groundedJoint.Document.removeObject(self.groundedJoint.Name)
+                        except Exception:
+                            pass
+                    self.groundedObj = None
+                    self.groundedJoint = None
+
+                # 4. Remove from stack
+                del self.insertionStack[i]
+
+                # 5. Clear selection
+                if item:
+                    item.setSelected(False)
+
 
 if App.GuiUp:
     Gui.addCommand("Assembly_InsertLink", CommandInsertLink())
+    Gui.addCommand("Assembly_Insert", CommandGroupInsert())

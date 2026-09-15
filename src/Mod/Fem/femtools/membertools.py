@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
 # *   Copyright (c) 2018 Bernd Hahnebach <bernd@bimstatik.org>              *
@@ -21,18 +23,18 @@
 # *   USA                                                                   *
 # *                                                                         *
 # ***************************************************************************
-""" Collection of functions for the Fem module.
+"""Collection of functions for the Fem module.
 
 This module contains function for managing a analysis and all the different
 types of objects it contains, helper for executing a simulation.
 """
-
 
 __title__ = "FEM analysis tools"
 __author__ = "Markus Hovorka, Bernd Hahnebach"
 __url__ = "https://www.freecad.org"
 
 
+from FreeCAD import Base
 from . import femutils
 
 
@@ -141,19 +143,15 @@ def get_mesh_to_solve(analysis):
     """
     mesh_to_solve = None
     for m in analysis.Group:
-        if (
-            m.isDerivedFrom("Fem::FemMeshObject")
-            # the next line should not be needed as the result mesh is not a analysis member
-            and not femutils.is_of_type(m, "Fem::MeshResult")
-        ):
+        if m.isDerivedFrom("Fem::FemMeshObject") and not m.Suppressed:
             if not mesh_to_solve:
                 mesh_to_solve = m
             else:
-                return (None, "FEM: multiple mesh in analysis not yet supported!")
+                raise Base.FreeCADError("FEM: multiple meshes in analysis are not supported yet")
     if mesh_to_solve is not None:
-        return (mesh_to_solve, "")
+        return mesh_to_solve
     else:
-        return (None, "FEM: no mesh object found in analysis.")
+        raise Base.FreeCADError("FEM: no mesh object found in analysis.")
 
 
 class AnalysisMember:
@@ -279,6 +277,7 @@ class AnalysisMember:
         self.cons_force = self.get_several_member("Fem::ConstraintForce")
         self.cons_heatflux = self.get_several_member("Fem::ConstraintHeatflux")
         self.cons_initialtemperature = self.get_several_member("Fem::ConstraintInitialTemperature")
+        self.cons_finaltemperature = self.get_several_member("Fem::ConstraintInitialTemperature")
         self.cons_planerotation = self.get_several_member("Fem::ConstraintPlaneRotation")
         self.cons_pressure = self.get_several_member("Fem::ConstraintPressure")
         self.cons_sectionprint = self.get_several_member("Fem::ConstraintSectionPrint")
@@ -286,6 +285,10 @@ class AnalysisMember:
         self.cons_temperature = self.get_several_member("Fem::ConstraintTemperature")
         self.cons_tie = self.get_several_member("Fem::ConstraintTie")
         self.cons_transform = self.get_several_member("Fem::ConstraintTransform")
+        self.cons_electrostatic = self.get_several_member("Fem::ConstraintElectromagnetic")
+        self.cons_electricchargedensity = self.get_several_member(
+            "Fem::ConstraintElectricChargeDensity"
+        )
 
     def get_several_member(self, t):
         return get_several_member(self.analysis, t)

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2016 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -48,24 +50,17 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
         for prop in self._get_properties():
             prop.add_to_object(obj)
 
+        obj.addExtension("Fem::WorkerExtensionPython")
+
     def _get_properties(self):
         prop = []
 
         prop.append(
             _PropHelper(
                 type="App::PropertyLinkList",
-                name="MeshBoundaryLayerList",
-                group="Base",
-                doc="Mesh boundaries need inflation layers",
-                value=[],
-            )
-        )
-        prop.append(
-            _PropHelper(
-                type="App::PropertyLinkList",
-                name="MeshRegionList",
-                group="Base",
-                doc="Mesh refinments of the mesh",
+                name="MeshRefinementList",
+                group="Mesh Parameters",
+                doc="Mesh definitions for manipulating the mesh, like regions or boundary layers",
                 value=[],
             )
         )
@@ -73,7 +68,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyLinkList",
                 name="MeshGroupList",
-                group="Base",
+                group="Mesh Parameters",
                 doc="Mesh groups of the mesh",
                 value=[],
             )
@@ -82,7 +77,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyLength",
                 name="CharacteristicLengthMax",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Max mesh element size (0.0 means infinity)",
                 value=0.0,  # will be 1e+22
             )
@@ -91,7 +86,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyLength",
                 name="CharacteristicLengthMin",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Min mesh element size",
                 value=0.0,
             )
@@ -100,7 +95,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyEnumeration",
                 name="ElementDimension",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Dimension of mesh elements ('From Shape': according ShapeType of part to mesh)",
                 value=["From Shape", "1D", "2D", "3D"],
             )
@@ -109,7 +104,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyEnumeration",
                 name="ElementOrder",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Order of mesh elements",
                 value=["1st", "2nd"],
             )
@@ -118,7 +113,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyBool",
                 name="OptimizeStd",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Optimize tetrahedral elements",
                 value=True,
             )
@@ -127,7 +122,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyBool",
                 name="OptimizeNetgen",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Optimize tetra elements by use of Netgen",
                 value=False,
             )
@@ -136,7 +131,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyEnumeration",
                 name="HighOrderOptimize",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Optimization of high order meshes",
                 value=[
                     "None",
@@ -151,7 +146,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyBool",
                 name="RecombineAll",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Apply recombination algorithm to all surfaces",
                 value=False,
             )
@@ -160,7 +155,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyBool",
                 name="Recombine3DAll",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Apply recombination algorithm to all volumes",
                 value=False,
             )
@@ -169,7 +164,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyEnumeration",
                 name="RecombinationAlgorithm",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Recombination algorithm",
                 value=[
                     "Simple",
@@ -183,7 +178,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyBool",
                 name="CoherenceMesh",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Removes all duplicate mesh vertices",
                 value=True,
             )
@@ -192,7 +187,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyFloat",
                 name="GeometryTolerance",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Geometrical Tolerance (0.0 means GMSH std = 1e-08)",
                 value=1e-06,
             )
@@ -201,7 +196,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyBool",
                 name="SecondOrderLinear",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Second order nodes are created by linear interpolation",
                 value=False,
             )
@@ -210,7 +205,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyIntegerConstraint",
                 name="MeshSizeFromCurvature",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Number of elements per 2*pi radians, 0 to deactivate",
                 value=(12, 0, 10000, 1),
             )
@@ -219,7 +214,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyEnumeration",
                 name="Algorithm2D",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Mesh algorithm 2D",
                 value=[
                     "Automatic",
@@ -237,7 +232,7 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
             _PropHelper(
                 type="App::PropertyEnumeration",
                 name="Algorithm3D",
-                group="FEM Gmsh Mesh Params",
+                group="Mesh Parameters",
                 doc="Mesh algorithm 3D",
                 value=[
                     "Automatic",
@@ -252,20 +247,20 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
         )
         prop.append(
             _PropHelper(
-                type="App::PropertyBool",
-                name="GroupsOfNodes",
-                group="FEM Gmsh Mesh Params",
-                doc="For each group create not only the elements but the nodes too",
-                value=False,
+                type="App::PropertyEnumeration",
+                name="SubdivisionAlgorithm",
+                group="Mesh Parameters",
+                doc="Mesh subdivision algorithm",
+                value=["None", "All Quadrangles", "All Hexahedra", "Barycentric"],
             )
         )
         prop.append(
             _PropHelper(
-                type="App::PropertyEnumeration",
-                name="SubdivisionAlgorithm",
-                group="FEM Gmsh Mesh Params",
-                doc="Mesh subdivision algorithm",
-                value=["None", "All Quadrangles", "All Hexahedra", "Barycentric"],
+                type="App::PropertyBool",
+                name="ParallelProcessing",
+                group="Mesh Parameters",
+                doc="Use multiple threads to create the mesh",
+                value=True,
             )
         )
 
@@ -291,6 +286,10 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
                     obj, "App::PropertyBool", lambda x: "Optimization" if x else "None"
                 )
 
+            # Migrate group of properties for old projects
+            if obj.getGroupOfProperty(prop.name) != prop.group:
+                obj.setGroupOfProperty(prop.name, prop.group)
+
         # migrate old Part property to Shape property
         try:
             value_part = obj.getPropertyByName("Part")
@@ -305,5 +304,19 @@ class MeshGmsh(base_fempythonobject.BaseFemPythonObject):
                 value=value_part,
             )
             prop.add_to_object(obj)
+
         except Base.PropertyError:
             pass
+
+        if not obj.hasExtension("Fem::WorkerExtensionPython"):
+            obj.addExtension("Fem::WorkerExtensionPython")
+
+        # migrate old properties to definition list
+        for prop in ["MeshBoundaryLayerList", "MeshRegionList"]:
+            try:
+                value = obj.getPropertyByName(prop)
+                obj.setPropertyStatus(prop, "-LockDynamic")
+                obj.removeProperty(prop)
+                obj.MeshRefinementList = obj.MeshRefinementList + value
+            except Base.PropertyError:
+                pass

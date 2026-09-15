@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Friedli <david[at]friedli-be.ch>             *
  *                                                                         *
@@ -20,8 +22,7 @@
  **************************************************************************/
 
 
-#ifndef APP_MEASUREPOSITION_H
-#define APP_MEASUREPOSITION_H
+#pragma once
 
 #include <Mod/Measure/MeasureGlobal.h>
 
@@ -40,8 +41,7 @@ namespace Measure
 {
 
 
-class MeasureExport MeasurePosition
-    : public Measure::MeasureBaseExtendable<Part::MeasurePositionInfo>
+class MeasureExport MeasurePosition: public Measure::MeasureBaseExtendable<Part::MeasurePositionInfo>
 {
     PROPERTY_HEADER_WITH_OVERRIDE(Measure::MeasurePosition);
 
@@ -71,9 +71,9 @@ public:
     {
         return &this->Position;
     }
-    QString getResultString() override;
+    std::string getResultString() override;
 
-    Base::Placement getPlacement() override;
+    Base::Placement getPlacement() const override;
 
     // Return the object we are measuring
     std::vector<App::DocumentObject*> getSubject() const override;
@@ -83,6 +83,3 @@ private:
 };
 
 }  // namespace Measure
-
-
-#endif  // APP_MEASUREPOSITION_H

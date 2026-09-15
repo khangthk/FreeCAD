@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2015 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -39,4 +41,4 @@ class VPElementGeometry2D(view_base_femelement.VPBaseFemElement):
     """
 
     def setEdit(self, vobj, mode=0):
-        super().setEdit(vobj, mode, task_element_geometry2D._TaskPanel)
+        return super().setEdit(vobj, mode, task_element_geometry2D._TaskPanel)

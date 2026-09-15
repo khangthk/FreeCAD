@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Friedli <david[at]friedli-be.ch>             *
+ *   Copyright (c) 2026 Loke S. Haugsnes <lokesh[at]live.no>               *
  *                                                                         *
  *   This file is part of FreeCAD.                                         *
  *                                                                         *
@@ -19,12 +22,17 @@
  *                                                                         *
  **************************************************************************/
 
+#pragma once
 
-#include <qcolumnview.h>
+#include <functional>
+
+#include <QColumnView>
 #include <QString>
 #include <QComboBox>
+#include <QLabel>
 #include <QLineEdit>
 #include <QCheckBox>
+#include <QFormLayout>
 
 #include <App/Application.h>
 #include <App/Document.h>
@@ -37,13 +45,17 @@
 
 #include <Gui/TaskView/TaskDialog.h>
 #include <Gui/TaskView/TaskView.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 
-namespace Gui
-{
+#include <fastsignals/connection.h>
 
-class TaskMeasure: public TaskView::TaskDialog, public Gui::SelectionObserver
+namespace MeasureGui
 {
+class TaskMeasureTypeInfo;
+
+class TaskMeasure: public Gui::TaskView::TaskDialog, public Gui::SelectionObserver
+{
+    Q_OBJECT
 
 public:
     TaskMeasure();
@@ -57,50 +69,105 @@ public:
 
     void invoke();
     void update();
-    void close();
+    void closeDialog();
     bool apply();
+    bool apply(bool reset);
     bool reject() override;
     void reset();
+    void closed() override;
+    void activate() override;
+    void deactivate() override;
 
     bool hasSelection();
     void clearSelection();
-    bool eventFilter(QObject* obj, QEvent* event) override;
-    void setMeasureObject(Measure::MeasureBase* obj);
 
 private:
+    void setupShortcuts(QWidget* parent);
+    void tryUpdate();
+    void updateUnitDropdown(const App::MeasureType* measureType);
     void onSelectionChanged(const Gui::SelectionChanges& msg) override;
+    void onObjectDeleted(const App::DocumentObject& obj);
+    void saveMeasurement();
+    void quitMeasurement();
 
-    App::Document* _mDocument = nullptr;
-    Gui::Document* _mGuiDocument = nullptr;
     Measure::MeasureBase* _mMeasureObject = nullptr;
-    Gui::ViewProviderDocumentObject* _mViewObject = nullptr;
 
+    QFormLayout* formLayout {nullptr};
     QLineEdit* valueResult {nullptr};
     QComboBox* modeSwitch {nullptr};
-    QCheckBox* showDelta {nullptr};
-    QLabel* showDeltaLabel {nullptr};
+    QComboBox* unitSwitch {nullptr};
+    QAction* autoSaveAction {nullptr};
+    QAction* newMeasurementBehaviourAction {nullptr};
+    QToolButton* mSettings {nullptr};
+
+    std::unique_ptr<TaskMeasureTypeInfo> typeInfo;
+
+    fastsignals::connection m_deletedConnection;
 
     void removeObject();
     void onModeChanged(int index);
-    void showDeltaChanged(int checkState);
+    void onUnitChanged(int index);
+    void autoSaveChanged(bool checked);
+    void newMeasurementBehaviourChanged(bool checked);
+    void updateSelectionType();
     void setModeSilent(App::MeasureType* mode);
-    App::MeasureType* getMeasureType();
     void enableAnnotateButton(bool state);
-    App::DocumentObject* createObject(const App::MeasureType* measureType);
-    Gui::ViewProviderDocumentObject* createViewObject(App::DocumentObject* measureObj);
-    void saveObject();
+    void createObject(const App::MeasureType* measureType);
     void ensureGroup(Measure::MeasureBase* measurement);
-    void setDeltaPossible(bool possible);
-
-
-    // List of measure types
-    std::vector<App::DocumentObject> measureObjects;
+    void syncDisplayUnit();
+    void refreshResult();
+    void updateAnnotation();
+    void createTypeInfo(const std::string& type);
 
     // Stores if the mode is explicitly set by the user or implicitly through the selection
     bool explicitMode = false;
 
     // Stores if delta measures shall be shown
-    bool delta = true;
+    bool mAutoSave = false;
+    bool mGreedySelection = false;
+    Gui::Document* mTargetDoc;
 };
 
-}  // namespace Gui
+// When creating a new TaskMeasureTypeInfo, remember to add it to TaskMeasure::createTypeInfo
+class TaskMeasureTypeInfo: public QObject
+{
+    Q_OBJECT
+public:
+    using MeasureObjectGetter = std::function<Measure::MeasureBase*()>;
+
+    explicit TaskMeasureTypeInfo(QFormLayout& parentFormLayout, MeasureObjectGetter measureObjectGetter);
+    ~TaskMeasureTypeInfo() override;
+    virtual void resetUIState() = 0;
+    virtual void update() = 0;
+
+protected:
+    Measure::MeasureBase* getMeasureObject() const;
+
+    QFormLayout& _parentFormLayout;
+    // Every Qt object created by derived classes must have _container as a parent
+    QWidget* _container {nullptr};
+
+private:
+    MeasureObjectGetter _measureObjectGetter;
+};
+
+class TaskMeasureDistanceInfo: public TaskMeasureTypeInfo
+{
+    Q_OBJECT
+public:
+    explicit TaskMeasureDistanceInfo(QFormLayout& formLayout, MeasureObjectGetter measureObjectGetter);
+    void resetUIState() override;
+    void update() override;
+
+private:
+    void showDeltaChanged(int checkState);
+
+private:
+    QCheckBox* _showDelta {nullptr};
+    QLineEdit* _deltaXResult {nullptr};
+    QLineEdit* _deltaYResult {nullptr};
+    QLineEdit* _deltaZResult {nullptr};
+    QWidget* _deltaResult {nullptr};
+};
+
+}  // namespace MeasureGui

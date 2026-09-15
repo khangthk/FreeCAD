@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2014 Yorik van Havre <yorik@uncreated.net>              *
 # *   Copyright (c) 2020 Eliud Cabrera Castillo <e.cabrera-castillo@tum.de> *
@@ -23,20 +25,21 @@
 # *                                                                         *
 # ***************************************************************************
 """Provides the viewprovider code for the Layer object."""
+
 ## @package view_layer
 # \ingroup draftviewproviders
 # \brief Provides the viewprovider code for the Layer object.
 
 ## \addtogroup draftviewproviders
 # @{
-import pivy.coin as coin
-import PySide.QtCore as QtCore
-import PySide.QtGui as QtGui
+from pivy import coin
+from PySide import QtCore
+from PySide import QtGui
 from PySide.QtCore import QT_TRANSLATE_NOOP
 
 import FreeCAD as App
 import FreeCADGui as Gui
-from draftobjects.layer import Layer
+from draftobjects.layer import get_layer
 from draftutils import params
 from draftutils import utils
 from draftutils.translate import translate
@@ -60,112 +63,98 @@ class ViewProviderLayer:
     def set_override_options(self, vobj, properties):
         """Set property options only if they don't already exist."""
         if "OverrideLineColorChildren" not in properties:
-            _tip = QT_TRANSLATE_NOOP("App::Property",
-                                     "If it is true, the objects contained "
-                                     "within this layer will adopt "
-                                     "the line color of the layer")
-            vobj.addProperty("App::PropertyBool",
-                             "OverrideLineColorChildren",
-                             "Layer",
-                             _tip)
+            _tip = QT_TRANSLATE_NOOP(
+                "App::Property",
+                "If it is true, the objects contained "
+                "within this layer will adopt "
+                "the line color of the layer",
+            )
+            vobj.addProperty(
+                "App::PropertyBool", "OverrideLineColorChildren", "Layer", _tip, locked=True
+            )
             vobj.OverrideLineColorChildren = True
 
         if "OverrideShapeAppearanceChildren" not in properties:
-            _tip = QT_TRANSLATE_NOOP("App::Property",
-                                     "If it is true, the objects contained "
-                                     "within this layer will adopt "
-                                     "the shape appearance of the layer")
-            vobj.addProperty("App::PropertyBool",
-                             "OverrideShapeAppearanceChildren",
-                             "Layer",
-                             _tip)
+            _tip = QT_TRANSLATE_NOOP(
+                "App::Property",
+                "If it is true, the objects contained "
+                "within this layer will adopt "
+                "the shape appearance of the layer",
+            )
+            vobj.addProperty(
+                "App::PropertyBool", "OverrideShapeAppearanceChildren", "Layer", _tip, locked=True
+            )
             vobj.OverrideShapeAppearanceChildren = True
 
         if "UsePrintColor" not in properties:
-            _tip = QT_TRANSLATE_NOOP("App::Property",
-                                     "If it is true, the print color "
-                                     "will be used when objects in this "
-                                     "layer are placed on a TechDraw page")
-            vobj.addProperty("App::PropertyBool",
-                             "UsePrintColor",
-                             "Print",
-                             _tip)
+            _tip = QT_TRANSLATE_NOOP(
+                "App::Property",
+                "If it is true, the print color "
+                "will be used when objects in this "
+                "layer are placed on a TechDraw page",
+            )
+            vobj.addProperty("App::PropertyBool", "UsePrintColor", "Print", _tip, locked=True)
 
     def set_visual_properties(self, vobj, properties):
         """Set visual properties only if they don't already exist."""
         if "LineColor" not in properties:
-            _tip = QT_TRANSLATE_NOOP("App::Property",
-                                     "The line color of the objects "
-                                     "contained within this layer")
-            vobj.addProperty("App::PropertyColor",
-                             "LineColor",
-                             "Layer",
-                             _tip)
-            vobj.LineColor = params.get_param_view("DefaultShapeLineColor") & 0xFFFFFF00
+            _tip = QT_TRANSLATE_NOOP(
+                "App::Property", "The line color of the objects " "contained within this layer"
+            )
+            vobj.addProperty("App::PropertyColor", "LineColor", "Layer", _tip, locked=True)
+            vobj.LineColor = params.get_param_view("DefaultShapeLineColor") | 0x000000FF
 
         if "ShapeColor" not in properties:
-            _tip = QT_TRANSLATE_NOOP("App::Property",
-                                     "The shape color of the objects "
-                                     "contained within this layer")
-            vobj.addProperty("App::PropertyColor",
-                             "ShapeColor",
-                             "Layer",
-                             _tip,
-                             4)  # Hidden
-            vobj.ShapeColor = params.get_param_view("DefaultShapeColor") & 0xFFFFFF00
+            _tip = QT_TRANSLATE_NOOP(
+                "App::Property", "The shape color of the objects " "contained within this layer"
+            )
+            vobj.addProperty(
+                "App::PropertyColor", "ShapeColor", "Layer", _tip, 4, locked=True
+            )  # Hidden
+            vobj.ShapeColor = params.get_param_view("DefaultShapeColor") | 0x000000FF
 
         if "ShapeAppearance" not in properties:
-            _tip = QT_TRANSLATE_NOOP("App::Property",
-                                     "The shape appearance of the objects "
-                                     "contained within this layer")
-            vobj.addProperty("App::PropertyMaterialList",
-                             "ShapeAppearance",
-                             "Layer",
-                             _tip)
+            _tip = QT_TRANSLATE_NOOP(
+                "App::Property",
+                "The shape appearance of the objects " "contained within this layer",
+            )
+            vobj.addProperty(
+                "App::PropertyMaterialList", "ShapeAppearance", "Layer", _tip, locked=True
+            )
             material = App.Material()
-            material.DiffuseColor = params.get_param_view("DefaultShapeColor") & 0xFFFFFF00
-            vobj.ShapeAppearance = (material, )
+            material.DiffuseColor = params.get_param_view("DefaultShapeColor") | 0x000000FF
+            vobj.ShapeAppearance = (material,)
 
         if "LineWidth" not in properties:
-            _tip = QT_TRANSLATE_NOOP("App::Property",
-                                     "The line width of the objects contained "
-                                     "within this layer")
-            vobj.addProperty("App::PropertyFloat",
-                             "LineWidth",
-                             "Layer",
-                             _tip)
+            _tip = QT_TRANSLATE_NOOP(
+                "App::Property", "The line width of the objects contained " "within this layer"
+            )
+            vobj.addProperty("App::PropertyFloat", "LineWidth", "Layer", _tip, locked=True)
             vobj.LineWidth = params.get_param_view("DefaultShapeLineWidth")
 
         if "DrawStyle" not in properties:
-            _tip = QT_TRANSLATE_NOOP("App::Property",
-                                     "The draw style of the objects contained "
-                                     "within this layer")
-            vobj.addProperty("App::PropertyEnumeration",
-                             "DrawStyle",
-                             "Layer",
-                             _tip)
+            _tip = QT_TRANSLATE_NOOP(
+                "App::Property", "The draw style of the objects contained " "within this layer"
+            )
+            vobj.addProperty("App::PropertyEnumeration", "DrawStyle", "Layer", _tip, locked=True)
             vobj.DrawStyle = utils.DRAW_STYLES
             vobj.DrawStyle = params.get_param("DefaultDrawStyle")
 
         if "Transparency" not in properties:
-            _tip = QT_TRANSLATE_NOOP("App::Property",
-                                     "The transparency of the objects "
-                                     "contained within this layer")
-            vobj.addProperty("App::PropertyPercent",
-                             "Transparency",
-                             "Layer",
-                             _tip)
+            _tip = QT_TRANSLATE_NOOP(
+                "App::Property", "The transparency of the objects " "contained within this layer"
+            )
+            vobj.addProperty("App::PropertyPercent", "Transparency", "Layer", _tip, locked=True)
             vobj.Transparency = params.get_param_view("DefaultShapeTransparency")
 
         if "LinePrintColor" not in properties:
-            _tip = QT_TRANSLATE_NOOP("App::Property",
-                                     "The line color of the objects "
-                                     "contained within this layer, "
-                                     "when used on a TechDraw page")
-            vobj.addProperty("App::PropertyColor",
-                             "LinePrintColor",
-                             "Print",
-                             _tip)
+            _tip = QT_TRANSLATE_NOOP(
+                "App::Property",
+                "The line color of the objects "
+                "contained within this layer, "
+                "when used on a TechDraw page",
+            )
+            vobj.addProperty("App::PropertyColor", "LinePrintColor", "Print", _tip, locked=True)
             vobj.LinePrintColor = params.get_param("DefaultPrintColor")
 
     def getIcon(self):
@@ -216,14 +205,43 @@ class ViewProviderLayer:
 
     def updateData(self, obj, prop):
         """Execute when a property from the Proxy class is changed."""
-        if prop == "Group":
-            for _prop in ("LineColor", "ShapeAppearance", "LineWidth",
-                          "DrawStyle", "Visibility"):
-                self.onChanged(obj.ViewObject, _prop)
+        if prop == "Label":
+            self._paint_tree_icon(obj.ViewObject)
 
-    def change_view_properties(self, vobj, prop):
-        """Iterate over the contents and change the properties."""
-        obj = vobj.Object
+    def change_view_properties(self, vobj, prop, old_prop=None, targets=None):
+        """Change the properties of the targets, or of all objects in the layer group.
+
+        A child's property is only changed if it is not overridden (if its value
+        matches old_prop).
+        """
+
+        def _color_is_same(col1, col2):
+            # Ignore alpha and round RGB values
+            return [round(c, 2) for c in col1[:3]] == [round(c, 2) for c in col2[:3]]
+
+        def _app_material_is_same(mat1, mat2):
+            for prop in (
+                "AmbientColor",
+                "DiffuseColor",
+                "EmissiveColor",
+                "Shininess",
+                "SpecularColor",
+                "Transparency",
+            ):
+                if "Color" in prop:
+                    if not _color_is_same(getattr(mat1, prop), getattr(mat2, prop)):
+                        return False
+                elif getattr(mat1, prop) != getattr(mat2, prop):
+                    return False
+            return True
+
+        def _prop_is_same(prop1, prop2):
+            if isinstance(prop1, tuple):
+                if isinstance(prop1[0], App.Material):
+                    # We do not check the length of the ShapeAppearance
+                    return _app_material_is_same(prop1[0], prop2[0])
+                return _color_is_same(prop1, prop2)
+            return prop1 == prop2
 
         # Return if the property does not exist
         if not hasattr(vobj, prop):
@@ -231,27 +249,30 @@ class ViewProviderLayer:
         # If the override properties are not set return without change
         if prop == "LineColor" and not vobj.OverrideLineColorChildren:
             return
-        elif prop == "ShapeAppearance" and not vobj.OverrideShapeAppearanceChildren:
+        if prop == "ShapeAppearance" and not vobj.OverrideShapeAppearanceChildren:
             return
 
-        for target_obj in obj.Group:
+        for target_obj in (targets if targets is not None else vobj.Object.Group):
             target_vobj = target_obj.ViewObject
 
-            # This checks that the property exists in the target object,
-            # and then sets the target property accordingly
             if hasattr(target_vobj, prop):
-                setattr(target_vobj, prop, getattr(vobj, prop))
+                if old_prop is None or _prop_is_same(getattr(target_vobj, prop), old_prop):
+                    setattr(target_vobj, prop, getattr(vobj, prop))
 
-            # Use the line color for the point color and text color
-            if prop == "LineColor":
-                if hasattr(target_vobj, "PointColor"):
-                    target_vobj.PointColor = vobj.LineColor
-                if hasattr(target_vobj, "TextColor"):
-                    target_vobj.TextColor = vobj.LineColor
-            # Use the line width for the point size
-            elif prop == "LineWidth":
-                if hasattr(target_vobj, "PointSize"):
-                    target_vobj.PointSize = vobj.LineWidth
+            # Use the line color for the point color and text color,
+            # and the line width for the point size
+            dic = {"LineColor": ("PointColor", "TextColor"), "LineWidth": ("PointSize",)}
+            if prop in dic:
+                for target_prop in dic[prop]:
+                    if hasattr(target_vobj, target_prop):
+                        if old_prop is None or _prop_is_same(
+                            getattr(target_vobj, target_prop), old_prop
+                        ):
+                            setattr(target_vobj, target_prop, getattr(vobj, prop))
+
+    def onBeforeChange(self, vobj, prop):
+        if prop in ("LineColor", "ShapeAppearance", "LineWidth", "DrawStyle", "Visibility"):
+            setattr(self, "old" + prop, getattr(vobj, prop))
 
     def onChanged(self, vobj, prop):
         """Execute when a view property is changed."""
@@ -264,7 +285,7 @@ class ViewProviderLayer:
                 material = vobj.ShapeAppearance[0]
                 if material.DiffuseColor != vobj.ShapeColor:
                     material.DiffuseColor = vobj.ShapeColor
-                    vobj.ShapeAppearance = (material, )
+                    vobj.ShapeAppearance = (material,)
             # The changed ShapeAppearance will do the rest:
             return
 
@@ -273,70 +294,67 @@ class ViewProviderLayer:
                 material = vobj.ShapeAppearance[0]
                 if material.Transparency != vobj.Transparency / 100:
                     material.Transparency = vobj.Transparency / 100
-                    vobj.ShapeAppearance = (material, )
+                    vobj.ShapeAppearance = (material,)
             # The changed ShapeAppearance will do the rest:
             return
 
-        if (prop == "ShapeAppearance"
-                and hasattr(vobj, "ShapeColor")
-                and hasattr(vobj, "Transparency")):
+        if (
+            prop == "ShapeAppearance"
+            and hasattr(vobj, "ShapeColor")
+            and hasattr(vobj, "Transparency")
+        ):
             material = vobj.ShapeAppearance[0]
             if material.DiffuseColor != vobj.ShapeColor:
                 vobj.ShapeColor = material.DiffuseColor
             if material.Transparency != vobj.Transparency / 100:
                 vobj.Transparency = int(material.Transparency * 100)
 
-        if (prop in ("LineColor", "ShapeAppearance", "LineWidth",
-                     "DrawStyle", "Visibility")
-                and hasattr(vobj, "OverrideLineColorChildren")
-                and hasattr(vobj, "OverrideShapeAppearanceChildren")):
-            self.change_view_properties(vobj, prop)
+        if (
+            prop in ("LineColor", "ShapeAppearance", "LineWidth", "DrawStyle", "Visibility")
+            and hasattr(vobj, "OverrideLineColorChildren")
+            and hasattr(vobj, "OverrideShapeAppearanceChildren")
+        ):
+            old_prop = getattr(self, "old" + prop, None)
+            self.change_view_properties(vobj, prop, old_prop)
+            if hasattr(self, "old" + prop):
+                delattr(self, "old" + prop)
 
-        # Paint the layer icon in the tree view:
-        if (prop in ("LineColor", "ShapeAppearance")
-                and hasattr(vobj, "LineColor")
-                and hasattr(vobj, "ShapeAppearance")):
-            l_color = vobj.LineColor
-            s_color = vobj.ShapeAppearance[0].DiffuseColor
+        if prop in ("LineColor", "ShapeAppearance"):
+            self._paint_tree_icon(vobj)
 
-            l_color = QtGui.QColor(int(l_color[0] * 255),
-                                   int(l_color[1] * 255),
-                                   int(l_color[2] * 255))
-            s_color = QtGui.QColor(int(s_color[0] * 255),
-                                   int(s_color[1] * 255),
-                                   int(s_color[2] * 255))
-            p1 = QtCore.QPointF(2, 17)
-            p2 = QtCore.QPointF(13, 8)
-            p3 = QtCore.QPointF(30, 15)
-            p4 = QtCore.QPointF(20, 25)
+    def _paint_tree_icon(self, vobj):
+        """Paint the layer icon in the tree view."""
+        if not hasattr(vobj, "LineColor"):
+            return
+        if not hasattr(vobj, "ShapeAppearance"):
+            return
+        l_color = vobj.LineColor
+        s_color = vobj.ShapeAppearance[0].DiffuseColor
 
-            image = QtGui.QImage(32, 32, QtGui.QImage.Format_ARGB32)
-            image.fill(QtCore.Qt.transparent)
+        l_color = QtGui.QColor(int(l_color[0] * 255), int(l_color[1] * 255), int(l_color[2] * 255))
+        s_color = QtGui.QColor(int(s_color[0] * 255), int(s_color[1] * 255), int(s_color[2] * 255))
+        p1 = QtCore.QPointF(2, 17)
+        p2 = QtCore.QPointF(13, 8)
+        p3 = QtCore.QPointF(30, 15)
+        p4 = QtCore.QPointF(20, 25)
 
-            pt = QtGui.QPainter(image)
-            pt.setBrush(QtGui.QBrush(s_color, QtCore.Qt.SolidPattern))
-            pt.drawPolygon([p1, p2, p3, p4])
-            pt.setPen(QtGui.QPen(l_color, 2,
-                                 QtCore.Qt.SolidLine, QtCore.Qt.FlatCap))
-            pt.drawPolygon([p1, p2, p3, p4])
-            pt.end()
+        image = QtGui.QImage(32, 32, QtGui.QImage.Format_ARGB32)
+        image.fill(QtCore.Qt.transparent)
 
-            byte_array = QtCore.QByteArray()
-            buffer = QtCore.QBuffer(byte_array)
-            buffer.open(QtCore.QIODevice.WriteOnly)
-            image.save(buffer, "XPM")
+        pt = QtGui.QPainter(image)
+        pt.setBrush(QtGui.QBrush(s_color, QtCore.Qt.SolidPattern))
+        pt.drawPolygon([p1, p2, p3, p4])
+        pt.setPen(QtGui.QPen(l_color, 2, QtCore.Qt.SolidLine, QtCore.Qt.FlatCap))
+        pt.drawPolygon([p1, p2, p3, p4])
+        pt.end()
 
-            self.icondata = byte_array.data().decode("latin1")
-            vobj.signalChangeIcon()
+        byte_array = QtCore.QByteArray()
+        buffer = QtCore.QBuffer(byte_array)
+        buffer.open(QtCore.QIODevice.WriteOnly)
+        image.save(buffer, "XPM")
 
-    def _get_layer(self, obj):
-        """Get the layer the object belongs to.
-        """
-        from draftmake.make_layer import get_layer_container
-        for layer in get_layer_container().Group:
-            if utils.get_type(layer) == "Layer" and obj in layer.Group:
-                return layer
-        return None
+        self.icondata = byte_array.data().decode("latin1")
+        vobj.signalChangeIcon()
 
     def canDragObject(self, obj):
         """Return True to allow dragging one object from the Layer.
@@ -351,7 +369,7 @@ class ViewProviderLayer:
             if hasattr(parent, "Group"):
                 old_data.append([parent, parent.Group])
         # Layers are not in the Inlist because a layer's Group is App::PropertyLinkListHidden:
-        layer = self._get_layer(obj)
+        layer = get_layer(obj)
         if layer is not None:
             old_data.append([layer, layer.Group])
         if old_data:
@@ -364,14 +382,11 @@ class ViewProviderLayer:
         """Return True to allow dragging many objects from the Layer."""
         return True
 
-    def dragObject(self, vobj, otherobj):
+    def dragObject(self, vobj, child):
         """Remove the object that was dragged from the layer."""
-        layer = vobj.Object
-        if otherobj in layer.Group:
-            group = layer.Group
-            group.remove(otherobj)
-            layer.Group = group
-            App.ActiveDocument.recompute()
+        obj = vobj.Object
+        obj.Proxy.removeObject(obj, child)
+        App.ActiveDocument.recompute()
 
     def canDropObject(self, obj):
         """Return true to allow dropping one object.
@@ -390,30 +405,14 @@ class ViewProviderLayer:
         """Return true to allow dropping many objects."""
         return True
 
-    def dropObject(self, vobj, otherobj):
-        """Add object that was dropped into the Layer to the group.
+    def dropObject(self, vobj, child):
+        """Add the object that was dropped on the Layer to the group.
 
-        If the object being dropped is itself a `'Layer'`,
-        return immediately to prevent dropping a layer inside a layer,
-        at least for now.
+        This also results in a call to `change_view_properties` to update the
+        view properties of the child.
         """
-        if utils.get_type(otherobj) == "Layer":
-            return
-
-        # We assume a single old layer...
-
-        old_layer = self._get_layer(otherobj)
-        if old_layer is not None:
-            group = old_layer.Group
-            group.remove(otherobj)
-            old_layer.Group = group
-
-        new_layer = vobj.Object
-        if otherobj not in new_layer.Group:
-            group = new_layer.Group
-            group.append(otherobj)
-            new_layer.Group = group
-
+        obj = vobj.Object
+        obj.Proxy.addObject(obj, child)
         App.ActiveDocument.recompute()
 
     def update_groups_after_drag_drop(self):
@@ -445,7 +444,7 @@ class ViewProviderLayer:
                     old_layer = old_parent
                     break
 
-            new_layer = self._get_layer(child)
+            new_layer = get_layer(child)
             if new_layer == old_layer:
                 continue
 
@@ -457,8 +456,9 @@ class ViewProviderLayer:
                 # the document node, in that case we do nothing.
                 old_parents = [sub[0] for sub in old_data]
                 for new_parent in child.InList:
-                    if (hasattr(new_parent, "Group")
-                            and new_parent not in old_parents): # New group check.
+                    if (
+                        hasattr(new_parent, "Group") and new_parent not in old_parents
+                    ):  # New group check.
                         for old_parent, old_parent_group in old_data:
                             if old_parent == old_layer:
                                 parents_to_update.append([old_parent, old_parent_group])
@@ -486,15 +486,25 @@ class ViewProviderLayer:
 
     def setupContextMenu(self, vobj, menu):
         """Set up actions to perform in the context menu."""
-        action_activate = QtGui.QAction(QtGui.QIcon(":/icons/button_right.svg"),
-                                        translate("draft", "Activate this layer"),
-                                        menu)
+        action_activate = QtGui.QAction(
+            QtGui.QIcon(":/icons/button_right.svg"), translate("draft", "Activate Layer"), menu
+        )
         action_activate.triggered.connect(self.activate)
         menu.addAction(action_activate)
 
-        action_select = QtGui.QAction(QtGui.QIcon(":/icons/Draft_SelectGroup.svg"),
-                                      translate("draft", "Select layer contents"),
-                                      menu)
+        action_reassign = QtGui.QAction(
+            QtGui.QIcon(":/icons/Draft_Apply.svg"),
+            translate("draft", "Reassign Properties of Layer"),
+            menu,
+        )
+        action_reassign.triggered.connect(self.reassign_props)
+        menu.addAction(action_reassign)
+
+        action_select = QtGui.QAction(
+            QtGui.QIcon(":/icons/Draft_SelectGroup.svg"),
+            translate("draft", "Select Layer Contents"),
+            menu,
+        )
         action_select.triggered.connect(self.select_contents)
         menu.addAction(action_select)
 
@@ -506,11 +516,15 @@ class ViewProviderLayer:
             Gui.activateWorkbench("DraftWorkbench")
         Gui.runCommand("Draft_AutoGroup")
 
+    def reassign_props(self):
+        for prop in ("LineColor", "ShapeAppearance", "LineWidth", "DrawStyle", "Visibility"):
+            self.onChanged(self.Object.ViewObject, prop)
+
     def select_contents(self):
         """Select the contents of the layer."""
         Gui.Selection.clearSelection()
-        for layer_obj in self.Object.Group:
-            Gui.Selection.addSelection(layer_obj)
+        for obj in self.Object.Group:
+            Gui.Selection.addSelection(obj)
 
 
 class ViewProviderLayerContainer:
@@ -522,7 +536,7 @@ class ViewProviderLayerContainer:
 
     def getIcon(self):
         """Return the path to the icon used by the viewprovider."""
-        return ":/icons/Draft_Layer.svg"
+        return ":/icons/Draft_Layers.svg"
 
     def attach(self, vobj):
         """Set up the scene sub-graph of the viewprovider."""
@@ -530,22 +544,41 @@ class ViewProviderLayerContainer:
 
     def setupContextMenu(self, vobj, menu):
         """Set up actions to perform in the context menu."""
-        action_merge = QtGui.QAction(QtGui.QIcon(":/icons/Draft_Layer.svg"),
-                                     translate("draft", "Merge layer duplicates"),
-                                     menu)
+        action_add = QtGui.QAction(
+            QtGui.QIcon(":/icons/Draft_NewLayer.svg"), translate("draft", "Add New Layer"), menu
+        )
+        action_add.triggered.connect(self.add_layer)
+        menu.addAction(action_add)
+
+        action_reassign = QtGui.QAction(
+            QtGui.QIcon(":/icons/Draft_Apply.svg"),
+            translate("draft", "Reassign Properties of All Layers"),
+            menu,
+        )
+        action_reassign.triggered.connect(self.reassign_props)
+        menu.addAction(action_reassign)
+
+        action_merge = QtGui.QAction(
+            QtGui.QIcon(":/icons/Draft_Layers.svg"),
+            translate("draft", "Merge Layer Duplicates"),
+            menu,
+        )
         action_merge.triggered.connect(self.merge_by_name)
         menu.addAction(action_merge)
 
-        action_add = QtGui.QAction(QtGui.QIcon(":/icons/Draft_NewLayer.svg"),
-                                   translate("draft", "Add new layer"),
-                                   menu)
-        action_add.triggered.connect(self.add_layer)
-        menu.addAction(action_add)
+    def add_layer(self):
+        """Creates a new layer"""
+        Gui.runCommand("Draft_Layer")
+
+    def reassign_props(self):
+        for obj in self.Object.Group:
+            if utils.get_type(obj) == "Layer":
+                obj.ViewObject.Proxy.reassign_props()
 
     def merge_by_name(self):
         """Merge the layers that have the same base label."""
         doc = App.ActiveDocument
-        doc.openTransaction(translate("draft", "Merge layer duplicates"))
+        doc.openTransaction(translate("draft", "Merge Layer Duplicates"))
 
         layer_container = self.Object
         layers = []
@@ -562,9 +595,11 @@ class ViewProviderLayerContainer:
             # Try to find the `'base'` layer:
             base = None
             for other_layer in layers:
-                if ((not other_layer in to_delete) # Required if there are duplicate labels.
-                        and other_layer != layer
-                        and other_layer.Label.upper() == base_label.upper()):
+                if (
+                    (not other_layer in to_delete)  # Required if there are duplicate labels.
+                    and other_layer != layer
+                    and other_layer.Label.upper() == base_label.upper()
+                ):
                     base = other_layer
                     break
 
@@ -581,19 +616,6 @@ class ViewProviderLayerContainer:
 
         for layer in to_delete:
             doc.removeObject(layer.Name)
-
-        doc.recompute()
-        doc.commitTransaction()
-
-    def add_layer(self):
-        """Creates a new layer"""
-        import Draft
-
-        doc = App.ActiveDocument
-        doc.openTransaction(translate("draft", "Add new layer"))
-
-        Draft.make_layer(name=None, line_color=None, shape_color=None,
-                         line_width=None, draw_style=None, transparency=None)
 
         doc.recompute()
         doc.commitTransaction()

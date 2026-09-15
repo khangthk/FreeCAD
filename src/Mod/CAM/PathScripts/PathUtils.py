@@ -1,40 +1,36 @@
-# -*- coding: utf-8 -*-
-# ***************************************************************************
-# *   Copyright (c) 2014 Dan Falck <ddfalck@gmail.com>                      *
-# *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
-# *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
-# *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
-# *                                                                         *
-# ***************************************************************************
-"""PathUtils -common functions used in PathScripts for filtering, sorting, and generating gcode toolpath data """
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-FileCopyrightText: 2014 Dan Falck <ddfalck@gmail.com>
+# SPDX-FileCopyrightText: 2025 Billy Huddleston <billy@ivdc.com>
+# SPDX-FileNotice: Part of the FreeCAD project.
+
+################################################################################
+#                                                                              #
+#   FreeCAD is free software: you can redistribute it and/or modify            #
+#   it under the terms of the GNU Lesser General Public License as             #
+#   published by the Free Software Foundation, either version 2.1              #
+#   of the License, or (at your option) any later version.                     #
+#                                                                              #
+#   FreeCAD is distributed in the hope that it will be useful,                 #
+#   but WITHOUT ANY WARRANTY; without even the implied warranty                #
+#   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    #
+#   See the GNU Lesser General Public License for more details.                #
+#                                                                              #
+#   You should have received a copy of the GNU Lesser General Public           #
+#   License along with FreeCAD. If not, see https://www.gnu.org/licenses       #
+#                                                                              #
+################################################################################
+
+"""PathUtils -common functions used in PathScripts for filtering, sorting, and generating gcode toolpath data"""
 
 import FreeCAD
 from FreeCAD import Vector
 from PySide import QtCore
+import Part
 import Path
 import Path.Main.Job as PathJob
 import math
 from numpy import linspace
-
-# lazily loaded modules
-from lazy_loader.lazy_loader import LazyLoader
-
-DraftGeomUtils = LazyLoader("DraftGeomUtils", globals(), "DraftGeomUtils")
-Part = LazyLoader("Part", globals(), "Part")
-TechDraw = LazyLoader("TechDraw", globals(), "TechDraw")
+import tsp_solver
 
 translate = FreeCAD.Qt.translate
 
@@ -90,91 +86,207 @@ def segments(poly):
 
 
 def loopdetect(obj, edge1, edge2):
-    """
-    Returns a loop wire that includes the two edges.
+    """Returns a loop of edges from wire that includes the two edges.
     Useful for detecting boundaries of negative space features ie 'holes'
-    If a unique loop is not found, returns None
-    edge1 = edge
-    edge2 = edge
+    If a unique wire is not found, returns None
     """
 
     Path.Log.track()
-    candidates = []
-    for wire in obj.Shape.Wires:
-        for e in wire.Edges:
-            if e.hashCode() == edge1.hashCode():
-                candidates.append((wire.hashCode(), wire))
-            if e.hashCode() == edge2.hashCode():
-                candidates.append((wire.hashCode(), wire))
-    loop = set([x for x in candidates if candidates.count(x) > 1])  # return the duplicate item
-    if len(loop) != 1:
+    hashList = (edge1.hashCode(), edge2.hashCode())
+    candidates = [w for w in obj.Shape.Wires for e in w.Edges if e.hashCode() in hashList]
+    loop = {w for w in candidates if candidates.count(w) > 1}  # return the duplicates item
+    if len(loop) == 1:
+        return loop.pop().Edges
+    else:
+        # unique wire not found
         return None
-    loopwire = next(x for x in loop)[1]
-    return loopwire
 
 
-def horizontalEdgeLoop(obj, edge):
-    """horizontalEdgeLoop(obj, edge) ... returns a wire in the horizontal plane, if that is the only horizontal wire the given edge is a part of."""
-    h = edge.hashCode()
-    wires = [w for w in obj.Shape.Wires if any(e.hashCode() == h for e in w.Edges)]
-    loops = [
-        w
-        for w in wires
-        if all(Path.Geom.isHorizontal(e) for e in w.Edges) and Path.Geom.isHorizontal(Part.Face(w))
-    ]
-    if len(loops) == 1:
-        return loops[0]
+def wiresdetect(obj, edges):
+    """Returns all edges from all horizontal wires which includes the edges."""
+
+    ehashList = [e.hashCode() for e in edges]
+    wires = []
+    for wire in obj.Shape.Wires:
+        if not Path.Geom.isRoughly(wire.BoundBox.ZLength, 0):
+            continue
+        if any(e.hashCode() in ehashList for e in wire.Edges):
+            wires.append(wire)
+    if wires:
+        return [e for w in wires for e in w.Edges]
+
     return None
 
 
-def horizontalFaceLoop(obj, face, faceList=None):
-    """horizontalFaceLoop(obj, face, faceList=None) ... returns a list of face names which form the walls of a vertical hole face is a part of.
-    All face names listed in faceList must be part of the hole for the solution to be returned."""
+def horizontalEdgeLoop(obj, edge):
+    """Returns a loop of edges in the horizontal plane that includes one edge"""
 
-    wires = [horizontalEdgeLoop(obj, e) for e in face.Edges]
-    # Not sure if sorting by Area is a premature optimization - but it seems
-    # the loop we're looking for is typically the biggest of the them all.
-    wires = sorted([w for w in wires if w], key=lambda w: Part.Face(w).Area)
+    if not Path.Geom.isHorizontal(edge):
+        # stop if selected edge is not horizontal
+        return
 
-    for wire in wires:
-        hashes = [e.hashCode() for e in wire.Edges]
+    ehash = edge.hashCode()
 
-        # find all faces that share a an edge with the wire and are vertical
-        faces = [
-            "Face%d" % (i + 1)
-            for i, f in enumerate(obj.Shape.Faces)
-            if any(e.hashCode() in hashes for e in f.Edges) and Path.Geom.isVertical(f)
-        ]
-
-        if faceList and not all(f in faces for f in faceList):
+    # Trying to find edges in horizontal wires of shape
+    for wire in obj.Shape.Wires:
+        if not Path.Geom.isRoughly(wire.BoundBox.ZLength, 0):
+            # skip not horizontal wire
             continue
+        if any(e.hashCode() == ehash for e in wire.Edges):
+            return wire.Edges
 
-        # verify they form a valid hole by getting the outline and comparing
-        # the resulting XY footprint with that of the faces
-        comp = Part.makeCompound([obj.Shape.getElement(f) for f in faces])
-        outline = TechDraw.findShapeOutline(comp, 1, Vector(0, 0, 1))
+    # Trying to find edges in loop without wires from object shape
 
-        # findShapeOutline always returns closed wires, by removing the
-        # trace-backs single edge spikes don't contribute to the bound box
-        uniqueEdges = []
-        for edge in outline.Edges:
-            if any(Path.Geom.edgesMatch(edge, e) for e in uniqueEdges):
+    # get edges in horizontal plane with selected edge
+    candidates = [
+        e
+        for e in obj.Shape.Edges
+        if Path.Geom.isHorizontal(e) and Path.Geom.isRoughly(e.BoundBox.ZMin, edge.BoundBox.ZMin)
+    ]
+
+    # candidates should be not less than 2
+    if len(candidates) < 2:
+        return
+
+    """
+    Get clusters of edges from which closed wires can be created
+    Desired cluster should contain selected edge
+
+    Do not return edges from Part.sortEdges(),
+    because edges can be flipped with changed hashCode
+    Return clusters from Part.getSortedClusters() instead
+    """
+
+    for cluster in Part.getSortedClusters(candidates):
+        if any(e.hashCode() == ehash for e in cluster):
+            if len(cluster) > 1:
+                return cluster
+            else:
+                break
+
+    return
+
+
+def tangentEdgeLoop(obj, edge1, edge2):
+    """Returns a tangent loop of edges"""
+
+    loop = [edge1]
+    hashes = [edge1.hashCode()]
+    if Path.Geom.edgeConnectsTo(edge2, edge1.Vertexes[0].Point):
+        startPoint = edge1.Vertexes[-1].Point
+        nextIndex = 0
+    else:
+        startPoint = edge1.Vertexes[0].Point
+        nextIndex = -1
+
+    objEdges = obj.Shape.Edges
+    for i in range(len(objEdges) - 1):
+        if Path.Geom.pointsCoincide(loop[-1].Vertexes[nextIndex].Point, startPoint):
+            # stop because return to start point and loop is closed
+            break
+
+        point = loop[-1].Vertexes[nextIndex].Point
+        tangent = loop[-1].tangentAt(loop[-1].ParameterRange[nextIndex])
+        for candidate in objEdges:
+            if candidate.hashCode() in hashes:
+                # this edge is already in loop
                 continue
-            uniqueEdges.append(edge)
-        w = Part.Wire(uniqueEdges)
 
-        # if the faces really form the walls of a hole then the resulting
-        # wire is still closed and it still has the same footprint
-        bb1 = comp.BoundBox
-        bb2 = w.BoundBox
-        if (
-            w.isClosed()
-            and Path.Geom.isRoughly(bb1.XMin, bb2.XMin)
-            and Path.Geom.isRoughly(bb1.XMax, bb2.XMax)
-            and Path.Geom.isRoughly(bb1.YMin, bb2.YMin)
-            and Path.Geom.isRoughly(bb1.YMax, bb2.YMax)
-        ):
-            return faces
+            if Path.Geom.pointsCoincide(point, candidate.Vertexes[0].Point):
+                index = 0
+            elif Path.Geom.pointsCoincide(point, candidate.Vertexes[-1].Point):
+                index = -1
+            else:
+                continue
+
+            candidateTangent = candidate.tangentAt(candidate.ParameterRange[index])
+            if Path.Geom.compareVecs(tangent, candidateTangent, error=0.05):
+                # found next tangency edge
+                loop.append(candidate)
+                hashes.append(candidate.hashCode())
+                nextIndex = -1 if index == 0 else 0
+                break
+
+        else:
+            # stop because next tangency edge was not found
+            break
+
+    if len(loop) > 2 and edge2.hashCode() in [e.hashCode() for e in loop]:
+        return loop
+
+    return None
+
+
+def innerEdgesFromFace(obj, face):
+    """innerEdgesFromFace(obj, face) ... returns a list of inner edges from face."""
+    outerHash = [e.hashCode() for e in face.OuterWire.Edges]
+    edges = [e for e in face.Edges if e.hashCode() not in outerHash]
+
+    return edges
+
+
+def facesAtHeight(obj, z, face=None, tol=0.01):
+    """facesAtHeight(obj, z) ... returns a list of face names with requested height.
+    Given face uses to define orientation and filters result"""
+    if face and Path.Geom.isHorizontal(face):  # accept only horizontal faces
+        filter_func = Path.Geom.isHorizontal
+    elif face and Path.Geom.isVertical(face):  # accept only vertical faces
+        filter_func = Path.Geom.isVertical
+    else:  # accept faces with any orientatiotn
+        filter_func = lambda _: True
+
+    names = [
+        f"Face{i}"
+        for i, f in enumerate(obj.Shape.Faces, 1)
+        if filter_func(f) and Path.Geom.isRoughly(f.CenterOfMass.z, z, tol)
+    ]
+    if len(names) > 1:
+        return names
+
+    return []
+
+
+def horizontalFaceLoops(obj, faces):
+    """horizontalFaceLoops(obj, faces) ... returns a list of face names
+    which form the walls of a vertical hole face is a part of."""
+
+    if not all(Path.Geom.isVertical(f) for f in faces):
+        # stop if selected faces is not vertical
+        Path.Log.warning(
+            translate(
+                "CAM",
+                "Selected faces should be vertical",
+            )
+        )
+        return None
+
+    bEdges = []
+    for face in faces:
+        fzMin = min(e.BoundBox.ZMin for e in face.Edges)
+        for edge in face.Edges:
+            if Path.Geom.isRoughly(edge.BoundBox.ZMax, fzMin):
+                bEdges.append(edge)
+                break
+
+    objFaces = obj.Shape.Faces
+    horizontalEdgeLoops = [horizontalEdgeLoop(obj, e) for e in bEdges]
+    names = []
+    for edges in horizontalEdgeLoops:
+        if not edges:
+            continue
+        hashes = [e.hashCode() for e in edges]
+
+        # find all vertical faces that share an edges
+        for i, f in enumerate(objFaces, 1):
+            if not Path.Geom.isVertical(f):
+                continue
+            if any(e.hashCode() in hashes for e in f.Edges):
+                names.append(f"Face{i}")
+
+    names = list(set(names))
+    if len(names) > len(faces):
+        return names
+
     return None
 
 
@@ -227,11 +339,11 @@ def makeWorkplane(shape):
 def getEnvelope(partshape, subshape=None, depthparams=None):
     """
     getEnvelope(partshape, stockheight=None)
-    returns a shape corresponding to the partshape silhouette extruded to height.
-    if stockheight is given, the returned shape is extruded to that height otherwise the returned shape
+    Returns a shape corresponding to the partshape silhouette extruded to height.
+    If depthparams is given, the returned shape is extruded to that height otherwise the returned shape
     is the height of the original shape boundbox
     partshape = solid object
-    stockheight = float - Absolute Z height of the top of material before cutting.
+    To get flat face at height z use getEnvelope(shape, depthparams=depth_params(0, z, z, 0, 0, z)
     """
     Path.Log.track(partshape, subshape, depthparams)
 
@@ -274,8 +386,13 @@ def getEnvelope(partshape, subshape=None, depthparams=None):
     newPlace = FreeCAD.Placement(Vector(0, 0, zShift), sec.Placement.Rotation)
     sec.Placement = newPlace
 
-    # Extrude the section to top of Boundbox or desired height
-    envelopeshape = sec.extrude(Vector(0, 0, eLength))
+    if Path.Geom.isRoughly(eLength, 0):
+        # For 2D operations (e.g. laser cutting) use the section directly without extrusion
+        envelopeshape = sec
+    else:
+        # Extrude the section to top of Boundbox or desired height
+        envelopeshape = sec.extrude(Vector(0, 0, eLength))
+
     if Path.Log.getLevel(Path.Log.thisModule()) == Path.Log.Level.DEBUG:
         removalshape = FreeCAD.ActiveDocument.addObject("Part::Feature", "Envelope")
         removalshape.Shape = envelopeshape
@@ -306,14 +423,10 @@ def getOffsetArea(
     areaParams["SectionCount"] = 1  # -1 = full(all per depthparams??) sections
     areaParams["Reorient"] = True
     areaParams["OpenMode"] = 0
-    areaParams["MaxArcPoints"] = 400  # 400
     areaParams["Project"] = True
-    areaParams["FitArcs"] = False  # Can be buggy & expensive
     areaParams["Deflection"] = tolerance
     areaParams["Accuracy"] = tolerance
     areaParams["Tolerance"] = 1e-5  # Equal point tolerance
-    areaParams["Simplify"] = True
-    areaParams["CleanDistance"] = tolerance / 5
 
     area = Path.Area()  # Create instance of Area() class object
     # Set working plane normal to Z=1
@@ -328,13 +441,13 @@ def getOffsetArea(
 
 
 def reverseEdge(e):
-    if DraftGeomUtils.geomType(e) == "Circle":
+    if isinstance(e.Curve, Part.Circle):
         arcstpt = e.valueAt(e.FirstParameter)
         arcmid = e.valueAt((e.LastParameter - e.FirstParameter) * 0.5 + e.FirstParameter)
         arcendpt = e.valueAt(e.LastParameter)
         arcofCirc = Part.ArcOfCircle(arcendpt, arcmid, arcstpt)
         newedge = arcofCirc.toShape()
-    elif DraftGeomUtils.geomType(e) == "LineSegment" or DraftGeomUtils.geomType(e) == "Line":
+    elif isinstance(e.Curve, (Part.Line, Part.LineSegment)):
         stpt = e.valueAt(e.FirstParameter)
         endpt = e.valueAt(e.LastParameter)
         newedge = Part.makeLine(endpt, stpt)
@@ -357,33 +470,36 @@ def getToolControllers(obj, proxy=None):
     return []
 
 
+def getToolShapeName(tool):
+    if hasattr(tool, "ShapeName"):
+        return tool.ShapeName.lower()
+    if hasattr(tool, "ShapeType"):
+        return tool.ShapeType.lower()
+    return ""
+
+
 def findToolController(obj, proxy, name=None):
     """returns a tool controller with a given name.
-    If no name is specified, returns the first controller.
+    If no name is specified, returns the last controller.
     if no controller is found, returns None"""
 
     Path.Log.track("name: {}".format(name))
-    c = None
-    if UserInput:
-        c = UserInput.selectedToolController()
-    if c is not None:
-        return c
+    tc = None
+    if name is None and UserInput and (tc := UserInput.selectedToolController()):
+        return tc  # tool controller selected in tree view
 
-    controllers = getToolControllers(obj, proxy)
-
-    if len(controllers) == 0:
+    if not (controllers := getToolControllers(obj, proxy)):
         raise PathNoTCExistsException()
 
     # If there's only one in the job, use it.
-    if len(controllers) == 1:
-        if name is None or name == controllers[0].Label:
-            tc = controllers[0]
-        else:
-            tc = None
-    elif name is not None:
-        tc = [i for i in controllers if i.Label == name][0]
-    elif UserInput:  # More than one, make the user choose.
+    if len(controllers) == 1 and (name is None or name == controllers[0].Label):
+        tc = controllers[0]
+    elif name is not None and (tcs := [i for i in controllers if i.Label == name]):
+        tc = tcs[0]
+    elif UserInput:  # open dialog to choose controller in Gui mode
         tc = UserInput.chooseToolController(controllers)
+    else:  # use last tool controller in console mode
+        tc = controllers[-1]
     return tc
 
 
@@ -393,17 +509,29 @@ def findParentJob(obj):
     if hasattr(obj, "Proxy") and isinstance(obj.Proxy, PathJob.ObjectJob):
         return obj
 
+    # we need to traverse the document tree in reverse order:
+    #
+    #    Job <- Operations <- Dressup <- Operation
+    #        <- Model <- Body
+    #        <- Stock <- Body
+    #        <- SetupSheet
+    #        <- Tools <- ToolController
+
     for i in obj.InList:
-        if hasattr(i, "Proxy") and isinstance(i.Proxy, PathJob.ObjectJob):
-            return i
         if (
-            i.TypeId == "Path::FeaturePython"
-            or i.TypeId == "Path::FeatureCompoundPython"
-            or i.TypeId == "App::DocumentObjectGroup"
+            hasattr(i, "Proxy")
+            and isinstance(i.Proxy, PathJob.ObjectJob)
+            and obj in [i.Operations, i.Model, i.Stock, i.SetupSheet, i.Tools]
+        ):
+            return i
+
+        if (i.isDerivedFrom("App::DocumentObjectGroup") and obj in i.Group) or (
+            i.isDerivedFrom("Path::Feature") and obj == getattr(i, "Base", None)
         ):
             grandParent = findParentJob(i)
             if grandParent is not None:
                 return grandParent
+
     return None
 
 
@@ -478,7 +606,7 @@ def sort_locations(locations, keys, attractors=None):
             # prevent dictionary comparison by inserting the index
             q.put((dist(j, location) + weight(j), i, j))
 
-        prio, i, result = q.get()
+        _, i, result = q.get()
 
         return result
 
@@ -494,6 +622,30 @@ def sort_locations(locations, keys, attractors=None):
         locations.remove(closest)
 
     return out
+
+
+def sort_locations_tsp(locations, keys, attractors=None, startPoint=None, endPoint=None):
+    """
+    Python wrapper for the C++ TSP solver. Takes a list of dicts (locations),
+    a list of keys (e.g. ['x', 'y']), and optional parameters.
+
+    Parameters:
+    - locations: List of dictionaries with point coordinates
+    - keys: List of keys to use for coordinates (e.g. ['x', 'y'])
+    - attractors: Optional parameter (not used, kept for compatibility)
+    - startPoint: Optional starting point [x, y]
+    - endPoint: Optional ending point [x, y]
+
+    Returns the sorted list of locations in TSP order.
+    If startPoint is None, the path is optimized to start near the first point in the original list,
+    but may not start exactly at that point.
+    """
+    # Extract points from locations
+    points = [(loc[keys[0]], loc[keys[1]]) for loc in locations]
+    order = tsp_solver.solve(points=points, startPoint=startPoint, endPoint=endPoint)
+
+    # Return the reordered locations
+    return [locations[i] for i in order]
 
 
 def guessDepths(objshape, subs=None):
@@ -526,34 +678,6 @@ def guessDepths(objshape, subs=None):
             final = fbb.ZMin
 
     return depth_params(clearance, safe, start, 1.0, 0.0, final, user_depths=None, equalstep=False)
-
-
-def drillTipLength(tool):
-    """returns the length of the drillbit tip."""
-
-    if not hasattr(tool, "TipAngle"):
-        Path.Log.error(translate("Path", "Selected tool is not a drill"))
-        return 0.0
-
-    angle = tool.TipAngle
-
-    if angle <= 0 or angle >= 180:
-        Path.Log.error(
-            translate("Path", "Invalid Cutting Edge Angle %.2f, must be >0° and <=180°") % angle
-        )
-        return 0.0
-
-    theta = math.radians(angle)
-    length = (float(tool.Diameter) / 2) / math.tan(theta / 2)
-
-    if length < 0:
-        Path.Log.error(
-            translate("Path", "Cutting Edge Angle (%.2f) results in negative tool tip length")
-            % angle
-        )
-        return 0.0
-
-    return length
 
 
 class depth_params(object):
@@ -725,7 +849,7 @@ class depth_params(object):
         all steps are of equal size, which is as big as possible but not bigger
         than max_size."""
 
-        steps_needed = math.ceil((start - stop) / max_size)
+        steps_needed = Path.Geom.ceil((start - stop) / max_size)
         depths = list(linspace(stop, start, steps_needed, endpoint=False))
 
         return depths
@@ -735,6 +859,9 @@ class depth_params(object):
         with the top (not included).
         all steps are of size 'size' except the one at the bottom which can be
         smaller."""
+
+        if Path.Geom.isRoughly(start, stop):
+            return [stop]
 
         fullsteps = int((start - stop) / size)
         last_step = start - (fullsteps * size)
@@ -829,7 +956,12 @@ def getPathWithPlacement(pathobj):
     to the obj's path
     """
 
-    if not hasattr(pathobj, "Placement") or pathobj.Path is None:
+    if pathobj.Path is None:
+        return pathobj.Path
+
+    # check for no placement or placement POS=(0,0,0), Yaw-Pitch-Roll=(0,0,0)
+    # isIdentity() returns True if the placement has no displacement and no rotation
+    if not hasattr(pathobj, "Placement") or pathobj.Placement.isIdentity():
         return pathobj.Path
 
     return applyPlacementToPath(pathobj.Placement, pathobj.Path)
@@ -840,20 +972,21 @@ def applyPlacementToPath(placement, path):
     Applies the rotation, and then position of the placement to path
     """
 
-    CmdMoveRapid = ["G0", "G00"]
-    CmdMoveStraight = ["G1", "G01"]
-    CmdMoveCW = ["G2", "G02"]
-    CmdMoveCCW = ["G3", "G03"]
-    CmdDrill = ["G73", "G81", "G82", "G83"]
-    CmdMoveArc = CmdMoveCW + CmdMoveCCW
-    CmdMove = CmdMoveStraight + CmdMoveArc
-
     commands = []
     currX = 0
     currY = 0
     currZ = 0
+
+    # Angles of rotation (on A, B or C) do not need translation but may need a correction on start position, get transformed angles of 0 deg.
+    cmd = Path.Command("G0 A0 B0 C0")
+    t = cmd.transform(placement)
+    tparams = t.Parameters
+    transA0 = tparams.get("A", 0)
+    transB0 = tparams.get("B", 0)
+    transC0 = tparams.get("C", 0)
+
     for cmd in path.Commands:
-        if (cmd.Name in CmdMoveRapid) or (cmd.Name in CmdMove) or (cmd.Name in CmdDrill):
+        if cmd.Name in Path.Geom.CmdMoveAll:
             params = cmd.Parameters
             currX = x = params.get("X", currX)
             currY = y = params.get("Y", currY)
@@ -869,11 +1002,11 @@ def applyPlacementToPath(placement, path):
                 params.update({"Z": z})
 
             # Arcs need to have the I and J params rotated as well
-            if cmd.Name in CmdMoveArc:
+            if cmd.Name in Path.Geom.CmdMoveArc:
                 currI = i = params.get("I", 0)
                 currJ = j = params.get("J", 0)
 
-                i, j, k = placement.Rotation.multVec(FreeCAD.Vector(i, j, 0))
+                i, j, _ = placement.Rotation.multVec(FreeCAD.Vector(i, j, 0))
 
                 if currI != i:
                     params.update({"I": i})
@@ -881,7 +1014,27 @@ def applyPlacementToPath(placement, path):
                     params.update({"J": j})
 
             cmd.Parameters = params
-        commands.append(cmd.transform(placement))
+
+        # Angles of rotation (on A, B or C) do not need translation, find values before translation.
+        params = cmd.Parameters
+        aVal = params.get("A", None)
+        bVal = params.get("B", None)
+        cVal = params.get("C", None)
+
+        t = cmd.transform(placement)
+
+        # Set angles of rotation on A, B or C corrected for the transformed angle of 0 deg..
+        tparams = t.Parameters
+        if aVal is not None:
+            tparams.update({"A": transA0 + aVal})
+        if bVal is not None:
+            tparams.update({"B": transB0 + bVal})
+        if cVal is not None:
+            tparams.update({"C": transC0 + cVal})
+        if aVal is not None or bVal is not None or cVal is not None:
+            t.Parameters = tparams
+
+        commands.append(t)
     newPath = Path.Path(commands)
 
     return newPath

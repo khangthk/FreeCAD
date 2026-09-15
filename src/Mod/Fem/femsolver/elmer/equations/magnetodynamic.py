@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2023 Uwe Stöhr <uwestoehr@lyx.org>                      *
 # *                                                                         *
@@ -28,6 +30,10 @@ __url__ = "https://www.freecad.org"
 ## \addtogroup FEM
 #  @{
 
+import math
+
+from FreeCAD import Base
+
 from femtools import femutils
 from . import nonlinear
 from ... import equationbase
@@ -49,12 +55,14 @@ class Proxy(nonlinear.Proxy, equationbase.MagnetodynamicProxy):
             "IsHarmonic",
             "Magnetodynamic",
             "If the magnetic source is harmonically driven",
+            locked=True,
         )
         obj.addProperty(
             "App::PropertyFrequency",
-            "AngularFrequency",
+            "Frequency",
             "Magnetodynamic",
             "Frequency of the driving current",
+            locked=True,
         )
         obj.addProperty(
             "App::PropertyBool",
@@ -63,67 +71,79 @@ class Proxy(nonlinear.Proxy, equationbase.MagnetodynamicProxy):
             "Must be True if basis functions for edge element interpolation\n"
             "are selected to be members of optimal edge element family\n"
             "or if second-order approximation is used.",
+            locked=True,
         )
         obj.addProperty(
             "App::PropertyBool",
             "QuadraticApproximation",
             "Magnetodynamic",
             "Enables second-order approximation of driving current",
+            locked=True,
         )
         obj.addProperty(
             "App::PropertyBool",
             "StaticConductivity",
             "Magnetodynamic",
             "See Elmer models manual for info",
+            locked=True,
         )
         obj.addProperty(
             "App::PropertyBool",
             "FixInputCurrentDensity",
             "Magnetodynamic",
             "Ensures divergence-freeness of current density",
+            locked=True,
         )
         obj.addProperty(
             "App::PropertyBool",
             "AutomatedSourceProjectionBCs",
             "Magnetodynamic",
             "See Elmer models manual for info",
+            locked=True,
         )
         obj.addProperty(
             "App::PropertyBool",
             "UseLagrangeGauge",
             "Magnetodynamic",
             "See Elmer models manual for info",
+            locked=True,
         )
         obj.addProperty(
             "App::PropertyFloat",
             "LagrangeGaugePenalizationCoefficient",
             "Magnetodynamic",
             "See Elmer models manual for info",
+            locked=True,
         )
         obj.addProperty(
             "App::PropertyBool",
             "UseTreeGauge",
             "Magnetodynamic",
             "See Elmer models manual for info\nWill be ignored if 'UsePiolaTransform' is True",
+            locked=True,
         )
-        obj.addProperty("App::PropertyBool", "LinearSystemRefactorize", "Linear System", "")
+        obj.addProperty(
+            "App::PropertyBool", "LinearSystemRefactorize", "Linear System", "", locked=True
+        )
 
         obj.IsHarmonic = False
-        obj.AngularFrequency = 0
+        obj.Frequency = 0
         obj.Priority = 10
 
         # the post processor options
-        obj.addProperty("App::PropertyBool", "CalculateCurrentDensity", "Results", "")
-        obj.addProperty("App::PropertyBool", "CalculateElectricField", "Results", "")
-        obj.addProperty("App::PropertyBool", "CalculateElementalFields", "Results", "")
-        obj.addProperty("App::PropertyBool", "CalculateHarmonicLoss", "Results", "")
-        obj.addProperty("App::PropertyBool", "CalculateJouleHeating", "Results", "")
-        obj.addProperty("App::PropertyBool", "CalculateMagneticFieldStrength", "Results", "")
-        obj.addProperty("App::PropertyBool", "CalculateMaxwellStress", "Results", "")
-        obj.addProperty("App::PropertyBool", "CalculateNodalFields", "Results", "")
-        obj.addProperty("App::PropertyBool", "CalculateNodalForces", "Results", "")
-        obj.addProperty("App::PropertyBool", "CalculateNodalHeating", "Results", "")
-        obj.addProperty("App::PropertyBool", "DiscontinuousBodies", "Results", "")
+        obj.addProperty("App::PropertyBool", "CalculateCurrentDensity", "Results", "", locked=True)
+        obj.addProperty("App::PropertyBool", "CalculateElectricField", "Results", "", locked=True)
+        obj.addProperty("App::PropertyBool", "CalculateElementalFields", "Results", "", locked=True)
+        obj.addProperty("App::PropertyBool", "CalculateHarmonicLoss", "Results", "", locked=True)
+        obj.addProperty("App::PropertyBool", "CalculateJouleHeating", "Results", "", locked=True)
+        obj.addProperty(
+            "App::PropertyBool", "CalculateMagneticFieldStrength", "Results", "", locked=True
+        )
+        obj.addProperty("App::PropertyBool", "CalculateMaxwellStress", "Results", "", locked=True)
+        obj.addProperty("App::PropertyBool", "CalculateNodalFields", "Results", "", locked=True)
+        obj.addProperty("App::PropertyBool", "CalculateNodalForces", "Results", "", locked=True)
+        obj.addProperty("App::PropertyBool", "CalculateNodalHeating", "Results", "", locked=True)
+        obj.addProperty("App::PropertyBool", "DiscontinuousBodies", "Results", "", locked=True)
         obj.CalculateCurrentDensity = False
         obj.CalculateElectricField = False
         # FIXME: at the moment FreeCAD's post processor cannot display elementary field
@@ -137,6 +157,18 @@ class Proxy(nonlinear.Proxy, equationbase.MagnetodynamicProxy):
         obj.CalculateNodalForces = False
         obj.CalculateNodalHeating = False
         obj.DiscontinuousBodies = False
+
+    def onDocumentRestored(self, obj):
+        try:
+            # change AngularFrequency to Frequency
+            freq = obj.getPropertyByName("AngularFrequency")
+            obj.setPropertyStatus("AngularFrequency", "-LockDynamic")
+            obj.renameProperty("AngularFrequency", "Frequency")
+            obj.setPropertyStatus("Frequency", "LockDynamic")
+            obj.Frequency = freq / (2 * math.pi)
+        except Base.PropertyError:
+            # do nothing
+            pass
 
 
 class ViewProxy(nonlinear.ViewProxy, equationbase.MagnetodynamicViewProxy):

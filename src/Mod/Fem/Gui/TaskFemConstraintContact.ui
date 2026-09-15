@@ -17,7 +17,7 @@
    <item>
     <widget class="QLabel" name="lbl_info_2">
      <property name="text">
-      <string>Select master face, click Add or Remove</string>
+      <string>Select master geometry of type: Edge, Face; click Add or Remove</string>
      </property>
     </widget>
    </item>
@@ -76,7 +76,7 @@
    <item>
     <widget class="QLabel" name="lbl_info">
      <property name="text">
-      <string>Select slave face, click Add or Remove</string>
+      <string>Select slave geometry of type: Edge, Face; click Add or Remove</string>
      </property>
     </widget>
    </item>
@@ -135,7 +135,6 @@
      </property>
     </widget>
    </item>
-
    <item>
     <widget class="QGroupBox" name="gpbParameter">
      <property name="sizePolicy">
@@ -154,7 +153,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="lblSlope">
         <property name="text">
-         <string>Contact Stiffness</string>
+         <string>Contact stiffness</string>
         </property>
        </widget>
       </item>
@@ -177,7 +176,7 @@
       <item row="1" column="0">
        <widget class="QLabel" name="lblAdjust">
         <property name="text">
-         <string>Clearance Adjustment</string>
+         <string>Clearance adjustment</string>
         </property>
        </widget>
       </item>
@@ -200,14 +199,14 @@
       <item row="2" column="0">
        <widget class="QCheckBox" name="ckbFriction">
         <property name="text">
-         <string>Enable Friction</string>
+         <string>Enable friction</string>
         </property>
        </widget>
       </item>
       <item row="3" column="0">
        <widget class="QLabel" name="lblFrictionCoeff">
         <property name="text">
-         <string>Friction Coefficient</string>
+         <string>Friction coefficient</string>
         </property>
        </widget>
       </item>
@@ -230,7 +229,7 @@
       <item row="4" column="0">
        <widget class="QLabel" name="lblStickSlope">
         <property name="text">
-         <string>Stick Slope</string>
+         <string>Stick slope</string>
         </property>
        </widget>
       </item>
@@ -247,6 +246,20 @@
         </property>
         <property name="value" stdset="0">
          <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QCheckBox" name="ckbRevMaster">
+        <property name="text">
+         <string>Reverse master</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QCheckBox" name="ckbRevSlave">
+        <property name="text">
+         <string>Reverse slave</string>
         </property>
        </widget>
       </item>

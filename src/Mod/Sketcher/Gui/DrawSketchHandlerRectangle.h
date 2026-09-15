@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2022 Abdullah Tahiri <abdullah.tahiri.yo@gmail.com>     *
  *                                                                         *
@@ -21,8 +23,9 @@
  ***************************************************************************/
 
 
-#ifndef SKETCHERGUI_DrawSketchHandlerRectangle_H
-#define SKETCHERGUI_DrawSketchHandlerRectangle_H
+#pragma once
+
+#include <cmath>
 
 #include <QApplication>
 
@@ -30,19 +33,16 @@
 #include <Gui/Notifications.h>
 #include <Gui/Command.h>
 #include <Gui/CommandT.h>
-
+#include <Gui/InputHint.h>
 #include <Mod/Sketcher/App/SketchObject.h>
 
 #include "DrawSketchDefaultWidgetController.h"
 #include "DrawSketchControllableHandler.h"
 
-#include "GeometryCreationMode.h"
 #include "Utils.h"
 
 namespace SketcherGui
 {
-
-extern GeometryCreationMode geometryCreationMode;  // defined in CommandCreateGeo.cpp
 
 class DrawSketchHandlerRectangle;
 
@@ -58,7 +58,7 @@ enum class RectangleConstructionMethod
     End  // Must be the last one
 };
 
-}
+}  // namespace ConstructionMethods
 
 using DSHRectangleController = DrawSketchDefaultWidgetController<
     DrawSketchHandlerRectangle,
@@ -68,6 +68,7 @@ using DSHRectangleController = DrawSketchDefaultWidgetController<
     /*WidgetParametersT =*/WidgetParameters<0, 0, 0, 0>,  // NOLINT
     /*WidgetCheckboxesT =*/WidgetCheckboxes<2, 2, 2, 2>,  // NOLINT
     /*WidgetComboboxesT =*/WidgetComboboxes<1, 1, 1, 1>,  // NOLINT
+    /*WidgetLineEditsT =*/WidgetLineEdits<0, 0, 0, 0>,    // NOLINT
     ConstructionMethods::RectangleConstructionMethod,
     /*bool PFirstComboboxIsConstructionMethod =*/true>;
 
@@ -78,14 +79,18 @@ using DrawSketchHandlerRectangleBase = DrawSketchControllableHandler<DSHRectangl
 
 class DrawSketchHandlerRectangle: public DrawSketchHandlerRectangleBase
 {
+    Q_DECLARE_TR_FUNCTIONS(SketcherGui::DrawSketchHandlerRectangle)
+
     // Allow specialisations of controllers access to private members
     friend DSHRectangleController;
     friend DSHRectangleControllerBase;
 
 public:
-    DrawSketchHandlerRectangle(ConstructionMethod constrMethod = ConstructionMethod::Diagonal,
-                               bool roundcorners = false,
-                               bool frame = false)
+    DrawSketchHandlerRectangle(
+        ConstructionMethod constrMethod = ConstructionMethod::Diagonal,
+        bool roundcorners = false,
+        bool frame = false
+    )
         : DrawSketchHandlerRectangleBase(constrMethod)
         , roundCorners(roundcorners)
         , makeFrame(frame)
@@ -104,13 +109,171 @@ public:
         , constructionPointThreeId(Sketcher::GeoEnum::GeoUndef)
         , centerPointId(Sketcher::GeoEnum::GeoUndef)
         , side(0)
+        , lengthSign(0)
+        , widthSign(0)
     {}
 
     ~DrawSketchHandlerRectangle() override = default;
 
 private:
+    std::list<Gui::InputHint> getToolHints() const override
+    {
+        using State = std::pair<ConstructionMethod, SelectMode>;
+        using enum Gui::InputHint::UserInput;
+
+        const Gui::InputHint switchHint {.message = tr("%1 switch mode"), .sequences = {KeyM}};
+        const Gui::InputHint roundedCornersHint {
+            .message = tr("%1 toggle rounded corners"),
+            .sequences = {KeyU}
+        };
+        const Gui::InputHint frameHint {.message = tr("%1 toggle frame"), .sequences = {KeyJ}};
+
+        return Gui::lookupHints<State>(
+            {constructionMethod(), state()},
+            {
+                // Diagonal method
+                {.state = {ConstructionMethod::Diagonal, SelectMode::SeekFirst},
+                 .hints =
+                     {
+                         {tr("%1 pick first corner"), {MouseLeft}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::Diagonal, SelectMode::SeekSecond},
+                 .hints =
+                     {
+                         {tr("%1 pick opposite corner"), {MouseLeft}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::Diagonal, SelectMode::SeekThird},
+                 .hints =
+                     {
+                         {tr("%1 set corner radius or frame thickness"), {MouseMove}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::Diagonal, SelectMode::SeekFourth},
+                 .hints =
+                     {
+                         {tr("%1 set frame thickness"), {MouseMove}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+
+                // CenterAndCorner method
+                {.state = {ConstructionMethod::CenterAndCorner, SelectMode::SeekFirst},
+                 .hints =
+                     {
+                         {tr("%1 pick center"), {MouseLeft}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::CenterAndCorner, SelectMode::SeekSecond},
+                 .hints =
+                     {
+                         {tr("%1 pick corner"), {MouseLeft}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::CenterAndCorner, SelectMode::SeekThird},
+                 .hints =
+                     {
+                         {tr("%1 set corner radius or frame thickness"), {MouseMove}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::CenterAndCorner, SelectMode::SeekFourth},
+                 .hints =
+                     {
+                         {tr("%1 set frame thickness"), {MouseMove}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+
+                // ThreePoints method
+                {.state = {ConstructionMethod::ThreePoints, SelectMode::SeekFirst},
+                 .hints =
+                     {
+                         {tr("%1 pick first corner"), {MouseLeft}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::ThreePoints, SelectMode::SeekSecond},
+                 .hints =
+                     {
+                         {tr("%1 pick second corner"), {MouseLeft}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::ThreePoints, SelectMode::SeekThird},
+                 .hints =
+                     {
+                         {tr("%1 pick third corner"), {MouseLeft}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::ThreePoints, SelectMode::SeekFourth},
+                 .hints =
+                     {
+                         {tr("%1 set corner radius or frame thickness"), {MouseMove}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+
+                // CenterAnd3Points method
+                {.state = {ConstructionMethod::CenterAnd3Points, SelectMode::SeekFirst},
+                 .hints =
+                     {
+                         {tr("%1 pick center"), {MouseLeft}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::CenterAnd3Points, SelectMode::SeekSecond},
+                 .hints =
+                     {
+                         {tr("%1 pick first corner"), {MouseLeft}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::CenterAnd3Points, SelectMode::SeekThird},
+                 .hints =
+                     {
+                         {tr("%1 pick second corner"), {MouseLeft}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+                {.state = {ConstructionMethod::CenterAnd3Points, SelectMode::SeekFourth},
+                 .hints =
+                     {
+                         {tr("%1 set corner radius or frame thickness"), {MouseMove}},
+                         switchHint,
+                         roundedCornersHint,
+                         frameHint,
+                     }},
+            });
+    }
+
+private:
     void updateDataAndDrawToPosition(Base::Vector2d onSketchPos) override
     {
+        using std::numbers::pi;
+
         switch (state()) {
             case SelectMode::SeekFirst: {
                 toolWidgetManager.drawPositionAtCursor(onSketchPos);
@@ -123,9 +286,7 @@ private:
                     center = onSketchPos;
                 }
 
-                seekAndRenderAutoConstraint(sugConstraints[0],
-                                            onSketchPos,
-                                            Base::Vector2d(0.f, 0.f));
+                seekAndRenderAutoConstraint(sugConstraints[0], onSketchPos, Base::Vector2d(0.f, 0.f));
             } break;
             case SelectMode::SeekSecond: {
                 if (constructionMethod() == ConstructionMethod::Diagonal) {
@@ -144,8 +305,8 @@ private:
                         corner2 = Base::Vector2d(corner1.x, onSketchPos.y);
                         cornersReversed = true;
                     }
-                    angle123 = M_PI / 2;
-                    angle412 = M_PI / 2;
+                    angle123 = pi / 2;
+                    angle412 = pi / 2;
                 }
                 else if (constructionMethod() == ConstructionMethod::CenterAndCorner) {
                     toolWidgetManager.drawDirectionAtCursor(onSketchPos, center);
@@ -162,8 +323,8 @@ private:
                         corner2 = Base::Vector2d(corner1.x, onSketchPos.y);
                         cornersReversed = true;
                     }
-                    angle123 = M_PI / 2;
-                    angle412 = M_PI / 2;
+                    angle123 = pi / 2;
+                    angle412 = pi / 2;
                 }
                 else if (constructionMethod() == ConstructionMethod::ThreePoints) {
                     toolWidgetManager.drawDirectionAtCursor(onSketchPos, corner1);
@@ -174,8 +335,8 @@ private:
                     perpendicular.y = (corner2 - corner1).x;
                     corner3 = corner2 + perpendicular;
                     corner4 = corner1 + perpendicular;
-                    angle123 = M_PI / 2;
-                    angle412 = M_PI / 2;
+                    angle123 = pi / 2;
+                    angle412 = pi / 2;
                     corner2Initial = corner2;
                     side = getPointSideOfVector(corner3, corner2 - corner1, corner1);
                 }
@@ -189,8 +350,8 @@ private:
                     perpendicular.y = (onSketchPos - center).x;
                     corner2 = center + perpendicular;
                     corner4 = center - perpendicular;
-                    angle123 = M_PI / 2;
-                    angle412 = M_PI / 2;
+                    angle123 = pi / 2;
+                    angle412 = pi / 2;
                     side = getPointSideOfVector(corner2, corner3 - corner1, corner1);
                 }
 
@@ -211,9 +372,7 @@ private:
                 catch (const Base::ValueError&) {
                 }  // equal points while hovering raise an objection that can be safely ignored
 
-                seekAndRenderAutoConstraint(sugConstraints[1],
-                                            onSketchPos,
-                                            Base::Vector2d(0.0, 0.0));
+                seekAndRenderAutoConstraint(sugConstraints[1], onSketchPos, Base::Vector2d(0.0, 0.0));
             } break;
             case SelectMode::SeekThird: {
                 if (constructionMethod() == ConstructionMethod::Diagonal
@@ -243,15 +402,18 @@ private:
                     Base::Vector2d b = corner3 - corner2;
                     if (fabs((sqrt(a.x * a.x + a.y * a.y) * sqrt(b.x * b.x + b.y * b.y)))
                         > Precision::Confusion()) {
-                        angle123 =
-                            acos((a.x * b.x + a.y * b.y)
-                                 / (sqrt(a.x * a.x + a.y * a.y) * sqrt(b.x * b.x + b.y * b.y)));
+                        angle123 = acos(
+                            (a.x * b.x + a.y * b.y)
+                            / (sqrt(a.x * a.x + a.y * a.y) * sqrt(b.x * b.x + b.y * b.y))
+                        );
                     }
-                    angle412 = M_PI - angle123;
+                    angle412 = pi - angle123;
                     if (roundCorners) {
                         radius = std::min(length, width) / 6  // NOLINT
-                            * std::min(sqrt(1 - cos(angle412) * cos(angle412)),
-                                       sqrt(1 - cos(angle123) * cos(angle123)));
+                            * std::min(
+                                     sqrt(1 - cos(angle412) * cos(angle412)),
+                                     sqrt(1 - cos(angle123) * cos(angle123))
+                            );
                     }
                     else {
                         radius = 0.;
@@ -272,15 +434,18 @@ private:
                     Base::Vector2d b = corner2 - corner1;
                     if (fabs((sqrt(a.x * a.x + a.y * a.y) * sqrt(b.x * b.x + b.y * b.y)))
                         > Precision::Confusion()) {
-                        angle412 =
-                            acos((a.x * b.x + a.y * b.y)
-                                 / (sqrt(a.x * a.x + a.y * a.y) * sqrt(b.x * b.x + b.y * b.y)));
+                        angle412 = acos(
+                            (a.x * b.x + a.y * b.y)
+                            / (sqrt(a.x * a.x + a.y * a.y) * sqrt(b.x * b.x + b.y * b.y))
+                        );
                     }
-                    angle123 = M_PI - angle412;
+                    angle123 = pi - angle412;
                     if (roundCorners) {
                         radius = std::min(length, width) / 6  // NOLINT
-                            * std::min(sqrt(1 - cos(angle412) * cos(angle412)),
-                                       sqrt(1 - cos(angle123) * cos(angle123)));
+                            * std::min(
+                                     sqrt(1 - cos(angle412) * cos(angle412)),
+                                     sqrt(1 - cos(angle123) * cos(angle123))
+                            );
                     }
                     else {
                         radius = 0.;
@@ -297,9 +462,7 @@ private:
 
                 if ((constructionMethod() == ConstructionMethod::ThreePoints
                      || constructionMethod() == ConstructionMethod::CenterAnd3Points)) {
-                    seekAndRenderAutoConstraint(sugConstraints[2],
-                                                onSketchPos,
-                                                Base::Vector2d(0.0, 0.0));
+                    seekAndRenderAutoConstraint(sugConstraints[2], onSketchPos, Base::Vector2d(0.0, 0.0));
                 }
             } break;
             case SelectMode::SeekFourth: {
@@ -338,24 +501,38 @@ private:
             firstCurve = getHighestCurveIndex() + 1;
 
             createShape(false);
+            if (ShapeGeometry.empty()) {
+                THROWM(
+                    Base::ValueError,
+                    QT_TRANSLATE_NOOP(
+                        "Notifications",
+                        "Cannot create a rectangle with zero length or width"
+                    ) "\n"
+                );
+            }
 
-            Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Add sketch box"));
+            openCommand(QT_TRANSLATE_NOOP("Command", "Add sketch box"));
 
             commandAddShapeGeometryAndConstraints();
 
-            Gui::Command::commitCommand();
+            commitCommand();
         }
         catch (const Base::Exception&) {
-            Gui::NotifyError(sketchgui,
-                             QT_TRANSLATE_NOOP("Notifications", "Error"),
-                             QT_TRANSLATE_NOOP("Notifications", "Failed to add box"));
+            Gui::NotifyError(
+                sketchgui,
+                QT_TRANSLATE_NOOP("Notifications", "Error"),
+                QT_TRANSLATE_NOOP("Notifications", "Failed to add box")
+            );
 
-            Gui::Command::abortCommand();
-            THROWM(Base::RuntimeError,
-                   QT_TRANSLATE_NOOP(
-                       "Notifications",
-                       "Tool execution aborted") "\n")  // This prevents constraints from being
-                                                        // applied on non existing geometry
+            abortCommand();
+            THROWM(
+                Base::RuntimeError,
+                QT_TRANSLATE_NOOP(
+                    "Notifications",
+                    "Tool execution aborted"
+                ) "\n"
+            )  // This prevents constraints from being
+               // applied on non existing geometry
         }
 
         thickness = 0.;
@@ -368,139 +545,179 @@ private:
             // add auto constraints at the start of the first side
             if (radius > Precision::Confusion()) {
                 if (!sugConstraints[0].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[0],
-                                                     constructionPointOneId,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[0],
+                        constructionPointOneId,
+                        Sketcher::PointPos::start
+                    );
                 }
 
                 if (!sugConstraints[1].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[1],
-                                                     constructionPointTwoId,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[1],
+                        constructionPointTwoId,
+                        Sketcher::PointPos::start
+                    );
                 }
             }
             else {
                 if (!sugConstraints[0].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[0],
-                                                     firstCurve,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[0],
+                        firstCurve,
+                        Sketcher::PointPos::start
+                    );
                 }
 
                 if (!sugConstraints[1].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[1],
-                                                     firstCurve + 1,
-                                                     Sketcher::PointPos::end);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[1],
+                        firstCurve + 1,
+                        Sketcher::PointPos::end
+                    );
                 }
             }
         }
         else if (constructionMethod() == ConstructionMethod::CenterAndCorner) {
             // add auto constraints at center
             if (!sugConstraints[0].empty()) {
-                generateAutoConstraintsOnElement(sugConstraints[0],
-                                                 centerPointId,
-                                                 Sketcher::PointPos::start);
+                generateAutoConstraintsOnElement(
+                    sugConstraints[0],
+                    centerPointId,
+                    Sketcher::PointPos::start
+                );
             }
 
             // add auto constraints for the line segment end
             if (!sugConstraints[1].empty()) {
                 if (radius > Precision::Confusion()) {
-                    generateAutoConstraintsOnElement(sugConstraints[1],
-                                                     constructionPointOneId,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[1],
+                        constructionPointOneId,
+                        Sketcher::PointPos::start
+                    );
                 }
                 else {
-                    generateAutoConstraintsOnElement(sugConstraints[1],
-                                                     firstCurve + 1,
-                                                     Sketcher::PointPos::end);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[1],
+                        firstCurve + 1,
+                        Sketcher::PointPos::end
+                    );
                 }
             }
         }
         else if (constructionMethod() == ConstructionMethod::ThreePoints) {
             if (radius > Precision::Confusion()) {
                 if (!sugConstraints[0].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[0],
-                                                     constructionPointOneId,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[0],
+                        constructionPointOneId,
+                        Sketcher::PointPos::start
+                    );
                 }
 
                 if (!sugConstraints[1].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[1],
-                                                     constructionPointTwoId,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[1],
+                        constructionPointTwoId,
+                        Sketcher::PointPos::start
+                    );
                 }
 
                 if (!sugConstraints[2].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[2],
-                                                     constructionPointThreeId,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[2],
+                        constructionPointThreeId,
+                        Sketcher::PointPos::start
+                    );
                 }
             }
             else {
                 if (!sugConstraints[0].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[0],
-                                                     firstCurve,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[0],
+                        firstCurve,
+                        Sketcher::PointPos::start
+                    );
                 }
 
                 if (!sugConstraints[1].empty()) {
                     if (!cornersReversed) {
-                        generateAutoConstraintsOnElement(sugConstraints[1],
-                                                         firstCurve + 1,
-                                                         Sketcher::PointPos::start);
+                        generateAutoConstraintsOnElement(
+                            sugConstraints[1],
+                            firstCurve + 1,
+                            Sketcher::PointPos::start
+                        );
                     }
                     else {
-                        generateAutoConstraintsOnElement(sugConstraints[1],
-                                                         firstCurve + 3,
-                                                         Sketcher::PointPos::start);
+                        generateAutoConstraintsOnElement(
+                            sugConstraints[1],
+                            firstCurve + 3,
+                            Sketcher::PointPos::start
+                        );
                     }
                 }
 
                 if (!sugConstraints[2].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[2],
-                                                     firstCurve + 2,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[2],
+                        firstCurve + 2,
+                        Sketcher::PointPos::start
+                    );
                 }
             }
         }
         else if (constructionMethod() == ConstructionMethod::CenterAnd3Points) {
             // add auto constraints at center
             if (!sugConstraints[0].empty()) {
-                generateAutoConstraintsOnElement(sugConstraints[0],
-                                                 centerPointId,
-                                                 Sketcher::PointPos::start);
+                generateAutoConstraintsOnElement(
+                    sugConstraints[0],
+                    centerPointId,
+                    Sketcher::PointPos::start
+                );
             }
 
             // add auto constraints for the line segment end
             if (radius > Precision::Confusion()) {
                 if (!sugConstraints[1].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[1],
-                                                     constructionPointOneId,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[1],
+                        constructionPointOneId,
+                        Sketcher::PointPos::start
+                    );
                 }
 
                 if (!sugConstraints[2].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[2],
-                                                     constructionPointTwoId,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[2],
+                        constructionPointTwoId,
+                        Sketcher::PointPos::start
+                    );
                 }
             }
             else {
                 if (!sugConstraints[1].empty()) {
-                    generateAutoConstraintsOnElement(sugConstraints[1],
-                                                     firstCurve,
-                                                     Sketcher::PointPos::start);
+                    generateAutoConstraintsOnElement(
+                        sugConstraints[1],
+                        firstCurve,
+                        Sketcher::PointPos::start
+                    );
                 }
 
                 if (!sugConstraints[2].empty()) {
                     if (!cornersReversed) {
-                        generateAutoConstraintsOnElement(sugConstraints[2],
-                                                         firstCurve + 1,
-                                                         Sketcher::PointPos::start);
+                        generateAutoConstraintsOnElement(
+                            sugConstraints[2],
+                            firstCurve + 1,
+                            Sketcher::PointPos::start
+                        );
                     }
                     else {
-                        generateAutoConstraintsOnElement(sugConstraints[2],
-                                                         firstCurve + 3,
-                                                         Sketcher::PointPos::start);
+                        generateAutoConstraintsOnElement(
+                            sugConstraints[2],
+                            firstCurve + 3,
+                            Sketcher::PointPos::start
+                        );
                     }
                 }
             }
@@ -529,40 +746,40 @@ private:
     {
         if (!roundCorners && !makeFrame) {
             if (constructionMethod() == ConstructionMethod::CenterAndCorner) {
-                return QString::fromLatin1("Sketcher_Pointer_Create_Box_Center");
+                return QStringLiteral("Sketcher_Pointer_Create_Box_Center");
             }
             else if (constructionMethod() == ConstructionMethod::ThreePoints) {
-                return QString::fromLatin1("Sketcher_Pointer_Create_Box_3Points");
+                return QStringLiteral("Sketcher_Pointer_Create_Box_3Points");
             }
             else if (constructionMethod() == ConstructionMethod::CenterAnd3Points) {
-                return QString::fromLatin1("Sketcher_Pointer_Create_Box_3Points_Center");
+                return QStringLiteral("Sketcher_Pointer_Create_Box_3Points_Center");
             }
             else {
-                return QString::fromLatin1("Sketcher_Pointer_Create_Box");
+                return QStringLiteral("Sketcher_Pointer_Create_Box");
             }
         }
         else if (roundCorners && !makeFrame) {
             if (constructionMethod() == ConstructionMethod::CenterAndCorner) {
-                return QString::fromLatin1("Sketcher_Pointer_Oblong_Center");
+                return QStringLiteral("Sketcher_Pointer_Oblong_Center");
             }
             else {
-                return QString::fromLatin1("Sketcher_Pointer_Oblong");
+                return QStringLiteral("Sketcher_Pointer_Oblong");
             }
         }
         else if (!roundCorners && makeFrame) {
             if (constructionMethod() == ConstructionMethod::CenterAndCorner) {
-                return QString::fromLatin1("Sketcher_Pointer_Create_Frame_Center");
+                return QStringLiteral("Sketcher_Pointer_Create_Frame_Center");
             }
             else {
-                return QString::fromLatin1("Sketcher_Pointer_Create_Frame");
+                return QStringLiteral("Sketcher_Pointer_Create_Frame");
             }
         }
         else {  // both roundCorners and makeFrame
             if (constructionMethod() == ConstructionMethod::CenterAndCorner) {
-                return QString::fromLatin1("Sketcher_Pointer_Oblong_Frame_Center");
+                return QStringLiteral("Sketcher_Pointer_Oblong_Frame_Center");
             }
             else {
-                return QString::fromLatin1("Sketcher_Pointer_Oblong_Frame");
+                return QStringLiteral("Sketcher_Pointer_Oblong_Frame");
             }
         }
     }
@@ -584,7 +801,7 @@ private:
 
     QString getToolWidgetText() const override
     {
-        return QString(QObject::tr("Rectangle parameters"));
+        return QString(tr("Rectangle Parameters"));
     }
 
     void angleSnappingControl() override
@@ -593,16 +810,21 @@ private:
             && state() == SelectMode::SeekSecond) {
             setAngleSnapping(true, corner1);
         }
-        else if ((constructionMethod() == ConstructionMethod::CenterAnd3Points)
-                 && state() == SelectMode::SeekSecond) {
+        else if (
+            (constructionMethod() == ConstructionMethod::CenterAnd3Points)
+            && state() == SelectMode::SeekSecond
+        ) {
             setAngleSnapping(true, center);
         }
-        else if ((constructionMethod() == ConstructionMethod::ThreePoints)
-                 && state() == SelectMode::SeekThird) {
+        else if (
+            (constructionMethod() == ConstructionMethod::ThreePoints) && state() == SelectMode::SeekThird
+        ) {
             setAngleSnapping(true, cornersReversed ? corner4 : corner2);
         }
-        else if ((constructionMethod() == ConstructionMethod::CenterAnd3Points)
-                 && state() == SelectMode::SeekThird) {
+        else if (
+            (constructionMethod() == ConstructionMethod::CenterAnd3Points)
+            && state() == SelectMode::SeekThird
+        ) {
             setAngleSnapping(true, corner1);
         }
 
@@ -613,8 +835,7 @@ private:
 
     bool canGoToNextMode() override
     {
-        if (state() == SelectMode::SeekSecond
-            && (length < Precision::Confusion() || width < Precision::Confusion())) {
+        if (state() == SelectMode::SeekSecond && !updateRectangleMetrics()) {
             return false;
         }
 
@@ -632,8 +853,10 @@ private:
                 if (state() == SelectMode::SeekSecond && !roundCorners && !makeFrame) {
                     setState(SelectMode::End);
                 }
-                else if ((state() == SelectMode::SeekThird && roundCorners && !makeFrame)
-                         || (state() == SelectMode::SeekThird && !roundCorners && makeFrame)) {
+                else if (
+                    (state() == SelectMode::SeekThird && roundCorners && !makeFrame)
+                    || (state() == SelectMode::SeekThird && !roundCorners && makeFrame)
+                ) {
                     setState(SelectMode::End);
                 }
                 else if (state() == SelectMode::SeekFourth) {
@@ -647,8 +870,10 @@ private:
                 if (state() == SelectMode::SeekThird && !roundCorners && !makeFrame) {
                     setState(SelectMode::End);
                 }
-                else if ((state() == SelectMode::SeekFourth && roundCorners && !makeFrame)
-                         || (state() == SelectMode::SeekFourth && !roundCorners && makeFrame)) {
+                else if (
+                    (state() == SelectMode::SeekFourth && roundCorners && !makeFrame)
+                    || (state() == SelectMode::SeekFourth && !roundCorners && makeFrame)
+                ) {
                     setState(SelectMode::End);
                 }
                 else {
@@ -656,6 +881,14 @@ private:
                 }
             }
         }
+    }
+
+    void onReset() override
+    {
+        thickness = 0.;
+        lengthSign = 0;
+        widthSign = 0;
+        toolWidgetManager.resetControls();
     }
 
 private:
@@ -667,17 +900,17 @@ private:
     int firstCurve, constructionPointOneId, constructionPointTwoId, constructionPointThreeId,
         centerPointId, side;
 
+    // Sign tracking for OVP lock fix (issue #23459)
+    // These store the direction sign when OVP is first set to prevent sign flipping
+    int lengthSign, widthSign;
+
     void createShape(bool onlyeditoutline) override
     {
         ShapeGeometry.clear();
 
         Base::Vector2d vecL = corner2 - corner1;
         Base::Vector2d vecW = corner4 - corner1;
-        length = vecL.Length();
-        width = vecW.Length();
-        angle = vecL.Angle();
-        if (length < Precision::Confusion() || width < Precision::Confusion()
-            || fmod(fabs(angle123), M_PI) < Precision::Confusion()) {
+        if (!updateRectangleMetrics()) {
             return;
         }
 
@@ -710,8 +943,30 @@ private:
         }
     }
 
-    void
-    createFirstRectangleGeometries(Base::Vector2d vecL, Base::Vector2d vecW, double L1, double L2)
+    bool updateRectangleMetrics()
+    {
+        Base::Vector2d vecL = corner2 - corner1;
+        Base::Vector2d vecW = corner4 - corner1;
+
+        length = vecL.Length();
+        width = vecW.Length();
+        angle = vecL.Angle();
+
+        auto isFinite = [](const Base::Vector2d& point) {
+            return std::isfinite(point.x) && std::isfinite(point.y);
+        };
+        auto hasNonDegenerateAngle = [](double angle) {
+            return std::isfinite(angle)
+                && fmod(fabs(angle), std::numbers::pi) >= Precision::Confusion();
+        };
+
+        return isFinite(corner1) && isFinite(corner2) && isFinite(corner3) && isFinite(corner4)
+            && std::isfinite(length) && std::isfinite(width) && std::isfinite(angle)
+            && length >= Precision::Confusion() && width >= Precision::Confusion()
+            && hasNonDegenerateAngle(angle123) && hasNonDegenerateAngle(angle412);
+    }
+
+    void createFirstRectangleGeometries(Base::Vector2d vecL, Base::Vector2d vecW, double L1, double L2)
     {
         createFirstRectangleLines(vecL, vecW, L1, L2);
 
@@ -722,25 +977,35 @@ private:
 
     void createFirstRectangleLines(Base::Vector2d vecL, Base::Vector2d vecW, double L1, double L2)
     {
-        addLineToShapeGeometry(toVector3d(corner1 + vecL * L2 * cos(angle412 / 2)),
-                               toVector3d(corner2 - vecL * L1 * cos(angle123 / 2)),
-                               isConstructionMode());
-        addLineToShapeGeometry(toVector3d(corner2 + vecW * L1 * cos(angle123 / 2)),
-                               toVector3d(corner3 - vecW * L2 * cos(angle412 / 2)),
-                               isConstructionMode());
-        addLineToShapeGeometry(toVector3d(corner3 - vecL * L2 * cos(angle412 / 2)),
-                               toVector3d(corner4 + vecL * L1 * cos(angle123 / 2)),
-                               isConstructionMode());
-        addLineToShapeGeometry(toVector3d(corner4 - vecW * L1 * cos(angle123 / 2)),
-                               toVector3d(corner1 + vecW * L2 * cos(angle412 / 2)),
-                               isConstructionMode());
+        addLineToShapeGeometry(
+            toVector3d(corner1 + vecL * L2 * cos(angle412 / 2)),
+            toVector3d(corner2 - vecL * L1 * cos(angle123 / 2)),
+            isConstructionMode()
+        );
+        addLineToShapeGeometry(
+            toVector3d(corner2 + vecW * L1 * cos(angle123 / 2)),
+            toVector3d(corner3 - vecW * L2 * cos(angle412 / 2)),
+            isConstructionMode()
+        );
+        addLineToShapeGeometry(
+            toVector3d(corner3 - vecL * L2 * cos(angle412 / 2)),
+            toVector3d(corner4 + vecL * L1 * cos(angle123 / 2)),
+            isConstructionMode()
+        );
+        addLineToShapeGeometry(
+            toVector3d(corner4 - vecW * L1 * cos(angle123 / 2)),
+            toVector3d(corner1 + vecW * L2 * cos(angle412 / 2)),
+            isConstructionMode()
+        );
     }
 
     void createFirstRectangleFillets(Base::Vector2d vecL, Base::Vector2d vecW, double L1, double L2)
     {
+        using std::numbers::pi;
+
         // center points required later for special case of round corner frame with
         // radiusFrame = 0.
-        double end = angle - M_PI / 2;
+        double end = angle - pi / 2;
 
         Base::Vector2d b1 = (vecL + vecW) / (vecL + vecW).Length();
         Base::Vector2d b2 = (vecL - vecW) / (vecL - vecW).Length();
@@ -749,16 +1014,17 @@ private:
         center3 = toVector3d(corner3 - b1 * L2);
         center4 = toVector3d(corner4 + b2 * L1);
 
-        addArcToShapeGeometry(center1, end - M_PI + angle412, end, radius, isConstructionMode());
-        addArcToShapeGeometry(center2, end, end - M_PI - angle123, radius, isConstructionMode());
-        addArcToShapeGeometry(center3, end + angle412, end - M_PI, radius, isConstructionMode());
-        addArcToShapeGeometry(center4, end - M_PI, end - angle123, radius, isConstructionMode());
+        addArcToShapeGeometry(center1, end - pi + angle412, end, radius, isConstructionMode());
+        addArcToShapeGeometry(center2, end, end - pi - angle123, radius, isConstructionMode());
+        addArcToShapeGeometry(center3, end + angle412, end - pi, radius, isConstructionMode());
+        addArcToShapeGeometry(center4, end - pi, end - angle123, radius, isConstructionMode());
     }
 
-    void
-    createSecondRectangleGeometries(Base::Vector2d vecL, Base::Vector2d vecW, double L1, double L2)
+    void createSecondRectangleGeometries(Base::Vector2d vecL, Base::Vector2d vecW, double L1, double L2)
     {
-        double end = angle - M_PI / 2;
+        using std::numbers::pi;
+
+        double end = angle - pi / 2;
 
         if (radius < Precision::Confusion()) {
             radiusFrame = 0.;
@@ -782,43 +1048,59 @@ private:
             L2F = L2 * radiusFrame / radius;
         }
 
-        addLineToShapeGeometry(toVector3d(frameCorner1 + vecLF / lengthF * L2F * cos(angle412 / 2)),
-                               toVector3d(frameCorner2 - vecLF / lengthF * L1F * cos(angle123 / 2)),
-                               isConstructionMode());
-        addLineToShapeGeometry(toVector3d(frameCorner2 + vecWF / widthF * L1F * cos(angle123 / 2)),
-                               toVector3d(frameCorner3 - vecWF / widthF * L2F * cos(angle412 / 2)),
-                               isConstructionMode());
-        addLineToShapeGeometry(toVector3d(frameCorner3 - vecLF / lengthF * L2F * cos(angle412 / 2)),
-                               toVector3d(frameCorner4 + vecLF / lengthF * L1F * cos(angle123 / 2)),
-                               isConstructionMode());
-        addLineToShapeGeometry(toVector3d(frameCorner4 - vecWF / widthF * L1F * cos(angle123 / 2)),
-                               toVector3d(frameCorner1 + vecWF / widthF * L2F * cos(angle412 / 2)),
-                               isConstructionMode());
+        addLineToShapeGeometry(
+            toVector3d(frameCorner1 + vecLF / lengthF * L2F * cos(angle412 / 2)),
+            toVector3d(frameCorner2 - vecLF / lengthF * L1F * cos(angle123 / 2)),
+            isConstructionMode()
+        );
+        addLineToShapeGeometry(
+            toVector3d(frameCorner2 + vecWF / widthF * L1F * cos(angle123 / 2)),
+            toVector3d(frameCorner3 - vecWF / widthF * L2F * cos(angle412 / 2)),
+            isConstructionMode()
+        );
+        addLineToShapeGeometry(
+            toVector3d(frameCorner3 - vecLF / lengthF * L2F * cos(angle412 / 2)),
+            toVector3d(frameCorner4 + vecLF / lengthF * L1F * cos(angle123 / 2)),
+            isConstructionMode()
+        );
+        addLineToShapeGeometry(
+            toVector3d(frameCorner4 - vecWF / widthF * L1F * cos(angle123 / 2)),
+            toVector3d(frameCorner1 + vecWF / widthF * L2F * cos(angle412 / 2)),
+            isConstructionMode()
+        );
 
         if (roundCorners && radiusFrame > Precision::Confusion()) {
             Base::Vector2d b1 = (vecL + vecW) / (vecL + vecW).Length();
             Base::Vector2d b2 = (vecL - vecW) / (vecL - vecW).Length();
 
-            addArcToShapeGeometry(toVector3d(frameCorner1 + b1 * L2F),
-                                  end - M_PI + angle412,
-                                  end,
-                                  radiusFrame,
-                                  isConstructionMode());
-            addArcToShapeGeometry(toVector3d(frameCorner2 - b2 * L1F),
-                                  end,
-                                  end - M_PI - angle123,
-                                  radiusFrame,
-                                  isConstructionMode());
-            addArcToShapeGeometry(toVector3d(frameCorner3 - b1 * L2F),
-                                  end + angle412,
-                                  end - M_PI,
-                                  radiusFrame,
-                                  isConstructionMode());
-            addArcToShapeGeometry(toVector3d(frameCorner4 + b2 * L1F),
-                                  end - M_PI,
-                                  end - angle123,
-                                  radiusFrame,
-                                  isConstructionMode());
+            addArcToShapeGeometry(
+                toVector3d(frameCorner1 + b1 * L2F),
+                end - pi + angle412,
+                end,
+                radiusFrame,
+                isConstructionMode()
+            );
+            addArcToShapeGeometry(
+                toVector3d(frameCorner2 - b2 * L1F),
+                end,
+                end - pi - angle123,
+                radiusFrame,
+                isConstructionMode()
+            );
+            addArcToShapeGeometry(
+                toVector3d(frameCorner3 - b1 * L2F),
+                end + angle412,
+                end - pi,
+                radiusFrame,
+                isConstructionMode()
+            );
+            addArcToShapeGeometry(
+                toVector3d(frameCorner4 + b2 * L1F),
+                end - pi,
+                end - angle123,
+                radiusFrame,
+                isConstructionMode()
+            );
         }
     }
 
@@ -875,26 +1157,34 @@ private:
     {
         // In this case the corners of the second rectangle are coincident
         // with the centers of the arcs of the first rectangle.
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 8,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve + 4,  // NOLINT
-                              Sketcher::PointPos::mid);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 9,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve + 5,  // NOLINT
-                              Sketcher::PointPos::mid);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 10,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve + 6,  // NOLINT
-                              Sketcher::PointPos::mid);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 11,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve + 7,  // NOLINT
-                              Sketcher::PointPos::mid);
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 8,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve + 4,  // NOLINT
+            Sketcher::PointPos::mid
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 9,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve + 5,  // NOLINT
+            Sketcher::PointPos::mid
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 10,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve + 6,  // NOLINT
+            Sketcher::PointPos::mid
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 11,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve + 7,  // NOLINT
+            Sketcher::PointPos::mid
+        );
     }
 
     void finishOblongFrameCase2()
@@ -908,85 +1198,115 @@ private:
         addLineToShapeGeometry(center3, Base::Vector3d(frameCorner3.x, frameCorner3.y, 0.), true);
         addLineToShapeGeometry(center4, Base::Vector3d(frameCorner4.x, frameCorner4.y, 0.), true);
 
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 12,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve + 4,  // NOLINT
-                              Sketcher::PointPos::mid);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 12,  // NOLINT
-                              Sketcher::PointPos::end,
-                              firstCurve + 8,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 13,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve + 5,  // NOLINT
-                              Sketcher::PointPos::mid);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 13,  // NOLINT
-                              Sketcher::PointPos::end,
-                              firstCurve + 9,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 14,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve + 6,  // NOLINT
-                              Sketcher::PointPos::mid);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 14,  // NOLINT
-                              Sketcher::PointPos::end,
-                              firstCurve + 10,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 15,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve + 7,  // NOLINT
-                              Sketcher::PointPos::mid);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 15,  // NOLINT
-                              Sketcher::PointPos::end,
-                              firstCurve + 11,  // NOLINT
-                              Sketcher::PointPos::start);
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 12,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve + 4,  // NOLINT
+            Sketcher::PointPos::mid
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 12,  // NOLINT
+            Sketcher::PointPos::end,
+            firstCurve + 8,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 13,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve + 5,  // NOLINT
+            Sketcher::PointPos::mid
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 13,  // NOLINT
+            Sketcher::PointPos::end,
+            firstCurve + 9,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 14,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve + 6,  // NOLINT
+            Sketcher::PointPos::mid
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 14,  // NOLINT
+            Sketcher::PointPos::end,
+            firstCurve + 10,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 15,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve + 7,  // NOLINT
+            Sketcher::PointPos::mid
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 15,  // NOLINT
+            Sketcher::PointPos::end,
+            firstCurve + 11,  // NOLINT
+            Sketcher::PointPos::start
+        );
 
-        addToShapeConstraints(Sketcher::Perpendicular,
-                              firstCurve + 12,  // NOLINT
-                              Sketcher::PointPos::none,
-                              firstCurve + 13);  // NOLINT
-        addToShapeConstraints(Sketcher::Perpendicular,
-                              firstCurve + 13,  // NOLINT
-                              Sketcher::PointPos::none,
-                              firstCurve + 14);  // NOLINT
-        addToShapeConstraints(Sketcher::Perpendicular,
-                              firstCurve + 14,  // NOLINT
-                              Sketcher::PointPos::none,
-                              firstCurve + 15);  // NOLINT
+        addToShapeConstraints(
+            Sketcher::Perpendicular,
+            firstCurve + 12,  // NOLINT
+            Sketcher::PointPos::none,
+            firstCurve + 13
+        );  // NOLINT
+        addToShapeConstraints(
+            Sketcher::Perpendicular,
+            firstCurve + 13,  // NOLINT
+            Sketcher::PointPos::none,
+            firstCurve + 14
+        );  // NOLINT
+        addToShapeConstraints(
+            Sketcher::Perpendicular,
+            firstCurve + 14,  // NOLINT
+            Sketcher::PointPos::none,
+            firstCurve + 15
+        );  // NOLINT
     }
 
     void finishOblongFrameCase3()
     {
         addTangentCoincidences(firstCurve + 8);
 
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 4,  // NOLINT
-                              Sketcher::PointPos::mid,
-                              firstCurve + 12,  // NOLINT
-                              Sketcher::PointPos::mid);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 5,  // NOLINT
-                              Sketcher::PointPos::mid,
-                              firstCurve + 13,  // NOLINT
-                              Sketcher::PointPos::mid);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 6,  // NOLINT
-                              Sketcher::PointPos::mid,
-                              firstCurve + 14,  // NOLINT
-                              Sketcher::PointPos::mid);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 7,  // NOLINT
-                              Sketcher::PointPos::mid,
-                              firstCurve + 15,  // NOLINT
-                              Sketcher::PointPos::mid);
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 4,  // NOLINT
+            Sketcher::PointPos::mid,
+            firstCurve + 12,  // NOLINT
+            Sketcher::PointPos::mid
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 5,  // NOLINT
+            Sketcher::PointPos::mid,
+            firstCurve + 13,  // NOLINT
+            Sketcher::PointPos::mid
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 6,  // NOLINT
+            Sketcher::PointPos::mid,
+            firstCurve + 14,  // NOLINT
+            Sketcher::PointPos::mid
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 7,  // NOLINT
+            Sketcher::PointPos::mid,
+            firstCurve + 15,  // NOLINT
+            Sketcher::PointPos::mid
+        );
 
         addFrameAlignmentConstraints(firstCurve + 8, false);
     }
@@ -1014,43 +1334,59 @@ private:
         addPointToShapeGeometry(Base::Vector3d(corner1.x, corner1.y, 0.), true);
         if (!cornersReversed) {
             addPointToShapeGeometry(Base::Vector3d(corner2.x, corner2.y, 0.), true);
-            addToShapeConstraints(Sketcher::PointOnObject,
-                                  constructionPointTwoId,
-                                  Sketcher::PointPos::start,
-                                  firstCurve);
-            addToShapeConstraints(Sketcher::PointOnObject,
-                                  constructionPointTwoId,
-                                  Sketcher::PointPos::start,
-                                  firstCurve + 1);
+            addToShapeConstraints(
+                Sketcher::PointOnObject,
+                constructionPointTwoId,
+                Sketcher::PointPos::start,
+                firstCurve
+            );
+            addToShapeConstraints(
+                Sketcher::PointOnObject,
+                constructionPointTwoId,
+                Sketcher::PointPos::start,
+                firstCurve + 1
+            );
         }
         else {
             addPointToShapeGeometry(Base::Vector3d(corner4.x, corner4.y, 0.), true);
-            addToShapeConstraints(Sketcher::PointOnObject,
-                                  constructionPointTwoId,
-                                  Sketcher::PointPos::start,
-                                  firstCurve + 2);
-            addToShapeConstraints(Sketcher::PointOnObject,
-                                  constructionPointTwoId,
-                                  Sketcher::PointPos::start,
-                                  firstCurve + 3);
+            addToShapeConstraints(
+                Sketcher::PointOnObject,
+                constructionPointTwoId,
+                Sketcher::PointPos::start,
+                firstCurve + 2
+            );
+            addToShapeConstraints(
+                Sketcher::PointOnObject,
+                constructionPointTwoId,
+                Sketcher::PointPos::start,
+                firstCurve + 3
+            );
         }
         addPointToShapeGeometry(Base::Vector3d(corner3.x, corner3.y, 0.), true);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointOneId,
-                              Sketcher::PointPos::start,
-                              firstCurve);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointOneId,
-                              Sketcher::PointPos::start,
-                              firstCurve + 3);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointThreeId,
-                              Sketcher::PointPos::start,
-                              firstCurve + 1);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointThreeId,
-                              Sketcher::PointPos::start,
-                              firstCurve + 2);
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointOneId,
+            Sketcher::PointPos::start,
+            firstCurve
+        );
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointOneId,
+            Sketcher::PointPos::start,
+            firstCurve + 3
+        );
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointThreeId,
+            Sketcher::PointPos::start,
+            firstCurve + 1
+        );
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointThreeId,
+            Sketcher::PointPos::start,
+            firstCurve + 2
+        );
     }
 
     void finishOblongCenterAnd3Points(bool thicknessNotZero, bool negThicknessEqualRadius)
@@ -1076,42 +1412,56 @@ private:
         addPointToShapeGeometry(Base::Vector3d(corner1.x, corner1.y, 0.), true);
         if (!cornersReversed) {
             addPointToShapeGeometry(Base::Vector3d(corner2.x, corner2.y, 0.), true);
-            addToShapeConstraints(Sketcher::PointOnObject,
-                                  constructionPointTwoId,
-                                  Sketcher::PointPos::start,
-                                  firstCurve);
-            addToShapeConstraints(Sketcher::PointOnObject,
-                                  constructionPointTwoId,
-                                  Sketcher::PointPos::start,
-                                  firstCurve + 1);
+            addToShapeConstraints(
+                Sketcher::PointOnObject,
+                constructionPointTwoId,
+                Sketcher::PointPos::start,
+                firstCurve
+            );
+            addToShapeConstraints(
+                Sketcher::PointOnObject,
+                constructionPointTwoId,
+                Sketcher::PointPos::start,
+                firstCurve + 1
+            );
         }
         else {
             addPointToShapeGeometry(Base::Vector3d(corner4.x, corner4.y, 0.), true);
-            addToShapeConstraints(Sketcher::PointOnObject,
-                                  constructionPointTwoId,
-                                  Sketcher::PointPos::start,
-                                  firstCurve + 2);
-            addToShapeConstraints(Sketcher::PointOnObject,
-                                  constructionPointTwoId,
-                                  Sketcher::PointPos::start,
-                                  firstCurve + 3);
+            addToShapeConstraints(
+                Sketcher::PointOnObject,
+                constructionPointTwoId,
+                Sketcher::PointPos::start,
+                firstCurve + 2
+            );
+            addToShapeConstraints(
+                Sketcher::PointOnObject,
+                constructionPointTwoId,
+                Sketcher::PointPos::start,
+                firstCurve + 3
+            );
         }
         addPointToShapeGeometry(Base::Vector3d(center.x, center.y, 0.), true);
-        addToShapeConstraints(Sketcher::Symmetric,
-                              firstCurve + 2,
-                              Sketcher::PointPos::start,
-                              firstCurve,
-                              Sketcher::PointPos::start,
-                              centerPointId,
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointOneId,
-                              Sketcher::PointPos::start,
-                              firstCurve);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointOneId,
-                              Sketcher::PointPos::start,
-                              firstCurve + 3);  // NOLINT
+        addToShapeConstraints(
+            Sketcher::Symmetric,
+            firstCurve + 2,
+            Sketcher::PointPos::start,
+            firstCurve,
+            Sketcher::PointPos::start,
+            centerPointId,
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointOneId,
+            Sketcher::PointPos::start,
+            firstCurve
+        );
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointOneId,
+            Sketcher::PointPos::start,
+            firstCurve + 3
+        );  // NOLINT
     }
 
     void finishOblongCenterAndCorner(bool thicknessNotZero, bool negThicknessEqualRadius)
@@ -1133,21 +1483,27 @@ private:
 
         addPointToShapeGeometry(Base::Vector3d(corner3.x, corner3.y, 0.), true);
         addPointToShapeGeometry(Base::Vector3d(center.x, center.y, 0.), true);
-        addToShapeConstraints(Sketcher::Symmetric,
-                              firstCurve + 2,
-                              Sketcher::PointPos::start,
-                              firstCurve,
-                              Sketcher::PointPos::start,
-                              centerPointId,
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointOneId,
-                              Sketcher::PointPos::start,
-                              firstCurve + 1);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointOneId,
-                              Sketcher::PointPos::start,
-                              firstCurve + 2);
+        addToShapeConstraints(
+            Sketcher::Symmetric,
+            firstCurve + 2,
+            Sketcher::PointPos::start,
+            firstCurve,
+            Sketcher::PointPos::start,
+            centerPointId,
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointOneId,
+            Sketcher::PointPos::start,
+            firstCurve + 1
+        );
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointOneId,
+            Sketcher::PointPos::start,
+            firstCurve + 2
+        );
     }
 
     void finishOblongDiagonal(bool thicknessNotZero, bool negThicknessEqualRadius)
@@ -1169,82 +1525,112 @@ private:
 
         addPointToShapeGeometry(Base::Vector3d(corner1.x, corner1.y, 0.), true);
         addPointToShapeGeometry(Base::Vector3d(corner3.x, corner3.y, 0.), true);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointOneId,
-                              Sketcher::PointPos::start,
-                              firstCurve);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointOneId,
-                              Sketcher::PointPos::start,
-                              firstCurve + 3);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointTwoId,
-                              Sketcher::PointPos::start,
-                              firstCurve + 1);
-        addToShapeConstraints(Sketcher::PointOnObject,
-                              constructionPointTwoId,
-                              Sketcher::PointPos::start,
-                              firstCurve + 2);
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointOneId,
+            Sketcher::PointPos::start,
+            firstCurve
+        );
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointOneId,
+            Sketcher::PointPos::start,
+            firstCurve + 3
+        );
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointTwoId,
+            Sketcher::PointPos::start,
+            firstCurve + 1
+        );
+        addToShapeConstraints(
+            Sketcher::PointOnObject,
+            constructionPointTwoId,
+            Sketcher::PointPos::start,
+            firstCurve + 2
+        );
     }
 
     void addTangentCoincidences(int geoId)
     {
-        addToShapeConstraints(Sketcher::Tangent,
-                              geoId,
-                              Sketcher::PointPos::start,
-                              geoId + 4,  // NOLINT
-                              Sketcher::PointPos::end);
-        addToShapeConstraints(Sketcher::Tangent,
-                              geoId,
-                              Sketcher::PointPos::end,
-                              geoId + 5,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Tangent,
-                              geoId + 1,  // NOLINT
-                              Sketcher::PointPos::start,
-                              geoId + 5,  // NOLINT
-                              Sketcher::PointPos::end);
-        addToShapeConstraints(Sketcher::Tangent,
-                              geoId + 1,  // NOLINT
-                              Sketcher::PointPos::end,
-                              geoId + 6,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Tangent,
-                              geoId + 2,  // NOLINT
-                              Sketcher::PointPos::start,
-                              geoId + 6,  // NOLINT
-                              Sketcher::PointPos::end);
-        addToShapeConstraints(Sketcher::Tangent,
-                              geoId + 2,  // NOLINT
-                              Sketcher::PointPos::end,
-                              geoId + 7,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Tangent,
-                              geoId + 3,  // NOLINT
-                              Sketcher::PointPos::start,
-                              geoId + 7,  // NOLINT
-                              Sketcher::PointPos::end);
-        addToShapeConstraints(Sketcher::Tangent,
-                              geoId + 3,  // NOLINT
-                              Sketcher::PointPos::end,
-                              geoId + 4,  // NOLINT
-                              Sketcher::PointPos::start);
+        addToShapeConstraints(
+            Sketcher::Tangent,
+            geoId,
+            Sketcher::PointPos::start,
+            geoId + 4,  // NOLINT
+            Sketcher::PointPos::end
+        );
+        addToShapeConstraints(
+            Sketcher::Tangent,
+            geoId,
+            Sketcher::PointPos::end,
+            geoId + 5,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Tangent,
+            geoId + 1,  // NOLINT
+            Sketcher::PointPos::start,
+            geoId + 5,  // NOLINT
+            Sketcher::PointPos::end
+        );
+        addToShapeConstraints(
+            Sketcher::Tangent,
+            geoId + 1,  // NOLINT
+            Sketcher::PointPos::end,
+            geoId + 6,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Tangent,
+            geoId + 2,  // NOLINT
+            Sketcher::PointPos::start,
+            geoId + 6,  // NOLINT
+            Sketcher::PointPos::end
+        );
+        addToShapeConstraints(
+            Sketcher::Tangent,
+            geoId + 2,  // NOLINT
+            Sketcher::PointPos::end,
+            geoId + 7,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Tangent,
+            geoId + 3,  // NOLINT
+            Sketcher::PointPos::start,
+            geoId + 7,  // NOLINT
+            Sketcher::PointPos::end
+        );
+        addToShapeConstraints(
+            Sketcher::Tangent,
+            geoId + 3,  // NOLINT
+            Sketcher::PointPos::end,
+            geoId + 4,  // NOLINT
+            Sketcher::PointPos::start
+        );
     }
 
     void addArcEqualities()
     {
-        addToShapeConstraints(Sketcher::Equal,
-                              firstCurve + 4,  // NOLINT
-                              Sketcher::PointPos::none,
-                              firstCurve + 5);  // NOLINT
-        addToShapeConstraints(Sketcher::Equal,
-                              firstCurve + 5,  // NOLINT
-                              Sketcher::PointPos::none,
-                              firstCurve + 6);  // NOLINT
-        addToShapeConstraints(Sketcher::Equal,
-                              firstCurve + 6,  // NOLINT
-                              Sketcher::PointPos::none,
-                              firstCurve + 7);  // NOLINT
+        addToShapeConstraints(
+            Sketcher::Equal,
+            firstCurve + 4,  // NOLINT
+            Sketcher::PointPos::none,
+            firstCurve + 5
+        );  // NOLINT
+        addToShapeConstraints(
+            Sketcher::Equal,
+            firstCurve + 5,  // NOLINT
+            Sketcher::PointPos::none,
+            firstCurve + 6
+        );  // NOLINT
+        addToShapeConstraints(
+            Sketcher::Equal,
+            firstCurve + 6,  // NOLINT
+            Sketcher::PointPos::none,
+            firstCurve + 7
+        );  // NOLINT
     }
 
     void finishRectangleCreation(bool thicknessNotZero)
@@ -1265,26 +1651,34 @@ private:
 
     void addRectangleCoincidences(int geoId)
     {
-        addToShapeConstraints(Sketcher::Coincident,
-                              geoId,
-                              Sketcher::PointPos::end,
-                              geoId + 1,
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              geoId + 1,
-                              Sketcher::PointPos::end,
-                              geoId + 2,
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              geoId + 2,
-                              Sketcher::PointPos::end,
-                              geoId + 3,
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              geoId + 3,
-                              Sketcher::PointPos::end,
-                              geoId,
-                              Sketcher::PointPos::start);
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            geoId,
+            Sketcher::PointPos::end,
+            geoId + 1,
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            geoId + 1,
+            Sketcher::PointPos::end,
+            geoId + 2,
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            geoId + 2,
+            Sketcher::PointPos::end,
+            geoId + 3,
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            geoId + 3,
+            Sketcher::PointPos::end,
+            geoId,
+            Sketcher::PointPos::start
+        );
     }
 
     void addAlignmentConstraints()
@@ -1296,8 +1690,7 @@ private:
             typeB = Sketcher::Horizontal;
         }
 
-        if (fabs(angle) < Precision::Confusion()
-            || constructionMethod() == ConstructionMethod::Diagonal
+        if (fabs(angle) < Precision::Confusion() || constructionMethod() == ConstructionMethod::Diagonal
             || constructionMethod() == ConstructionMethod::CenterAndCorner) {
             addToShapeConstraints(typeA, firstCurve);
             addToShapeConstraints(typeA, firstCurve + 2);
@@ -1305,19 +1698,25 @@ private:
             addToShapeConstraints(typeB, firstCurve + 3);
         }
         else {
-            addToShapeConstraints(Sketcher::Parallel,
-                                  firstCurve,
-                                  Sketcher::PointPos::none,
-                                  firstCurve + 2);
-            addToShapeConstraints(Sketcher::Parallel,
-                                  firstCurve + 1,
-                                  Sketcher::PointPos::none,
-                                  firstCurve + 3);
-            if (fabs(angle123 - M_PI / 2) < Precision::Confusion()) {
-                addToShapeConstraints(Sketcher::Perpendicular,
-                                      firstCurve,
-                                      Sketcher::PointPos::none,
-                                      firstCurve + 1);
+            addToShapeConstraints(
+                Sketcher::Parallel,
+                firstCurve,
+                Sketcher::PointPos::none,
+                firstCurve + 2
+            );
+            addToShapeConstraints(
+                Sketcher::Parallel,
+                firstCurve + 1,
+                Sketcher::PointPos::none,
+                firstCurve + 3
+            );
+            if (fabs(angle123 - std::numbers::pi / 2) < Precision::Confusion()) {
+                addToShapeConstraints(
+                    Sketcher::Perpendicular,
+                    firstCurve,
+                    Sketcher::PointPos::none,
+                    firstCurve + 1
+                );
             }
         }
     }
@@ -1340,8 +1739,7 @@ private:
             typeB = Sketcher::Horizontal;
         }
 
-        if (fabs(angle) < Precision::Confusion()
-            || constructionMethod() == ConstructionMethod::Diagonal
+        if (fabs(angle) < Precision::Confusion() || constructionMethod() == ConstructionMethod::Diagonal
             || constructionMethod() == ConstructionMethod::CenterAndCorner) {
             addToShapeConstraints(typeA, geoId);      // NOLINT
             addToShapeConstraints(typeA, geoId + 2);  // NOLINT
@@ -1351,95 +1749,133 @@ private:
             }
         }
         else {
-            addToShapeConstraints(Sketcher::Parallel,
-                                  geoId,  // NOLINT
-                                  Sketcher::PointPos::none,
-                                  geoId + 2);  // NOLINT
-            addToShapeConstraints(Sketcher::Parallel,
-                                  geoId + 1,  // NOLINT
-                                  Sketcher::PointPos::none,
-                                  geoId + 3);  // NOLINT
-            addToShapeConstraints(Sketcher::Parallel,
-                                  firstCurve,
-                                  Sketcher::PointPos::none,
-                                  geoId);  // NOLINT
+            addToShapeConstraints(
+                Sketcher::Parallel,
+                geoId,  // NOLINT
+                Sketcher::PointPos::none,
+                geoId + 2
+            );  // NOLINT
+            addToShapeConstraints(
+                Sketcher::Parallel,
+                geoId + 1,  // NOLINT
+                Sketcher::PointPos::none,
+                geoId + 3
+            );  // NOLINT
+            addToShapeConstraints(
+                Sketcher::Parallel,
+                firstCurve,
+                Sketcher::PointPos::none,
+                geoId
+            );  // NOLINT
             if (addLast) {
-                addToShapeConstraints(Sketcher::Parallel,
-                                      firstCurve + 1,  // NOLINT
-                                      Sketcher::PointPos::none,
-                                      geoId + 1);  // NOLINT
+                addToShapeConstraints(
+                    Sketcher::Parallel,
+                    firstCurve + 1,  // NOLINT
+                    Sketcher::PointPos::none,
+                    geoId + 1
+                );  // NOLINT
             }
         }
     }
 
     void addRectangleFrameConstructionLines()
     {
-        addLineToShapeGeometry(Base::Vector3d(corner1.x, corner1.y, 0.),
-                               Base::Vector3d(frameCorner1.x, frameCorner1.y, 0.),
-                               true);
-        addLineToShapeGeometry(Base::Vector3d(corner2.x, corner2.y, 0.),
-                               Base::Vector3d(frameCorner2.x, frameCorner2.y, 0.),
-                               true);
-        addLineToShapeGeometry(Base::Vector3d(corner3.x, corner3.y, 0.),
-                               Base::Vector3d(frameCorner3.x, frameCorner3.y, 0.),
-                               true);
-        addLineToShapeGeometry(Base::Vector3d(corner4.x, corner4.y, 0.),
-                               Base::Vector3d(frameCorner4.x, frameCorner4.y, 0.),
-                               true);
+        addLineToShapeGeometry(
+            Base::Vector3d(corner1.x, corner1.y, 0.),
+            Base::Vector3d(frameCorner1.x, frameCorner1.y, 0.),
+            true
+        );
+        addLineToShapeGeometry(
+            Base::Vector3d(corner2.x, corner2.y, 0.),
+            Base::Vector3d(frameCorner2.x, frameCorner2.y, 0.),
+            true
+        );
+        addLineToShapeGeometry(
+            Base::Vector3d(corner3.x, corner3.y, 0.),
+            Base::Vector3d(frameCorner3.x, frameCorner3.y, 0.),
+            true
+        );
+        addLineToShapeGeometry(
+            Base::Vector3d(corner4.x, corner4.y, 0.),
+            Base::Vector3d(frameCorner4.x, frameCorner4.y, 0.),
+            true
+        );
 
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 8,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve,
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 8,  // NOLINT
-                              Sketcher::PointPos::end,
-                              firstCurve + 4,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 9,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve + 1,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 9,  // NOLINT
-                              Sketcher::PointPos::end,
-                              firstCurve + 5,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 10,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve + 2,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 10,  // NOLINT
-                              Sketcher::PointPos::end,
-                              firstCurve + 6,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 11,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve + 3,  // NOLINT
-                              Sketcher::PointPos::start);
-        addToShapeConstraints(Sketcher::Coincident,
-                              firstCurve + 11,  // NOLINT
-                              Sketcher::PointPos::end,
-                              firstCurve + 7,  // NOLINT
-                              Sketcher::PointPos::start);
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 8,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve,
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 8,  // NOLINT
+            Sketcher::PointPos::end,
+            firstCurve + 4,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 9,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve + 1,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 9,  // NOLINT
+            Sketcher::PointPos::end,
+            firstCurve + 5,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 10,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve + 2,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 10,  // NOLINT
+            Sketcher::PointPos::end,
+            firstCurve + 6,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 11,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve + 3,  // NOLINT
+            Sketcher::PointPos::start
+        );
+        addToShapeConstraints(
+            Sketcher::Coincident,
+            firstCurve + 11,  // NOLINT
+            Sketcher::PointPos::end,
+            firstCurve + 7,  // NOLINT
+            Sketcher::PointPos::start
+        );
 
-        addToShapeConstraints(Sketcher::Perpendicular,
-                              firstCurve + 8,  // NOLINT
-                              Sketcher::PointPos::none,
-                              firstCurve + 9);  // NOLINT
-        addToShapeConstraints(Sketcher::Perpendicular,
-                              firstCurve + 9,  // NOLINT
-                              Sketcher::PointPos::none,
-                              firstCurve + 10);  // NOLINT
-        addToShapeConstraints(Sketcher::Perpendicular,
-                              firstCurve + 10,  // NOLINT
-                              Sketcher::PointPos::none,
-                              firstCurve + 11);  // NOLINT
+        addToShapeConstraints(
+            Sketcher::Perpendicular,
+            firstCurve + 8,  // NOLINT
+            Sketcher::PointPos::none,
+            firstCurve + 9
+        );  // NOLINT
+        addToShapeConstraints(
+            Sketcher::Perpendicular,
+            firstCurve + 9,  // NOLINT
+            Sketcher::PointPos::none,
+            firstCurve + 10
+        );  // NOLINT
+        addToShapeConstraints(
+            Sketcher::Perpendicular,
+            firstCurve + 10,  // NOLINT
+            Sketcher::PointPos::none,
+            firstCurve + 11
+        );  // NOLINT
     }
 
     void finishCenteredRectangleCreation(bool thicknessNotZero)
@@ -1452,19 +1888,23 @@ private:
         }
 
         addPointToShapeGeometry(Base::Vector3d(center.x, center.y, 0.), true);
-        addToShapeConstraints(Sketcher::Symmetric,
-                              firstCurve + 2,  // NOLINT
-                              Sketcher::PointPos::start,
-                              firstCurve,
-                              Sketcher::PointPos::start,
-                              centerPointId,
-                              Sketcher::PointPos::start);
+        addToShapeConstraints(
+            Sketcher::Symmetric,
+            firstCurve + 2,  // NOLINT
+            Sketcher::PointPos::start,
+            firstCurve,
+            Sketcher::PointPos::start,
+            centerPointId,
+            Sketcher::PointPos::start
+        );
     }
 
 
-    int getPointSideOfVector(Base::Vector2d pointToCheck,
-                             Base::Vector2d separatingVector,
-                             Base::Vector2d pointOnVector)
+    int getPointSideOfVector(
+        Base::Vector2d pointToCheck,
+        Base::Vector2d separatingVector,
+        Base::Vector2d pointOnVector
+    )
     {
         Base::Vector2d secondPointOnVec = pointOnVector + separatingVector;
         double d = (pointToCheck.x - pointOnVector.x) * (secondPointOnVec.y - pointOnVector.y)
@@ -1501,37 +1941,46 @@ private:
         else {
             if (du < length - du && dv < width - dv) {
                 radius = (du + dv
-                          + std::max(2 * sqrt(du * dv) * sin(angle412 / 2),
-                                     -2 * sqrt(du * dv) * sin(angle412 / 2)))
+                          + std::max(
+                              2 * sqrt(du * dv) * sin(angle412 / 2),
+                              -2 * sqrt(du * dv) * sin(angle412 / 2)
+                          ))
                     * tan(angle412 / 2);
             }
             else if (du > length - du && dv < width - dv) {
                 du = length - du;
                 radius = (du + dv
-                          + std::max(2 * sqrt(du * dv) * sin(angle123 / 2),
-                                     -2 * sqrt(du * dv) * sin(angle123 / 2)))
+                          + std::max(
+                              2 * sqrt(du * dv) * sin(angle123 / 2),
+                              -2 * sqrt(du * dv) * sin(angle123 / 2)
+                          ))
                     * tan(angle123 / 2);
             }
             else if (du < length - du && dv > width - dv) {
                 dv = width - dv;
                 radius = (du + dv
-                          + std::max(2 * sqrt(du * dv) * sin(angle123 / 2),
-                                     -2 * sqrt(du * dv) * sin(angle123 / 2)))
+                          + std::max(
+                              2 * sqrt(du * dv) * sin(angle123 / 2),
+                              -2 * sqrt(du * dv) * sin(angle123 / 2)
+                          ))
                     * tan(angle123 / 2);
             }
             else {
                 du = length - du;
                 dv = width - dv;
                 radius = (du + dv
-                          + std::max(2 * sqrt(du * dv) * sin(angle412 / 2),
-                                     -2 * sqrt(du * dv) * sin(angle412 / 2)))
+                          + std::max(
+                              2 * sqrt(du * dv) * sin(angle412 / 2),
+                              -2 * sqrt(du * dv) * sin(angle412 / 2)
+                          ))
                     * tan(angle412 / 2);
             }
             radius = std::min(
                 radius,
                 std::min(length * 0.999, width * 0.999)  // NOLINT
                     / (cos(angle412 / 2) / sqrt(1 - cos(angle412 / 2) * cos(angle412 / 2))
-                       + cos(angle123 / 2) / sqrt(1 - cos(angle123 / 2) * cos(angle123 / 2))));
+                       + cos(angle123 / 2) / sqrt(1 - cos(angle123 / 2) * cos(angle123 / 2)))
+            );
         }
     }
 
@@ -1551,12 +2000,16 @@ private:
             obliqueThickness = std::min(fabs(du), fabs(length - du));
         }
         else if (du > 0 && du < length && dv > 0 && dv < width) {
-            obliqueThickness = -std::min(std::min(fabs(du), fabs(length - du)),
-                                         std::min(fabs(dv), fabs(width - dv)));
+            obliqueThickness = -std::min(
+                std::min(fabs(du), fabs(length - du)),
+                std::min(fabs(dv), fabs(width - dv))
+            );
         }
         else {
-            obliqueThickness = std::max(std::min(fabs(du), fabs(length - du)),
-                                        std::min(fabs(dv), fabs(width - dv)));
+            obliqueThickness = std::max(
+                std::min(fabs(du), fabs(length - du)),
+                std::min(fabs(dv), fabs(width - dv))
+            );
         }
 
 
@@ -1657,75 +2110,97 @@ void DSHRectangleController::configureToolWidget()
             QApplication::translate("TaskSketcherTool_c1_rectangle", "Corner, width, height"),
             QApplication::translate("TaskSketcherTool_c1_rectangle", "Center, width, height"),
             QApplication::translate("TaskSketcherTool_c1_rectangle", "3 corners"),
-            QApplication::translate("TaskSketcherTool_c1_rectangle", "Center, 2 corners")};
+            QApplication::translate("TaskSketcherTool_c1_rectangle", "Center, 2 corners")
+        };
         toolWidget->setComboboxElements(WCombobox::FirstCombo, names);
 
         toolWidget->setCheckboxLabel(
             WCheckbox::FirstBox,
-            QApplication::translate("TaskSketcherTool_c1_rectangle", "Rounded corners (U)"));
+            QApplication::translate("TaskSketcherTool_c1_rectangle", "Rounded corners (U)")
+        );
         toolWidget->setCheckboxToolTip(
             WCheckbox::FirstBox,
-            QApplication::translate("TaskSketcherTool_c1_rectangle",
-                                    "Create a rectangle with rounded corners."));
+            QApplication::translate(
+                "TaskSketcherTool_c1_rectangle",
+                "Create a rectangle with rounded corners."
+            )
+        );
         syncCheckboxToHandler(WCheckbox::FirstBox, handler->roundCorners);
 
         toolWidget->setCheckboxLabel(
             WCheckbox::SecondBox,
-            QApplication::translate("TaskSketcherTool_c2_rectangle", "Frame (J)"));
+            QApplication::translate("TaskSketcherTool_c2_rectangle", "Frame (J)")
+        );
         toolWidget->setCheckboxToolTip(
             WCheckbox::SecondBox,
-            QApplication::translate("TaskSketcherTool_c2_rectangle",
-                                    "Create two rectangles with a constant offset."));
+            QApplication::translate(
+                "TaskSketcherTool_c2_rectangle",
+                "Create two rectangles with a constant offset."
+            )
+        );
         syncCheckboxToHandler(WCheckbox::SecondBox, handler->makeFrame);
 
-        if (isConstructionMode()) {
+        if (handler->isConstructionMode()) {
             toolWidget->setComboboxItemIcon(
                 WCombobox::FirstCombo,
                 0,
-                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle_Constr"));
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle_Constr")
+            );
             toolWidget->setComboboxItemIcon(
                 WCombobox::FirstCombo,
                 1,
-                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle_Center_Constr"));
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle_Center_Constr")
+            );
             toolWidget->setComboboxItemIcon(
                 WCombobox::FirstCombo,
                 2,
-                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle3Points_Constr"));
-            toolWidget->setComboboxItemIcon(WCombobox::FirstCombo,
-                                            3,
-                                            Gui::BitmapFactory().iconFromTheme(
-                                                "Sketcher_CreateRectangle3Points_Center_Constr"));
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle3Points_Constr")
+            );
+            toolWidget->setComboboxItemIcon(
+                WCombobox::FirstCombo,
+                3,
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle3Points_Center_Constr")
+            );
 
             toolWidget->setCheckboxIcon(
                 WCheckbox::FirstBox,
-                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateOblong_Constr"));
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateOblong_Constr")
+            );
             toolWidget->setCheckboxIcon(
                 WCheckbox::SecondBox,
-                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateFrame_Constr"));
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateFrame_Constr")
+            );
         }
         else {
             toolWidget->setComboboxItemIcon(
                 WCombobox::FirstCombo,
                 0,
-                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle"));
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle")
+            );
             toolWidget->setComboboxItemIcon(
                 WCombobox::FirstCombo,
                 1,
-                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle_Center"));
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle_Center")
+            );
             toolWidget->setComboboxItemIcon(
                 WCombobox::FirstCombo,
                 2,
-                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle3Points"));
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle3Points")
+            );
             toolWidget->setComboboxItemIcon(
                 WCombobox::FirstCombo,
                 3,
-                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle3Points_Center"));
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateRectangle3Points_Center")
+            );
 
             toolWidget->setCheckboxIcon(
                 WCheckbox::FirstBox,
-                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateOblong"));
-            toolWidget->setCheckboxIcon(WCheckbox::SecondBox,
-                                        Gui::BitmapFactory().iconFromTheme("Sketcher_CreateFrame"));
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateOblong")
+            );
+            toolWidget->setCheckboxIcon(
+                WCheckbox::SecondBox,
+                Gui::BitmapFactory().iconFromTheme("Sketcher_CreateFrame")
+            );
         }
     }
 
@@ -1736,52 +2211,66 @@ void DSHRectangleController::configureToolWidget()
         || handler->constructionMethod() == ConstructionMethod::CenterAndCorner) {
         onViewParameters[OnViewParameter::Third]->setLabelType(
             Gui::SoDatumLabel::DISTANCEX,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
         onViewParameters[OnViewParameter::Fourth]->setLabelType(
             Gui::SoDatumLabel::DISTANCEY,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
         onViewParameters[OnViewParameter::Fifth]->setLabelType(
             Gui::SoDatumLabel::RADIUS,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
         onViewParameters[OnViewParameter::Sixth]->setLabelType(
             Gui::SoDatumLabel::DISTANCE,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
     }
     else if (handler->constructionMethod() == ConstructionMethod::ThreePoints) {
         onViewParameters[OnViewParameter::Third]->setLabelType(
             Gui::SoDatumLabel::DISTANCE,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
         onViewParameters[OnViewParameter::Fourth]->setLabelType(
             Gui::SoDatumLabel::ANGLE,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
         onViewParameters[OnViewParameter::Fifth]->setLabelType(
             Gui::SoDatumLabel::DISTANCE,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
         onViewParameters[OnViewParameter::Sixth]->setLabelType(
             Gui::SoDatumLabel::ANGLE,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
         onViewParameters[OnViewParameter::Seventh]->setLabelType(
             Gui::SoDatumLabel::RADIUS,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
         onViewParameters[OnViewParameter::Eighth]->setLabelType(
             Gui::SoDatumLabel::DISTANCE,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
     }
     else if (handler->constructionMethod() == ConstructionMethod::CenterAnd3Points) {
         onViewParameters[OnViewParameter::Third]->setLabelType(Gui::SoDatumLabel::DISTANCEX);
         onViewParameters[OnViewParameter::Fourth]->setLabelType(Gui::SoDatumLabel::DISTANCEY);
         onViewParameters[OnViewParameter::Fifth]->setLabelType(
             Gui::SoDatumLabel::DISTANCE,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
         onViewParameters[OnViewParameter::Sixth]->setLabelType(
             Gui::SoDatumLabel::ANGLE,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
         onViewParameters[OnViewParameter::Seventh]->setLabelType(
             Gui::SoDatumLabel::RADIUS,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
         onViewParameters[OnViewParameter::Eighth]->setLabelType(
             Gui::SoDatumLabel::DISTANCE,
-            Gui::EditableDatumLabel::Function::Dimensioning);
+            Gui::EditableDatumLabel::Function::Dimensioning
+        );
     }
 }
 
@@ -1820,14 +2309,18 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
                 || handler->constructionMethod() == ConstructionMethod::CenterAndCorner) {
                 if (onViewParameters[OnViewParameter::Third]->isSet) {
                     double length = onViewParameters[OnViewParameter::Third]->getValue();
-                    if (fabs(length) < Precision::Confusion()) {
+                    if (fabs(length) < Precision::Confusion()
+                        && onViewParameters[OnViewParameter::Third]->hasFinishedEditing) {
                         unsetOnViewParameter(onViewParameters[OnViewParameter::Third].get());
+                        handler->lengthSign = 0;
                         return;
                     }
 
                     if (handler->constructionMethod() == ConstructionMethod::Diagonal) {
-                        int sign = (onSketchPos.x - handler->corner1.x) >= 0 ? 1 : -1;
-                        onSketchPos.x = handler->corner1.x + sign * length;
+                        if (handler->lengthSign == 0) {
+                            handler->lengthSign = (onSketchPos.x - handler->corner1.x) >= 0 ? 1 : -1;
+                        }
+                        onSketchPos.x = handler->corner1.x + handler->lengthSign * length;
                     }
                     else {
                         onSketchPos.x = handler->center.x + length / 2;
@@ -1835,14 +2328,18 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
                 }
                 if (onViewParameters[OnViewParameter::Fourth]->isSet) {
                     double width = onViewParameters[OnViewParameter::Fourth]->getValue();
-                    if (fabs(width) < Precision::Confusion()) {
+                    if (fabs(width) < Precision::Confusion()
+                        && onViewParameters[OnViewParameter::Fourth]->hasFinishedEditing) {
                         unsetOnViewParameter(onViewParameters[OnViewParameter::Fourth].get());
+                        handler->widthSign = 0;
                         return;
                     }
 
                     if (handler->constructionMethod() == ConstructionMethod::Diagonal) {
-                        int sign = (onSketchPos.y - handler->corner1.y) >= 0 ? 1 : -1;
-                        onSketchPos.y = handler->corner1.y + sign * width;
+                        if (handler->widthSign == 0) {
+                            handler->widthSign = (onSketchPos.y - handler->corner1.y) >= 0 ? 1 : -1;
+                        }
+                        onSketchPos.y = handler->corner1.y + handler->widthSign * width;
                     }
                     else {
                         onSketchPos.y = handler->center.y + width / 2;
@@ -1858,7 +2355,8 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
 
                 if (onViewParameters[OnViewParameter::Third]->isSet) {
                     length = onViewParameters[OnViewParameter::Third]->getValue();
-                    if (length < Precision::Confusion()) {
+                    if (length < Precision::Confusion()
+                        && onViewParameters[OnViewParameter::Third]->hasFinishedEditing) {
                         unsetOnViewParameter(onViewParameters[OnViewParameter::Third].get());
                         return;
                     }
@@ -1867,8 +2365,9 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
                 }
 
                 if (onViewParameters[OnViewParameter::Fourth]->isSet) {
-                    double angle =
-                        Base::toRadians(onViewParameters[OnViewParameter::Fourth]->getValue());
+                    double angle = Base::toRadians(
+                        onViewParameters[OnViewParameter::Fourth]->getValue()
+                    );
                     onSketchPos.x = handler->corner1.x + cos(angle) * length;
                     onSketchPos.y = handler->corner1.y + sin(angle) * length;
                 }
@@ -1881,8 +2380,8 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
                 if (onViewParameters[OnViewParameter::Fourth]->isSet) {
                     onSketchPos.y = onViewParameters[OnViewParameter::Fourth]->getValue();
                 }
-                if (onViewParameters[OnViewParameter::Third]->isSet
-                    && onViewParameters[OnViewParameter::Fourth]->isSet
+                if (onViewParameters[OnViewParameter::Third]->hasFinishedEditing
+                    && onViewParameters[OnViewParameter::Fourth]->hasFinishedEditing
                     && (onSketchPos - handler->center).Length() < Precision::Confusion()) {
                     unsetOnViewParameter(onViewParameters[OnViewParameter::Third].get());
                     unsetOnViewParameter(onViewParameters[OnViewParameter::Fourth].get());
@@ -1902,7 +2401,8 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
                 else {
                     if (onViewParameters[OnViewParameter::Sixth]->isSet) {
                         double thickness = onViewParameters[OnViewParameter::Sixth]->getValue();
-                        if (thickness <= -std::min(handler->width, handler->length) / 2) {
+                        if (thickness <= -std::min(handler->width, handler->length) / 2
+                            && onViewParameters[OnViewParameter::Sixth]->hasFinishedEditing) {
                             unsetOnViewParameter(onViewParameters[OnViewParameter::Sixth].get());
                             return;
                         }
@@ -1922,7 +2422,8 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
 
                 if (onViewParameters[OnViewParameter::Fifth]->isSet) {
                     width = onViewParameters[OnViewParameter::Fifth]->getValue();
-                    if (width < Precision::Confusion()) {
+                    if (width < Precision::Confusion()
+                        && onViewParameters[OnViewParameter::Fifth]->hasFinishedEditing) {
                         unsetOnViewParameter(onViewParameters[OnViewParameter::Fifth].get());
                         return;
                     }
@@ -1930,22 +2431,25 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
                     onSketchPos = handler->corner2Initial + width * dir.Normalize();
                 }
                 if (onViewParameters[OnViewParameter::Sixth]->isSet) {
-                    double angle =
-                        Base::toRadians(onViewParameters[OnViewParameter::Sixth]->getValue());
-                    if (fmod(angle, M_PI) < Precision::Confusion()) {
+                    double angle = Base::toRadians(
+                        onViewParameters[OnViewParameter::Sixth]->getValue()
+                    );
+                    if (fmod(angle, std::numbers::pi) < Precision::Confusion()
+                        && onViewParameters[OnViewParameter::Sixth]->hasFinishedEditing) {
                         unsetOnViewParameter(onViewParameters[OnViewParameter::Sixth].get());
                         return;
                     }
 
-                    int sign1 =
-                        handler->getPointSideOfVector(onSketchPos,
-                                                      handler->corner2Initial - handler->corner1,
-                                                      handler->corner1);
+                    int sign1 = handler->getPointSideOfVector(
+                        onSketchPos,
+                        handler->corner2Initial - handler->corner1,
+                        handler->corner1
+                    );
 
                     int sign = handler->side != sign1 ? 1 : -1;
 
-                    double angle123 =
-                        (handler->corner2Initial - handler->corner1).Angle() + M_PI + sign * angle;
+                    double angle123 = (handler->corner2Initial - handler->corner1).Angle()
+                        + std::numbers::pi + sign * angle;
 
                     onSketchPos.x = handler->corner2Initial.x + cos(angle123) * width;
                     onSketchPos.y = handler->corner2Initial.y + sin(angle123) * width;
@@ -1959,7 +2463,8 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
                 double width = dir.Length();
                 if (onViewParameters[OnViewParameter::Fifth]->isSet) {
                     width = onViewParameters[OnViewParameter::Fifth]->getValue();
-                    if (width < Precision::Confusion()) {
+                    if (width < Precision::Confusion()
+                        && onViewParameters[OnViewParameter::Fifth]->hasFinishedEditing) {
                         unsetOnViewParameter(onViewParameters[OnViewParameter::Fifth].get());
                         return;
                     }
@@ -1967,19 +2472,23 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
                     onSketchPos = handler->corner1 + width * dir.Normalize();
                 }
                 if (onViewParameters[OnViewParameter::Sixth]->isSet) {
-                    double c =
-                        Base::toRadians(onViewParameters[OnViewParameter::Sixth]->getValue());
-                    if (fmod(c, M_PI) < Precision::Confusion()) {
+                    double c = Base::toRadians(onViewParameters[OnViewParameter::Sixth]->getValue());
+                    if (fmod(c, std::numbers::pi) < Precision::Confusion()
+                        && onViewParameters[OnViewParameter::Sixth]->hasFinishedEditing) {
                         unsetOnViewParameter(onViewParameters[OnViewParameter::Sixth].get());
                         return;
                     }
 
-                    double a = asin(width * sin(M_PI - c)
-                                    / (handler->corner3 - handler->corner1).Length());
+                    double a = asin(
+                        width * sin(std::numbers::pi - c)
+                        / (handler->corner3 - handler->corner1).Length()
+                    );
 
-                    int sign1 = handler->getPointSideOfVector(onSketchPos,
-                                                              handler->corner3 - handler->corner1,
-                                                              handler->corner1);
+                    int sign1 = handler->getPointSideOfVector(
+                        onSketchPos,
+                        handler->corner3 - handler->corner1,
+                        handler->corner1
+                    );
 
                     int sign = handler->side != sign1 ? 1 : -1;
 
@@ -1996,7 +2505,8 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
 
                 if (onViewParameters[OnViewParameter::Sixth]->isSet) {
                     double thickness = onViewParameters[OnViewParameter::Sixth]->getValue();
-                    if (thickness <= -std::min(handler->width, handler->length) / 2) {
+                    if (thickness <= -std::min(handler->width, handler->length) / 2
+                        && onViewParameters[OnViewParameter::Sixth]->hasFinishedEditing) {
                         unsetOnViewParameter(onViewParameters[OnViewParameter::Sixth].get());
                         return;
                     }
@@ -2013,8 +2523,7 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
                         if (handler->constructionMethod() == ConstructionMethod::CenterAnd3Points) {
                             angleToUse = handler->angle123 / 2;
                         }
-                        Base::Vector2d vecL =
-                            (handler->corner2Initial - handler->corner1).Normalize();
+                        Base::Vector2d vecL = (handler->corner2Initial - handler->corner1).Normalize();
                         double L2 = onViewParameters[OnViewParameter::Seventh]->getValue()
                             / sqrt(1 - cos(angleToUse) * cos(angleToUse));
                         onSketchPos = handler->corner1 + vecL * L2 * cos(angleToUse);
@@ -2023,7 +2532,8 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
                 else {
                     if (onViewParameters[OnViewParameter::Eighth]->isSet) {
                         double thickness = onViewParameters[OnViewParameter::Eighth]->getValue();
-                        if (thickness <= -std::min(handler->width, handler->length) / 2) {
+                        if (thickness <= -std::min(handler->width, handler->length) / 2
+                            && onViewParameters[OnViewParameter::Eighth]->hasFinishedEditing) {
                             unsetOnViewParameter(onViewParameters[OnViewParameter::Eighth].get());
                             return;
                         }
@@ -2046,7 +2556,8 @@ void DSHRectangleControllerBase::doEnforceControlParameters(Base::Vector2d& onSk
         case SelectMode::SeekFifth: {
             if (onViewParameters[OnViewParameter::Eighth]->isSet) {
                 double thickness = onViewParameters[OnViewParameter::Eighth]->getValue();
-                if (thickness <= -std::min(handler->width, handler->length) / 2) {
+                if (thickness <= -std::min(handler->width, handler->length) / 2
+                    && onViewParameters[OnViewParameter::Eighth]->hasFinishedEditing) {
                     unsetOnViewParameter(onViewParameters[OnViewParameter::Eighth].get());
                     return;
                 }
@@ -2096,10 +2607,14 @@ void DSHRectangleController::adaptParameters(Base::Vector2d onSketchPos)
             bool sameSign = onSketchPos.x * onSketchPos.y > 0.;
             onViewParameters[OnViewParameter::First]->setLabelAutoDistanceReverse(!sameSign);
             onViewParameters[OnViewParameter::Second]->setLabelAutoDistanceReverse(sameSign);
-            onViewParameters[OnViewParameter::First]->setPoints(Base::Vector3d(),
-                                                                toVector3d(onSketchPos));
-            onViewParameters[OnViewParameter::Second]->setPoints(Base::Vector3d(),
-                                                                 toVector3d(onSketchPos));
+            onViewParameters[OnViewParameter::First]->setPoints(
+                Base::Vector3d(),
+                toVector3d(onSketchPos)
+            );
+            onViewParameters[OnViewParameter::Second]->setPoints(
+                Base::Vector3d(),
+                toVector3d(onSketchPos)
+            );
         } break;
         case SelectMode::SeekSecond: {
             if (handler->constructionMethod() == ConstructionMethod::Diagonal
@@ -2123,29 +2638,38 @@ void DSHRectangleController::adaptParameters(Base::Vector2d onSketchPos)
 
                 onViewParameters[OnViewParameter::Third]->setPoints(
                     start,
-                    toVector3d(handler->cornersReversed ? handler->corner4 : handler->corner2));
+                    toVector3d(handler->cornersReversed ? handler->corner4 : handler->corner2)
+                );
                 onViewParameters[OnViewParameter::Fourth]->setPoints(
                     start,
-                    toVector3d(handler->cornersReversed ? handler->corner2 : handler->corner4));
+                    toVector3d(handler->cornersReversed ? handler->corner2 : handler->corner4)
+                );
             }
             else if (handler->constructionMethod() == ConstructionMethod::ThreePoints) {
                 if (!onViewParameters[OnViewParameter::Third]->isSet) {
                     setOnViewParameterValue(OnViewParameter::Third, handler->length);
                 }
 
-                onViewParameters[OnViewParameter::Third]->setPoints(toVector3d(handler->corner4),
-                                                                    toVector3d(handler->corner3));
+                onViewParameters[OnViewParameter::Third]->setPoints(
+                    toVector3d(handler->corner4),
+                    toVector3d(handler->corner3)
+                );
 
                 if (!onViewParameters[OnViewParameter::Fourth]->isSet) {
-                    setOnViewParameterValue(OnViewParameter::Fourth,
-                                            Base::toDegrees(handler->angle),
-                                            Base::Unit::Angle);
+                    setOnViewParameterValue(
+                        OnViewParameter::Fourth,
+                        Base::toDegrees(handler->angle),
+                        Base::Unit::Angle
+                    );
                 }
 
-                onViewParameters[OnViewParameter::Fourth]->setPoints(toVector3d(handler->corner1),
-                                                                     Base::Vector3d());
+                onViewParameters[OnViewParameter::Fourth]->setPoints(
+                    toVector3d(handler->corner1),
+                    Base::Vector3d()
+                );
                 onViewParameters[OnViewParameter::Fourth]->setLabelRange(
-                    (handler->corner2 - handler->corner1).Angle());
+                    (handler->corner2 - handler->corner1).Angle()
+                );
             }
             else {
                 if (!onViewParameters[OnViewParameter::Third]->isSet) {
@@ -2159,10 +2683,14 @@ void DSHRectangleController::adaptParameters(Base::Vector2d onSketchPos)
                 bool sameSign = onSketchPos.x * onSketchPos.y > 0.;
                 onViewParameters[OnViewParameter::Third]->setLabelAutoDistanceReverse(!sameSign);
                 onViewParameters[OnViewParameter::Fourth]->setLabelAutoDistanceReverse(sameSign);
-                onViewParameters[OnViewParameter::Third]->setPoints(Base::Vector3d(),
-                                                                    toVector3d(onSketchPos));
-                onViewParameters[OnViewParameter::Fourth]->setPoints(Base::Vector3d(),
-                                                                     toVector3d(onSketchPos));
+                onViewParameters[OnViewParameter::Third]->setPoints(
+                    Base::Vector3d(),
+                    toVector3d(onSketchPos)
+                );
+                onViewParameters[OnViewParameter::Fourth]->setPoints(
+                    Base::Vector3d(),
+                    toVector3d(onSketchPos)
+                );
             }
         } break;
         case SelectMode::SeekThird: {
@@ -2189,27 +2717,32 @@ void DSHRectangleController::adaptParameters(Base::Vector2d onSketchPos)
                     }
 
                     Base::Vector3d start = toVector3d(handler->corner3);
-                    Base::Vector3d end =
-                        Base::Vector3d(handler->corner3.x, handler->frameCorner3.y, 0.0);
+                    Base::Vector3d end
+                        = Base::Vector3d(handler->corner3.x, handler->frameCorner3.y, 0.0);
                     onViewParameters[OnViewParameter::Sixth]->setPoints(start, end);
                 }
             }
             else if (handler->constructionMethod() == ConstructionMethod::ThreePoints) {
-                onViewParameters[OnViewParameter::Third]->setPoints(toVector3d(handler->corner4),
-                                                                    toVector3d(handler->corner3));
+                onViewParameters[OnViewParameter::Third]->setPoints(
+                    toVector3d(handler->corner4),
+                    toVector3d(handler->corner3)
+                );
 
                 bool reversed = handler->cornersReversed;
 
                 if (!onViewParameters[OnViewParameter::Fifth]->isSet) {
-                    setOnViewParameterValue(OnViewParameter::Fifth,
-                                            reversed ? handler->length : handler->width);
+                    setOnViewParameterValue(
+                        OnViewParameter::Fifth,
+                        reversed ? handler->length : handler->width
+                    );
                 }
 
                 Base::Vector3d start = toVector3d(handler->corner1);
                 onViewParameters[OnViewParameter::Fifth]->setLabelAutoDistanceReverse(reversed);
                 onViewParameters[OnViewParameter::Fifth]->setPoints(
                     start,
-                    toVector3d(reversed ? handler->corner2 : handler->corner4));
+                    toVector3d(reversed ? handler->corner2 : handler->corner4)
+                );
 
 
                 if (!onViewParameters[OnViewParameter::Sixth]->isSet) {
@@ -2219,7 +2752,8 @@ void DSHRectangleController::adaptParameters(Base::Vector2d onSketchPos)
 
                 onViewParameters[OnViewParameter::Sixth]->setPoints(
                     toVector3d(reversed ? handler->corner4 : handler->corner2),
-                    Base::Vector3d());
+                    Base::Vector3d()
+                );
                 double startAngle = reversed ? (handler->corner1 - handler->corner4).Angle()
                                              : (handler->corner3 - handler->corner2).Angle();
                 onViewParameters[OnViewParameter::Sixth]->setLabelStartAngle(startAngle);
@@ -2229,15 +2763,18 @@ void DSHRectangleController::adaptParameters(Base::Vector2d onSketchPos)
                 bool reversed = handler->cornersReversed;
 
                 if (!onViewParameters[OnViewParameter::Fifth]->isSet) {
-                    setOnViewParameterValue(OnViewParameter::Fifth,
-                                            reversed ? handler->width : handler->length);
+                    setOnViewParameterValue(
+                        OnViewParameter::Fifth,
+                        reversed ? handler->width : handler->length
+                    );
                 }
 
                 Base::Vector3d start = toVector3d(handler->corner1);
                 onViewParameters[OnViewParameter::Fifth]->setLabelAutoDistanceReverse(true);
                 onViewParameters[OnViewParameter::Fifth]->setPoints(
                     start,
-                    toVector3d(reversed ? handler->corner4 : handler->corner2));
+                    toVector3d(reversed ? handler->corner4 : handler->corner2)
+                );
 
 
                 if (!onViewParameters[OnViewParameter::Sixth]->isSet) {
@@ -2245,8 +2782,10 @@ void DSHRectangleController::adaptParameters(Base::Vector2d onSketchPos)
                     setOnViewParameterValue(OnViewParameter::Sixth, val, Base::Unit::Angle);
                 }
 
-                onViewParameters[OnViewParameter::Sixth]->setPoints(toVector3d(handler->corner1),
-                                                                    Base::Vector3d());
+                onViewParameters[OnViewParameter::Sixth]->setPoints(
+                    toVector3d(handler->corner1),
+                    Base::Vector3d()
+                );
                 double startAngle = (handler->corner2 - handler->corner1).Angle();
                 onViewParameters[OnViewParameter::Sixth]->setLabelStartAngle(startAngle);
                 onViewParameters[OnViewParameter::Sixth]->setLabelRange(handler->angle412);
@@ -2261,8 +2800,7 @@ void DSHRectangleController::adaptParameters(Base::Vector2d onSketchPos)
                 }
 
                 Base::Vector3d start = toVector3d(handler->corner3);
-                Base::Vector3d end =
-                    Base::Vector3d(handler->corner3.x, handler->frameCorner3.y, 0.0);
+                Base::Vector3d end = Base::Vector3d(handler->corner3.x, handler->frameCorner3.y, 0.0);
                 onViewParameters[OnViewParameter::Sixth]->setPoints(start, end);
             }
             else {
@@ -2287,8 +2825,7 @@ void DSHRectangleController::adaptParameters(Base::Vector2d onSketchPos)
                     }
 
                     Base::Vector3d start = toVector3d(handler->corner3);
-                    Base::Vector3d vec =
-                        toVector3d((handler->corner3 - handler->corner2).Normalize());
+                    Base::Vector3d vec = toVector3d((handler->corner3 - handler->corner2).Normalize());
                     Base::Vector3d end = start + handler->thickness * vec;
                     onViewParameters[OnViewParameter::Eighth]->setPoints(start, end);
                 }
@@ -2310,56 +2847,63 @@ void DSHRectangleController::adaptParameters(Base::Vector2d onSketchPos)
 }
 
 template<>
-void DSHRectangleController::doChangeDrawSketchHandlerMode()
+void DSHRectangleController::computeNextDrawSketchHandlerMode()
 {
     switch (handler->state()) {
         case SelectMode::SeekFirst: {
-            if (onViewParameters[OnViewParameter::First]->isSet
-                && onViewParameters[OnViewParameter::Second]->isSet) {
+            if (onViewParameters[OnViewParameter::First]->hasFinishedEditing
+                && onViewParameters[OnViewParameter::Second]->hasFinishedEditing) {
 
-                handler->setState(SelectMode::SeekSecond);
+                handler->setNextState(SelectMode::SeekSecond);
             }
         } break;
         case SelectMode::SeekSecond: {
-            if (onViewParameters[OnViewParameter::Third]->isSet
-                && onViewParameters[OnViewParameter::Fourth]->isSet) {
+            if (onViewParameters[OnViewParameter::Third]->hasFinishedEditing
+                && onViewParameters[OnViewParameter::Fourth]->hasFinishedEditing) {
+
+                if (!handler->canGoToNextMode()) {
+                    return;
+                }
 
                 if (handler->roundCorners || handler->makeFrame
                     || handler->constructionMethod() == ConstructionMethod::ThreePoints
                     || handler->constructionMethod() == ConstructionMethod::CenterAnd3Points) {
 
-                    handler->setState(SelectMode::SeekThird);
+                    handler->setNextState(SelectMode::SeekThird);
                 }
                 else {
-                    handler->setState(SelectMode::End);
+                    handler->setNextState(SelectMode::End);
                 }
             }
         } break;
         case SelectMode::SeekThird: {
             if (handler->constructionMethod() == ConstructionMethod::Diagonal
                 || handler->constructionMethod() == ConstructionMethod::CenterAndCorner) {
-                if (handler->roundCorners && onViewParameters[OnViewParameter::Fifth]->isSet) {
+                if (handler->roundCorners
+                    && onViewParameters[OnViewParameter::Fifth]->hasFinishedEditing) {
 
                     if (handler->makeFrame) {
-                        handler->setState(SelectMode::SeekFourth);
+                        handler->setNextState(SelectMode::SeekFourth);
                     }
                     else {
-                        handler->setState(SelectMode::End);
+                        handler->setNextState(SelectMode::End);
                     }
                 }
-                else if (handler->makeFrame && onViewParameters[OnViewParameter::Sixth]->isSet) {
+                else if (
+                    handler->makeFrame && onViewParameters[OnViewParameter::Sixth]->hasFinishedEditing
+                ) {
 
-                    handler->setState(SelectMode::End);
+                    handler->setNextState(SelectMode::End);
                 }
             }
             else {
-                if (onViewParameters[OnViewParameter::Fifth]->isSet
-                    && onViewParameters[OnViewParameter::Sixth]->isSet) {
+                if (onViewParameters[OnViewParameter::Fifth]->hasFinishedEditing
+                    && onViewParameters[OnViewParameter::Sixth]->hasFinishedEditing) {
                     if (handler->roundCorners || handler->makeFrame) {
-                        handler->setState(SelectMode::SeekFourth);
+                        handler->setNextState(SelectMode::SeekFourth);
                     }
                     else {
-                        handler->setState(SelectMode::End);
+                        handler->setNextState(SelectMode::End);
                     }
                 }
             }
@@ -2367,28 +2911,31 @@ void DSHRectangleController::doChangeDrawSketchHandlerMode()
         case SelectMode::SeekFourth: {
             if (handler->constructionMethod() == ConstructionMethod::Diagonal
                 || handler->constructionMethod() == ConstructionMethod::CenterAndCorner) {
-                if (onViewParameters[OnViewParameter::Sixth]->isSet) {
-                    handler->setState(SelectMode::End);
+                if (onViewParameters[OnViewParameter::Sixth]->hasFinishedEditing) {
+                    handler->setNextState(SelectMode::End);
                 }
             }
             else {
-                if (handler->roundCorners && onViewParameters[OnViewParameter::Seventh]->isSet) {
+                if (handler->roundCorners
+                    && onViewParameters[OnViewParameter::Seventh]->hasFinishedEditing) {
 
                     if (handler->makeFrame) {
-                        handler->setState(SelectMode::SeekFifth);
+                        handler->setNextState(SelectMode::SeekFifth);
                     }
                     else {
-                        handler->setState(SelectMode::End);
+                        handler->setNextState(SelectMode::End);
                     }
                 }
-                else if (handler->makeFrame && onViewParameters[OnViewParameter::Eighth]->isSet) {
-                    handler->setState(SelectMode::End);
+                else if (
+                    handler->makeFrame && onViewParameters[OnViewParameter::Eighth]->hasFinishedEditing
+                ) {
+                    handler->setNextState(SelectMode::End);
                 }
             }
         } break;
         case SelectMode::SeekFifth: {
-            if (handler->makeFrame && onViewParameters[OnViewParameter::Eighth]->isSet) {
-                handler->setState(SelectMode::End);
+            if (handler->makeFrame && onViewParameters[OnViewParameter::Eighth]->hasFinishedEditing) {
+                handler->setNextState(SelectMode::End);
             }
         } break;
         default:
@@ -2399,6 +2946,8 @@ void DSHRectangleController::doChangeDrawSketchHandlerMode()
 template<>
 void DSHRectangleController::addConstraints()
 {
+    using std::numbers::pi;
+
     App::DocumentObject* obj = handler->sketchgui->getObject();
 
     int firstCurve = handler->firstCurve;
@@ -2459,41 +3008,39 @@ void DSHRectangleController::addConstraints()
     }
 
     auto constraintx0 = [&]() {
-        ConstraintToAttachment(GeoElementId(firstPointId, PointPos::start),
-                               GeoElementId::VAxis,
-                               x0,
-                               obj);
+        ConstraintToAttachment(GeoElementId(firstPointId, PointPos::start), GeoElementId::VAxis, x0, obj);
     };
 
     auto constrainty0 = [&]() {
-        ConstraintToAttachment(GeoElementId(firstPointId, PointPos::start),
-                               GeoElementId::HAxis,
-                               y0,
-                               obj);
+        ConstraintToAttachment(GeoElementId(firstPointId, PointPos::start), GeoElementId::HAxis, y0, obj);
     };
 
     auto constraintlength = [&]() {
         int curveId = reverse ? firstCurve : firstCurve + 1;
 
-        Gui::cmdAppObjectArgs(obj,
-                              "addConstraint(Sketcher.Constraint('Distance',%d,%d,%d,%d,%f)) ",
-                              curveId,
-                              1,
-                              curveId + 2,
-                              2,
-                              fabs(length));
+        Gui::cmdAppObjectArgs(
+            obj,
+            "addConstraint(Sketcher.Constraint('Distance',%d,%d,%d,%d,%f)) ",
+            curveId,
+            1,
+            curveId + 2,
+            2,
+            fabs(length)
+        );
     };
 
     auto constraintwidth = [&]() {
         int curveId = reverse ? firstCurve + 1 : firstCurve;
 
-        Gui::cmdAppObjectArgs(obj,
-                              "addConstraint(Sketcher.Constraint('Distance',%d,%d,%d,%d,%f)) ",
-                              curveId,
-                              1,
-                              curveId + 2,
-                              2,
-                              fabs(width));
+        Gui::cmdAppObjectArgs(
+            obj,
+            "addConstraint(Sketcher.Constraint('Distance',%d,%d,%d,%d,%f)) ",
+            curveId,
+            1,
+            curveId + 2,
+            2,
+            fabs(width)
+        );
     };
 
     // NOTE: if AutoConstraints is empty, we can add constraints directly without any diagnose. No
@@ -2525,7 +3072,8 @@ void DSHRectangleController::addConstraints()
                                                      // each constraint addition
 
             firstpointinfo = handler->getPointInfo(
-                GeoElementId(firstPointId, PointPos::start));  // get updated point position
+                GeoElementId(firstPointId, PointPos::start)
+            );  // get updated point position
         }
 
         if (y0set && firstpointinfo.isYDoF()) {
@@ -2569,89 +3117,84 @@ void DSHRectangleController::addConstraints()
 
     if (handler->constructionMethod() == ConstructionMethod::ThreePoints) {
         if (angleSet) {
-            if (fabs(angle - M_PI) < Precision::Confusion()
-                || fabs(angle + M_PI) < Precision::Confusion()
-                || fabs(angle) < Precision::Confusion()) {
-                Gui::cmdAppObjectArgs(obj,
-                                      "addConstraint(Sketcher.Constraint('Horizontal',%d)) ",
-                                      firstCurve);
-            }
-            else if (fabs(angle - M_PI / 2) < Precision::Confusion()
-                     || fabs(angle + M_PI / 2) < Precision::Confusion()) {
-                Gui::cmdAppObjectArgs(obj,
-                                      "addConstraint(Sketcher.Constraint('Vertical',%d)) ",
-                                      firstCurve);
-            }
-            else {
-                Gui::cmdAppObjectArgs(obj,
-                                      "addConstraint(Sketcher.Constraint('Angle',%d,%d,%f)) ",
-                                      Sketcher::GeoEnum::HAxis,
-                                      firstCurve,
-                                      angle);
-            }
+            ConstraintLineByAngle(firstCurve, angle, obj);
         }
         if (innerAngleSet) {
-            if (fabs(innerAngle - M_PI / 2) > Precision::Confusion()) {
-                // if 90? then perpendicular already created.
-                Gui::cmdAppObjectArgs(obj,
-                                      "addConstraint(Sketcher.Constraint('Angle',%d,%d,%d,%d,%f)) ",
-                                      firstCurve + 1,
-                                      1,
-                                      firstCurve,
-                                      2,
-                                      innerAngle);
+            if (fabs(fmod(fabs(innerAngle), pi) - pi / 2) > Precision::Confusion()) {
+                // At odd multiples of 90 degrees, a perpendicular constraint was already created.
+                Gui::cmdAppObjectArgs(
+                    obj,
+                    "addConstraint(Sketcher.Constraint('Angle',%d,%d,%d,%d,%f)) ",
+                    firstCurve + 1,
+                    1,
+                    firstCurve,
+                    2,
+                    innerAngle
+                );
             }
         }
     }
     else if (handler->constructionMethod() == ConstructionMethod::CenterAnd3Points) {
         if (corner1xSet) {
-            ConstraintToAttachment(GeoElementId(firstCurve, PointPos::start),
-                                   GeoElementId::VAxis,
-                                   corner1x,
-                                   obj);
+            ConstraintToAttachment(
+                GeoElementId(firstCurve, PointPos::start),
+                GeoElementId::VAxis,
+                corner1x,
+                obj
+            );
         }
         if (corner1ySet) {
-            ConstraintToAttachment(GeoElementId(firstCurve, PointPos::start),
-                                   GeoElementId::HAxis,
-                                   corner1y,
-                                   obj);
+            ConstraintToAttachment(
+                GeoElementId(firstCurve, PointPos::start),
+                GeoElementId::HAxis,
+                corner1y,
+                obj
+            );
         }
         if (innerAngleSet) {
-            if (fabs(innerAngle - M_PI / 2) > Precision::Confusion()) {
-                // if 90? then perpendicular already created.
-                Gui::cmdAppObjectArgs(obj,
-                                      "addConstraint(Sketcher.Constraint('Angle',%d,%d,%d,%d,%f)) ",
-                                      firstCurve,
-                                      1,
-                                      firstCurve + 3,
-                                      2,
-                                      innerAngle);
+            if (fabs(fmod(fabs(innerAngle), pi) - pi / 2) > Precision::Confusion()) {
+                // At odd multiples of 90 degrees, a perpendicular constraint was already created.
+                Gui::cmdAppObjectArgs(
+                    obj,
+                    "addConstraint(Sketcher.Constraint('Angle',%d,%d,%d,%d,%f)) ",
+                    firstCurve,
+                    1,
+                    firstCurve + 3,
+                    2,
+                    innerAngle
+                );
             }
         }
     }
 
     if (radiusSet && radius > Precision::Confusion()) {
-        Gui::cmdAppObjectArgs(obj,
-                              "addConstraint(Sketcher.Constraint('Radius',%d,%f)) ",
-                              firstCurve + 5,  // NOLINT
-                              radius);
+        Gui::cmdAppObjectArgs(
+            obj,
+            "addConstraint(Sketcher.Constraint('Radius',%d,%f)) ",
+            firstCurve + 5,  // NOLINT
+            radius
+        );
     }
 
     bool negThicknessEqualRadius = fabs(radius + thickness) < Precision::Confusion();
     // in the case where negative thickness = radius, the inner rectangle has its corner
     // constrained to the mid of the arcs of the outer rectangle. So thickness would be redundant
     if (thicknessSet && !negThicknessEqualRadius) {
-        Gui::cmdAppObjectArgs(obj,
-                              "addConstraint(Sketcher.Constraint('Distance',%d,%d,%d,%f)) ",
-                              firstCurve + (handler->roundCorners == true ? 8 : 4),  // NOLINT
-                              1,
-                              firstCurve,
-                              fabs(thickness));
+        Gui::cmdAppObjectArgs(
+            obj,
+            "addConstraint(Sketcher.Constraint('Distance',%d,%d,%d,%f)) ",
+            firstCurve + (handler->roundCorners == true ? 8 : 4),  // NOLINT
+            1,
+            firstCurve,
+            fabs(thickness)
+        );
     }
 }
 
+template<>
+void DSHRectangleController::doConstructionMethodChanged()
+{
+    handler->updateHint();
+}
 
 }  // namespace SketcherGui
-
-
-#endif  // SKETCHERGUI_DrawSketchHandlerRectangle_H

@@ -21,20 +21,15 @@
  *                                                                         *
  **************************************************************************/
 
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
 #include <sstream>
-#endif
 
 #include <App/GeoFeature.h>
 #include <App/MaterialPy.h>
 #include <App/PropertyStandard.h>
 
+// generated out of ViewProviderGeometryObject.pyi
 #include "ViewProviderGeometryObjectPy.h"
-
 #include "ViewProviderGeometryObjectPy.cpp"
-
 
 using namespace Gui;
 
@@ -58,7 +53,7 @@ PyObject* ViewProviderGeometryObjectPy::getCustomAttributes(const char* attr) co
     }
     if (strcmp(attr, "ShapeMaterial") == 0) {
         // Get material property of ViewProviderGeometryObject
-        auto geometry = dynamic_cast<App::GeoFeature*>(vp->getObject());
+        auto geometry = vp->getObject<App::GeoFeature>();
         if (geometry) {
             auto material = geometry->getMaterialAppearance();
             App::PropertyMaterial prop;
@@ -89,7 +84,7 @@ int ViewProviderGeometryObjectPy::setCustomAttributes(const char* attr, PyObject
     }
     if (strcmp(attr, "ShapeMaterial") == 0) {
         // Get material property of ViewProviderGeometryObject
-        auto geometry = dynamic_cast<App::GeoFeature*>(vp->getObject());
+        auto geometry = vp->getObject<App::GeoFeature>();
         if (geometry) {
             App::PropertyMaterial prop;
             prop.setPyObject(obj);

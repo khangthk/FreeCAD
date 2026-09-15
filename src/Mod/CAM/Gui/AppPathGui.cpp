@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2014 Yorik van Havre <yorik@uncreated.net>              *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Base/Console.h>
 #include <Base/Interpreter.h>
@@ -68,21 +69,21 @@ PyMOD_INIT_FUNC(PathGui)
         PyMOD_Return(nullptr);
     }
     PyObject* mod = PathGui::initModule();
-    Base::Console().Log("Loading GUI of Path module... done\n");
+    Base::Console().log("Loading GUI of Path module... done\n");
 
     // instantiating the commands
     CreatePathCommands();
 
     // addition objects
-    PathGui::ViewProviderPath ::init();
-    PathGui::ViewProviderPathCompound ::init();
-    PathGui::ViewProviderPathCompoundPython ::init();
-    PathGui::ViewProviderPathShape ::init();
-    PathGui::ViewProviderPathPython ::init();
-    PathGui::ViewProviderArea ::init();
-    PathGui::ViewProviderAreaPython ::init();
-    PathGui::ViewProviderAreaView ::init();
-    PathGui::ViewProviderAreaViewPython ::init();
+    PathGui::ViewProviderPath::init();
+    PathGui::ViewProviderPathCompound::init();
+    PathGui::ViewProviderPathCompoundPython::init();
+    PathGui::ViewProviderPathShape::init();
+    PathGui::ViewProviderPathPython::init();
+    PathGui::ViewProviderArea::init();
+    PathGui::ViewProviderAreaPython::init();
+    PathGui::ViewProviderAreaView::init();
+    PathGui::ViewProviderAreaViewPython::init();
 
     // add resources and reloads the translators
     loadPathResource();

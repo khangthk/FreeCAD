@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Author: Preslav Aleksandrov <preslav.aleksandrov@protonmail.com>      *
@@ -21,11 +23,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-
-#ifndef _PreComp_
-#endif
-
 #include "Mod/Fem/App/FemConstraintSpring.h"
 #include <Gui/Control.h>
 
@@ -35,13 +32,12 @@
 
 using namespace FemGui;
 
-PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintSpring,
-                FemGui::ViewProviderFemConstraintOnBoundary)
+PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintSpring, FemGui::ViewProviderFemConstraintOnBoundary)
 
 ViewProviderFemConstraintSpring::ViewProviderFemConstraintSpring()
 {
     sPixmap = "FEM_ConstraintSpring";
-    loadSymbol((resourceSymbolDir + "ConstraintSpring.iv").c_str());
+    loadSymbol(resourceSymbolDir / "ConstraintSpring.iv");
     ShapeAppearance.setDiffuseColor(0.0f, 0.2f, 0.8f);
 }
 

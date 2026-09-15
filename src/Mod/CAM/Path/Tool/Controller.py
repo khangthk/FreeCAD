@@ -1,6 +1,8 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2015 Dan Falck <ddfalck@gmail.com>                      *
+# *                 2025 Samuel Abels <knipknap@gmail.com>                  *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
 # *   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -25,15 +27,15 @@
 from PySide.QtCore import QT_TRANSLATE_NOOP
 import FreeCAD
 import Path
-import Path.Tool.Bit as PathToolBit
+from Path.Tool.toolbit import ToolBit
 import Path.Base.Generator.toolchange as toolchange
-
+import Path.Dressup.Utils as PathDressup
 
 if False:
     Path.Log.setLevel(Path.Log.Level.DEBUG, Path.Log.thisModule())
     Path.Log.trackModule(Path.Log.thisModule())
 else:
-    Path.Log.setLevel(Path.Log.Level.INFO, Path.Log.thisModule())
+    Path.Log.setLevel(Path.Log.Level.ERROR, Path.Log.thisModule())
 
 translate = FreeCAD.Qt.translate
 
@@ -47,7 +49,11 @@ class ToolControllerTemplate:
     HorizFeed = "hfeed"
     HorizRapid = "hrapid"
     Label = "label"
+    LeadInFeed = "leadinfeed"
+    LeadOutFeed = "leadoutfeed"
     Name = "name"
+    RampFeed = "rampfeed"
+    NoEngagementFeed = "noengagementfeed"
     SpindleDir = "dir"
     SpindleSpeed = "speed"
     ToolNumber = "nr"
@@ -55,6 +61,77 @@ class ToolControllerTemplate:
     Version = "version"
     VertFeed = "vfeed"
     VertRapid = "vrapid"
+
+
+def _migrateRampDressups(tc):
+    # Enumerate ramp dressups using this TC and their feed rates
+    ramps = set()
+    job_ramp_feeds = []
+    for job in tc.Document.Objects:
+        if hasattr(job, "Operations") and hasattr(job.Operations, "Group"):
+            for op in job.Operations.Group:
+                for ramp in [op] + op.OutListRecursive:
+                    if ramp not in ramps and (
+                        hasattr(ramp, "RampFeedRate")
+                        or (hasattr(ramp, "Proxy") and hasattr(ramp.Proxy, "RampFeedRate"))
+                    ):
+                        rampFeedRate = (
+                            ramp.RampFeedRate
+                            if hasattr(ramp, "RampFeedRate")
+                            else ramp.Proxy.RampFeedRate
+                        )
+                        if hasattr(ramp, "CustomFeedRate"):
+                            customFeedRate = ramp.CustomFeedRate.Value
+                            for prop, exp in ramp.ExpressionEngine:
+                                if prop == "CustomFeedRate":
+                                    customFeedRate = exp
+                        else:
+                            customFeedRate = (
+                                ramp.Proxy.CustomFeedRate
+                                if hasattr(ramp.Proxy, "CustomFeedRate")
+                                else "HorizFeed"
+                            )
+
+                        if PathDressup.baseOp(op).ToolController == tc:
+                            ramps.add(ramp)
+                            if rampFeedRate == "Horizontal Feed Rate":
+                                feed = "HorizFeed"
+                            elif rampFeedRate == "Vertical Feed Rate":
+                                feed = "VertFeed"
+                            elif rampFeedRate == "Ramp Feed Rate":
+                                feed = "sqrt(HorizFeed * HorizFeed + VertFeed * VertFeed)"
+                            else:
+                                feed = customFeedRate
+                            job_ramp_feeds.append((job, ramp, feed))
+
+    # Ensure there is a TC for each required feed, starting with this one
+    feed_to_tc = {}
+    for i, (job, ramp, feed) in enumerate(job_ramp_feeds):
+        if feed in feed_to_tc:
+            continue
+
+        if len(feed_to_tc) == 0:
+            opTc = tc
+        else:
+            opTc = copyTC(tc, job)
+            # Note: C++ doesn't try to deduplicate the Labels of objects created
+            # during document restore, so here we will reuse the (deduplicated)
+            # name as the label
+            opTc.Label = opTc.Name
+
+        feed_to_tc[feed] = opTc
+
+        if isinstance(feed, str):
+            opTc.setExpression("RampFeed", feed)
+        else:
+            opTc.setExpression("RampFeed", None)
+            opTc.RampFeed = feed
+        if opTc is not tc:
+            opTc.recompute()
+
+    # Loop over ramps and assign each one the appropriate TC
+    for _, ramp, feed in job_ramp_feeds:
+        PathDressup.baseOp(ramp).ToolController = feed_to_tc[feed]
 
 
 class ToolController:
@@ -104,6 +181,41 @@ class ToolController:
             "Rapid",
             QT_TRANSLATE_NOOP("App::Property", "Rapid rate for horizontal moves"),
         )
+
+        obj.addProperty(
+            "App::PropertySpeed",
+            "RampFeed",
+            "Feed",
+            QT_TRANSLATE_NOOP("App::Property", "Feed rate for ramp moves"),
+        )
+        obj.setExpression("RampFeed", "HorizFeed")
+
+        obj.addProperty(
+            "App::PropertySpeed",
+            "NoEngagementFeed",
+            "Feed",
+            QT_TRANSLATE_NOOP(
+                "App::Property",
+                "Feed rate used when the tool is not engaged in material, but is also not retracted",
+            ),
+        )
+
+        obj.addProperty(
+            "App::PropertySpeed",
+            "LeadInFeed",
+            "Feed",
+            QT_TRANSLATE_NOOP("App::Property", "Feed rate for lead-in moves"),
+        )
+        obj.setExpression("LeadInFeed", "HorizFeed")
+
+        obj.addProperty(
+            "App::PropertySpeed",
+            "LeadOutFeed",
+            "Feed",
+            QT_TRANSLATE_NOOP("App::Property", "Feed rate for lead-out moves"),
+        )
+        obj.setExpression("LeadOutFeed", "HorizFeed")
+
         obj.setEditorMode("Placement", 2)
 
         for n in self.propertyEnumerations():
@@ -113,7 +225,7 @@ class ToolController:
             self.ensureToolBit(obj)
 
     @classmethod
-    def propertyEnumerations(self, dataType="data"):
+    def propertyEnumerations(cls, dataType="data"):
         """helixOpPropertyEnumerations(dataType="data")... return property enumeration lists of specified dataType.
         Args:
             dataType = 'data', 'raw', 'translated'
@@ -147,7 +259,68 @@ class ToolController:
         return data
 
     def onDocumentRestored(self, obj):
+        self.ensureToolBit(obj)
+        if not obj.Tool.Proxy:
+            if hasattr(obj.Tool, "ShapeName") or hasattr(obj.Tool, "ShapeType"):
+                # Old tool file; perform migration
+                shape_name = (
+                    obj.Tool.ShapeType if hasattr(obj.Tool, "ShapeType") else obj.Tool.ShapeName
+                ).lower()
+                tool_data = {
+                    "name": obj.Tool.Label,
+                    "shape": shape_name,
+                    "shape-type": shape_name,
+                }
+                toolbit_instance = ToolBit.from_dict(tool_data)
+                toolbit_instance.onDocumentRestored(obj.Tool)
+
         obj.setEditorMode("Placement", 2)
+
+        needsRecompute = False
+        if not hasattr(obj, "RampFeed"):
+            obj.addProperty(
+                "App::PropertySpeed",
+                "RampFeed",
+                "Feed",
+                QT_TRANSLATE_NOOP("App::Property", "Feed rate for ramp moves"),
+            )
+            obj.setExpression("RampFeed", "HorizFeed")
+            _migrateRampDressups(obj)
+            needsRecompute = True
+
+        if not hasattr(obj, "LeadInFeed"):
+            obj.addProperty(
+                "App::PropertySpeed",
+                "LeadInFeed",
+                "Feed",
+                QT_TRANSLATE_NOOP("App::Property", "Feed rate for lead-in moves"),
+            )
+            obj.setExpression("LeadInFeed", "HorizFeed")
+            needsRecompute = True
+
+        if not hasattr(obj, "LeadOutFeed"):
+            obj.addProperty(
+                "App::PropertySpeed",
+                "LeadOutFeed",
+                "Feed",
+                QT_TRANSLATE_NOOP("App::Property", "Feed rate for lead-out moves"),
+            )
+            obj.setExpression("LeadOutFeed", "HorizFeed")
+            needsRecompute = True
+
+        if not hasattr(obj, "NoEngagementFeed"):
+            obj.addProperty(
+                "App::PropertySpeed",
+                "NoEngagementFeed",
+                "Feed",
+                QT_TRANSLATE_NOOP(
+                    "App::Property",
+                    "Feed rate used when the tool is not engaged in material, but is also not retracted",
+                ),
+            )
+
+        if needsRecompute:
+            obj.recompute()
 
     def onDelete(self, obj, arg2=None):
         if hasattr(obj.Tool, "InList") and len(obj.Tool.InList) == 1:
@@ -164,12 +337,26 @@ class ToolController:
         if template.get(ToolControllerTemplate.Version):
             version = int(template.get(ToolControllerTemplate.Version))
             if version == 1 or version == 2:
+                # TODO figure out the meaning of this, and how to handle ramp/leadin/leadout feed rates
+                # or what else must be added to templates
                 if template.get(ToolControllerTemplate.Label):
                     obj.Label = template.get(ToolControllerTemplate.Label)
                 if template.get(ToolControllerTemplate.VertFeed):
                     obj.VertFeed = template.get(ToolControllerTemplate.VertFeed)
                 if template.get(ToolControllerTemplate.HorizFeed):
                     obj.HorizFeed = template.get(ToolControllerTemplate.HorizFeed)
+                if template.get(ToolControllerTemplate.LeadInFeed):
+                    obj.LeadInFeed = template.get(ToolControllerTemplate.LeadInFeed, obj.LeadInFeed)
+                if template.get(ToolControllerTemplate.LeadOutFeed):
+                    obj.LeadOutFeed = template.get(
+                        ToolControllerTemplate.LeadOutFeed, obj.LeadOutFeed
+                    )
+                if template.get(ToolControllerTemplate.RampFeed):
+                    obj.RampFeed = template.get(ToolControllerTemplate.RampFeed, obj.RampFeed)
+                if template.get(ToolControllerTemplate.NoEngagementFeed):
+                    obj.NoEngagementFeed = template.get(
+                        ToolControllerTemplate.NoEngagementFeed, obj.NoEngagementFeed
+                    )
                 if template.get(ToolControllerTemplate.VertRapid):
                     obj.VertRapid = template.get(ToolControllerTemplate.VertRapid)
                 if template.get(ToolControllerTemplate.HorizRapid):
@@ -182,13 +369,11 @@ class ToolController:
                     obj.ToolNumber = int(template.get(ToolControllerTemplate.ToolNumber))
                 if template.get(ToolControllerTemplate.Tool):
                     self.ensureToolBit(obj)
-                    toolVersion = template.get(ToolControllerTemplate.Tool).get(
-                        ToolControllerTemplate.Version
-                    )
+                    tool_data = template.get(ToolControllerTemplate.Tool)
+                    toolVersion = tool_data.get(ToolControllerTemplate.Version)
                     if toolVersion == 2:
-                        obj.Tool = PathToolBit.Factory.CreateFromAttrs(
-                            template.get(ToolControllerTemplate.Tool)
-                        )
+                        toolbit_instance = ToolBit.from_dict(tool_data)
+                        obj.Tool = toolbit_instance.attach_to_doc(doc=obj.Document)
                     else:
                         obj.Tool = None
                         if toolVersion == 1:
@@ -226,11 +411,15 @@ class ToolController:
         attrs[ToolControllerTemplate.ToolNumber] = obj.ToolNumber
         attrs[ToolControllerTemplate.VertFeed] = "%s" % (obj.VertFeed)
         attrs[ToolControllerTemplate.HorizFeed] = "%s" % (obj.HorizFeed)
+        attrs[ToolControllerTemplate.LeadInFeed] = "%s" % (obj.LeadInFeed)
+        attrs[ToolControllerTemplate.LeadOutFeed] = "%s" % (obj.LeadOutFeed)
+        attrs[ToolControllerTemplate.RampFeed] = "%s" % (obj.RampFeed)
+        attrs[ToolControllerTemplate.NoEngagementFeed] = "%s" % (obj.NoEngagementFeed)
         attrs[ToolControllerTemplate.VertRapid] = "%s" % (obj.VertRapid)
         attrs[ToolControllerTemplate.HorizRapid] = "%s" % (obj.HorizRapid)
         attrs[ToolControllerTemplate.SpindleSpeed] = obj.SpindleSpeed
         attrs[ToolControllerTemplate.SpindleDir] = obj.SpindleDir
-        attrs[ToolControllerTemplate.Tool] = obj.Tool.Proxy.templateAttrs(obj.Tool)
+        attrs[ToolControllerTemplate.Tool] = obj.Tool.Proxy.to_dict()
         expressions = []
         for expr in obj.ExpressionEngine:
             Path.Log.debug("%s: %s" % (expr[0], expr[1]))
@@ -251,25 +440,8 @@ class ToolController:
             "toolnumber": obj.ToolNumber,
             "toollabel": obj.Label,
             "spindlespeed": obj.SpindleSpeed,
-            "spindledirection": toolchange.SpindleDirection.OFF,
+            "spindledirection": obj.Tool.Proxy.get_spindle_direction(),
         }
-
-        if hasattr(obj.Tool, "SpindlePower"):
-            if not obj.Tool.SpindlePower:
-                args["spindledirection"] = toolchange.SpindleDirection.OFF
-            else:
-                if obj.SpindleDir == "Forward":
-                    args["spindledirection"] = toolchange.SpindleDirection.CW
-                else:
-                    args["spindledirection"] = toolchange.SpindleDirection.CCW
-
-        elif obj.SpindleDir == "None":
-            args["spindledirection"] = toolchange.SpindleDirection.OFF
-        else:
-            if obj.SpindleDir == "Forward":
-                args["spindledirection"] = toolchange.SpindleDirection.CW
-            else:
-                args["spindledirection"] = toolchange.SpindleDirection.CCW
 
         commands = toolchange.generate(**args)
 
@@ -294,7 +466,7 @@ class ToolController:
 
 
 def Create(
-    name="TC: Default Tool",
+    name="TC: 5mm Endmill",
     tool=None,
     toolNumber=1,
     assignViewProvider=True,
@@ -314,7 +486,10 @@ def Create(
 
     if assignTool:
         if not tool:
-            tool = PathToolBit.Factory.Create()
+            # Create a default endmill tool bit and attach it to a new DocumentObject
+            toolbit = ToolBit.from_shape_id("endmill.fcstd")
+            Path.Log.info(f"Controller.Create: Created toolbit with ID: {toolbit.id}")
+            tool = toolbit.attach_to_doc(doc=FreeCAD.ActiveDocument)
             if tool.ViewObject:
                 tool.ViewObject.Visibility = False
         obj.Tool = tool
@@ -324,6 +499,26 @@ def Create(
 
     obj.ToolNumber = toolNumber
     return obj
+
+
+def copyTC(tc, job):
+    newtc = Create(name=tc.Label, tool=tc.Tool, toolNumber=tc.ToolNumber)
+    job.Proxy.addToolController(newtc)
+
+    for prop in tc.PropertiesList:
+        try:
+            if prop not in ["Label", "Label2"]:
+                setattr(newtc, prop, getattr(tc, prop))
+        except (RuntimeError, AttributeError):
+            # RuntimeError: read-only property.
+            # AttributeError: prop is a dynamically-added property (e.g. the
+            # Feeds & Speeds wizard's FeedSpeedProvenance/OpTypeHint) that
+            # exists on tc but was never added to the freshly-created newtc.
+            pass
+    for attr, expr in tc.ExpressionEngine:
+        newtc.setExpression(attr, expr)
+
+    return newtc
 
 
 def FromTemplate(template, assignViewProvider=True):

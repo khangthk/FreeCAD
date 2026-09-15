@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # **************************************************************************
 #   Copyright (c) 2023 David Carter <dcarter@davidcarter.ca>              *
 #                                                                         *
@@ -57,6 +59,9 @@ class MaterialFilterTestCases(unittest.TestCase):
         self.useUserDir = param.GetBool("UseMaterialsFromConfigDir", True)
         self.useCustomDir = param.GetBool("UseMaterialsFromCustomDir", False)
 
+        paramExternal = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Material/ExternalInterface")
+        self.useExternal = paramExternal.GetBool("UseExternal", False)
+
         filePath = os.path.dirname(__file__) + os.sep
         testPath = filePath + "Materials"
         param.SetString("CustomMaterialsDir", testPath)
@@ -64,6 +69,8 @@ class MaterialFilterTestCases(unittest.TestCase):
         param.SetBool("UseMaterialsFromWorkbenches", False)
         param.SetBool("UseMaterialsFromConfigDir", False)
         param.SetBool("UseMaterialsFromCustomDir", True)
+
+        paramExternal.SetBool("UseExternal", False)
 
         self.MaterialManager.refresh()
 
@@ -76,6 +83,9 @@ class MaterialFilterTestCases(unittest.TestCase):
         param.SetBool("UseMaterialsFromWorkbenches", self.useWorkbenchDir)
         param.SetBool("UseMaterialsFromConfigDir", self.useUserDir)
         param.SetBool("UseMaterialsFromCustomDir", self.useCustomDir)
+
+        paramExternal = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Material/ExternalInterface")
+        paramExternal.SetBool("UseExternal", self.useExternal)
 
         self.MaterialManager.refresh()
 

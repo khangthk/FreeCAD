@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jürgen Riegel <FreeCAD@juergen-riegel.net>         *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include "ViewProviderFemMeshShape.h"
 
@@ -47,8 +48,7 @@ ViewProviderFemMeshShape::~ViewProviderFemMeshShape() = default;
 namespace Gui
 {
 
-PROPERTY_SOURCE_TEMPLATE(FemGui::ViewProviderFemMeshShapeBasePython,
-                         FemGui::ViewProviderFemMeshShapeBase)
+PROPERTY_SOURCE_TEMPLATE(FemGui::ViewProviderFemMeshShapeBasePython, FemGui::ViewProviderFemMeshShapeBase)
 
 // explicit template instantiation
 template class FemGuiExport ViewProviderFeaturePythonT<ViewProviderFemMeshShapeBase>;

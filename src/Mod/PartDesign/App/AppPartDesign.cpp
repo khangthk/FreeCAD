@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2008 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Base/Console.h>
 #include <Base/Interpreter.h>
@@ -35,17 +36,20 @@
 #include "FeatureBase.h"
 #include "FeatureBoolean.h"
 #include "FeatureChamfer.h"
+#include "FeatureDefeaturing.h"
 #include "FeatureDraft.h"
 #include "FeatureDressUp.h"
 #include "FeatureFillet.h"
 #include "FeatureGroove.h"
 #include "FeatureHelix.h"
 #include "FeatureHole.h"
+#include "FeatureCircularPattern.h"
 #include "FeatureLinearPattern.h"
 #include "FeatureLoft.h"
 #include "FeatureMirrored.h"
 #include "FeatureMultiTransform.h"
 #include "FeaturePad.h"
+#include "FeaturePathPattern.h"
 #include "FeaturePipe.h"
 #include "FeaturePocket.h"
 #include "FeaturePolarPattern.h"
@@ -78,7 +82,7 @@ PyMOD_INIT_FUNC(_PartDesign)
     }
 
     PyObject* mod = PartDesign::initModule();
-    Base::Console().Log("Loading PartDesign module... done\n");
+    Base::Console().log("Loading Part Design module… done\n");
 
 
     // NOTE: To finish the initialization of our own type objects we must
@@ -88,6 +92,8 @@ PyMOD_INIT_FUNC(_PartDesign)
     // clang-format off
     PartDesign::Feature                     ::init();
     PartDesign::FeaturePython               ::init();
+    PartDesign::FeatureRefine               ::init();
+    PartDesign::FeatureRefinePython         ::init();
     PartDesign::Solid                       ::init();
     PartDesign::FeatureAddSub               ::init();
     PartDesign::FeatureAddSubPython         ::init();
@@ -97,7 +103,9 @@ PyMOD_INIT_FUNC(_PartDesign)
     PartDesign::ProfileBased                ::init();
     PartDesign::Transformed                 ::init();
     PartDesign::Mirrored                    ::init();
+    PartDesign::CircularPattern             ::init();
     PartDesign::LinearPattern               ::init();
+    PartDesign::PathPattern                 ::init();
     PartDesign::PolarPattern                ::init();
     PartDesign::Scaled                      ::init();
     PartDesign::MultiTransform              ::init();
@@ -107,11 +115,13 @@ PyMOD_INIT_FUNC(_PartDesign)
     PartDesign::Pad                         ::init();
     PartDesign::Pocket                      ::init();
     PartDesign::Fillet                      ::init();
+    PartDesign::Revolved                    ::init();
     PartDesign::Revolution                  ::init();
     PartDesign::Groove                      ::init();
     PartDesign::Chamfer                     ::init();
     PartDesign::Draft                       ::init();
     PartDesign::Thickness                   ::init();
+    PartDesign::Defeaturing                 ::init();
     PartDesign::Pipe                        ::init();
     PartDesign::AdditivePipe                ::init();
     PartDesign::SubtractivePipe             ::init();

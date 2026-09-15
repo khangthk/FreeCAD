@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Friedli <david[at]friedli-be.ch>             *
  *                                                                         *
@@ -20,11 +22,13 @@
  **************************************************************************/
 
 
-#ifndef MEASUREAPP_MEASUREDISTANCE_H
-#define MEASUREAPP_MEASUREDISTANCE_H
+#pragma once
 
 #include <Mod/Measure/MeasureGlobal.h>
 
+#include <Geom_Circle.hxx>
+#include <Geom_Line.hxx>
+#include <Geom_Plane.hxx>
 #include <TopoDS_Shape.hxx>
 
 #include <App/PropertyGeo.h>
@@ -34,6 +38,9 @@
 #include <Mod/Part/App/MeasureInfo.h>
 
 #include "MeasureBase.h"
+
+class TopoDS_Edge;
+class TopoDS_Wire;
 
 namespace Measure
 {
@@ -51,8 +58,7 @@ private:
 };
 
 
-class MeasureExport MeasureDistance
-    : public Measure::MeasureBaseExtendable<Part::MeasureDistanceInfo>
+class MeasureExport MeasureDistance: public Measure::MeasureBaseExtendable<Part::MeasureDistanceInfo>
 {
     PROPERTY_HEADER_WITH_OVERRIDE(Measure::MeasureDistance);
 
@@ -99,7 +105,38 @@ public:
 
 
 private:
+    bool distanceCircleCircle(const TopoDS_Shape& shape1, const TopoDS_Shape& shape2);
+    bool distancePlanePlane(
+        const Handle(Geom_Plane) & plane1,
+        const Handle(Geom_Plane) & plane2,
+        const gp_Pnt& ref
+    );
+    bool distanceLineLine(
+        const Handle(Geom_Line) & line1,
+        const Handle(Geom_Line) & line2,
+        const gp_Pnt& ref
+    );
+    bool distancePlaneLine(
+        const Handle(Geom_Plane) & plane,
+        const Handle(Geom_Line) & line,
+        const gp_Pnt& ref
+    );
+    bool distanceInfiniteInfinite(
+        const App::DocumentObject& ob1,
+        const std::vector<std::string>& subs1,
+        const App::DocumentObject& ob2,
+        const std::vector<std::string>& subs2,
+        const TopoDS_Shape& shape1,
+        const TopoDS_Shape& shape2
+    );
+    void distanceGeneric(const TopoDS_Shape& shape1, const TopoDS_Shape& shape2);
+    void setValues(const gp_Pnt& p1, const gp_Pnt& p2);
     void onChanged(const App::Property* prop) override;
+    Handle(Geom_Circle) asCircle(const TopoDS_Shape& shape) const;
+    Handle(Geom_Circle) asCircle(const TopoDS_Edge& edge) const;
+    Handle(Geom_Circle) asCircle(const TopoDS_Wire& wire) const;
+    Handle(Geom_Plane) asDatumPlane(const TopoDS_Shape& shape) const;
+    Handle(Geom_Line) asDatumLine(const TopoDS_Shape& shape) const;
 };
 
 
@@ -143,9 +180,11 @@ public:
     // Return the object we are measuring
     std::vector<App::DocumentObject*> getSubject() const override;
 
-    void handleChangedPropertyName(Base::XMLReader& reader,
-                                   const char* TypeName,
-                                   const char* PropName) override;
+    void handleChangedPropertyName(
+        Base::XMLReader& reader,
+        const char* TypeName,
+        const char* PropName
+    ) override;
 
 private:
     void onChanged(const App::Property* prop) override;
@@ -153,6 +192,3 @@ private:
 
 
 }  // namespace Measure
-
-
-#endif  // MEASUREAPP_MEASUREDISTANCE_H

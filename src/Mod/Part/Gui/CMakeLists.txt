@@ -1,16 +1,4 @@
-include_directories(
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_BINARY_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${COIN3D_INCLUDE_DIRS}
-    ${OCC_INCLUDE_DIR}
-    ${PYTHON_INCLUDE_DIRS}
-    ${XercesC_INCLUDE_DIRS}
-    ${ZLIB_INCLUDE_DIR}
-)
-link_directories(${OCC_LIBRARY_DIR})
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 set(PartGui_LIBS
     Part
@@ -18,26 +6,32 @@ set(PartGui_LIBS
     MatGui
 )
 
+if(BUILD_TRACY_FRAME_PROFILER)
+    list(APPEND PartGui_LIBS TracyClient)
+endif()
+
 if(MSVC)
     include_directories(
         ${CMAKE_SOURCE_DIR}/src/3rdParty/OpenGL/api
     )
 endif(MSVC)
 
-include_directories(
-    ${QtConcurrent_INCLUDE_DIRS}
-)
 list(APPEND PartGui_LIBS
     ${QtConcurrent_LIBRARIES}
 )
 
-generate_from_xml(ViewProviderPartExtPy)
+generate_from_py(ViewProviderPartExt)
+generate_from_py(ViewProviderPreviewExtension)
 
 set (Part_TR_QRC ${CMAKE_CURRENT_BINARY_DIR}/Resources/Part_translation.qrc)
 qt_find_and_add_translation(QM_SRCS "Resources/translations/*_*.ts"
     ${CMAKE_CURRENT_BINARY_DIR}/Resources/translations)
 qt_create_resource_file(${Part_TR_QRC} ${QM_SRCS})
-qt_add_resources(PartGui_QRC_SRCS Resources/Part.qrc ${Part_TR_QRC})
+qt_add_resources(PartGui_QRC_SRCS
+    Resources/Part.qrc
+    ${Part_TR_QRC}
+    OPTIONS ${FREECAD_RCC_OPTIONS}
+)
 
 set(PartGui_UIC_SRCS
     CrossSections.ui
@@ -61,6 +55,10 @@ set(PartGui_UIC_SRCS
     DlgSettingsGeneral.ui
     DlgSettingsObjectColor.ui
     DlgProjectionOnSurface.ui
+    PatternParametersWidget.ui
+    PatternCircularParametersWidget.ui
+    PatternPointParametersWidget.ui
+    PatternPathParametersWidget.ui
     SectionCutting.ui
     ShapeFromMesh.ui
     TaskFaceAppearances.ui
@@ -72,7 +70,7 @@ set(PartGui_UIC_SRCS
 )
 
 SET(Python_SRCS
-    ViewProviderPartExtPy.xml
+    ViewProviderPartExt.pyi
     ViewProviderPartExtPyImp.cpp
 )
 SOURCE_GROUP("Python" FILES ${Python_SRCS})
@@ -147,9 +145,26 @@ SET(PartGui_SRCS
     DlgProjectionOnSurface.cpp
     DlgProjectionOnSurface.h
     DlgProjectionOnSurface.ui
+    PatternCircularParametersWidget.cpp
+    PatternCircularParametersWidget.h
+    PatternCircularParametersWidget.ui
+    PatternPointParametersWidget.cpp
+    PatternPointParametersWidget.h
+    PatternPointParametersWidget.ui
+    PatternPathParametersWidget.cpp
+    PatternPathParametersWidget.h
+    PatternPathParametersWidget.ui
+    PatternParametersWidget.cpp
+    PatternParametersWidget.h
+    PatternParametersWidget.ui
+    PatternReferenceWidget.cpp
+    PatternReferenceWidget.h
+    PatternInstanceControls.cpp
+    PatternInstanceControls.h
     Resources/Part.qrc
-    PreCompiled.cpp
     PreCompiled.h
+    PreviewUpdateScheduler.cpp
+    PreviewUpdateScheduler.h
     PropertyEnumAttacherItem.cpp
     PropertyEnumAttacherItem.h
     SoFCShapeObject.cpp
@@ -164,6 +179,12 @@ SET(PartGui_SRCS
     ViewProvider.h
     ViewProviderAttachExtension.h
     ViewProviderAttachExtension.cpp
+    ViewProviderPreviewExtension.h
+    ViewProviderPreviewExtension.cpp
+    ViewProviderPreviewExtension.pyi
+    ViewProviderPreviewExtensionPyImp.cpp
+    ViewProviderDatum.cpp
+    ViewProviderDatum.h
     ViewProviderExt.cpp
     ViewProviderExt.h
     ViewProviderReference.cpp
@@ -236,6 +257,8 @@ SET(PartGui_SRCS
     TaskFaceAppearances.cpp
     TaskFaceAppearances.h
     TaskFaceAppearances.ui
+    TaskPatternParameters.cpp
+    TaskPatternParameters.h
     TaskShapeBuilder.cpp
     TaskShapeBuilder.h
     TaskShapeBuilder.ui
@@ -256,24 +279,43 @@ SET(PartGui_SRCS
     TaskAttacher.cpp
 )
 
-if(FREECAD_USE_PCH)
-    add_definitions(-D_PreComp_)
-    GET_MSVC_PRECOMPILED_SOURCE("PreCompiled.cpp" PCH_SRCS ${PartGui_SRCS})
-    ADD_MSVC_PRECOMPILED_HEADER(PartGui PreCompiled.h PreCompiled.cpp PCH_SRCS)
-endif(FREECAD_USE_PCH)
-
 SET(PartGuiIcon_SVG
     Resources/icons/PartWorkbench.svg
 )
 
 add_library(PartGui SHARED ${PartGui_SRCS} ${PartGuiIcon_SVG})
+
+if(FREECAD_USE_PCH)
+    target_precompile_headers(PartGui PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_LIST_DIR}/PreCompiled.h">
+    )
+endif(FREECAD_USE_PCH)
+
+target_include_directories(
+    PartGui
+    PRIVATE
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_BINARY_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+target_include_directories(
+    PartGui
+    SYSTEM
+    PUBLIC
+    ${QtConcurrent_INCLUDE_DIRS}
+)
 target_link_libraries(PartGui ${PartGui_LIBS})
-if (FREECAD_WARN_ERROR)
-    target_compile_warn_error(PartGui)
+
+if (MSVC)
+    target_compile_options(PartGui PRIVATE /wd4251 /wd4273)
 endif()
 
+target_compile_warn_error(PartGui)
 
-SET_BIN_DIR(PartGui PartGui /Mod/Part)
+
+SET_BIN_DIR(PartGui)
 SET_PYTHON_PREFIX_SUFFIX(PartGui)
 
 fc_copy_sources(PartGui "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}/Mod/Part" ${PartGuiIcon_SVG})

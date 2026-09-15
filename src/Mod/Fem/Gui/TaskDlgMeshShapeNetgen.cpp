@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jürgen Riegel <FreeCAD@juergen-riegel.net>         *
  *                                                                         *
@@ -20,11 +22,9 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <QMessageBox>
-#endif
+
 
 #include <Base/Console.h>
 #include <Base/Exception.h>
@@ -52,7 +52,7 @@ TaskDlgMeshShapeNetgen::TaskDlgMeshShapeNetgen(FemGui::ViewProviderFemMeshShapeN
     , param(nullptr)
     , ViewProviderFemMeshShapeNetgen(obj)
 {
-    FemMeshShapeNetgenObject = dynamic_cast<Fem::FemMeshShapeNetgenObject*>(obj->getObject());
+    FemMeshShapeNetgenObject = obj->getObject<Fem::FemMeshShapeNetgenObject>();
     if (FemMeshShapeNetgenObject) {
         param = new TaskTetParameter(FemMeshShapeNetgenObject);
         Content.push_back(param);
@@ -67,9 +67,9 @@ TaskDlgMeshShapeNetgen::~TaskDlgMeshShapeNetgen() = default;
 void TaskDlgMeshShapeNetgen::open()
 {
     // a transaction is already open at creation time of the mesh
-    if (!Gui::Command::hasPendingCommand()) {
+    if (!ViewProviderFemMeshShapeNetgen->getDocument()->hasPendingCommand()) {
         QString msg = tr("Edit FEM mesh");
-        Gui::Command::openCommand((const char*)msg.toUtf8());
+        FemMeshShapeNetgenObject->getDocument()->openTransaction((const char*)msg.toUtf8());
     }
 }
 
@@ -80,17 +80,19 @@ void TaskDlgMeshShapeNetgen::clicked(int button)
             Gui::WaitCursor wc;
             // May throw an exception which we must handle here
             FemMeshShapeNetgenObject->execute();
+            FemMeshShapeNetgenObject->purgeTouched();
             param->setInfo();
             param->touched = false;
         }
     }
     catch (const Base::Exception& e) {
-        Base::Console().Warning("FemMeshShapeNetgenObject::execute(): %s\n", e.what());
+        Base::Console().warning("FemMeshShapeNetgenObject::execute(): %s\n", e.what());
     }
 }
 
 bool TaskDlgMeshShapeNetgen::accept()
 {
+    App::Document* doc = FemMeshShapeNetgenObject->getDocument();
     try {
         if (param->touched) {
             Gui::WaitCursor wc;
@@ -100,7 +102,8 @@ bool TaskDlgMeshShapeNetgen::accept()
                 QMessageBox::critical(
                     Gui::getMainWindow(),
                     tr("Meshing failure"),
-                    QString::fromStdString(FemMeshShapeNetgenObject->getStatusString()));
+                    QString::fromStdString(FemMeshShapeNetgenObject->getStatusString())
+                );
                 return true;
             }
         }
@@ -112,15 +115,16 @@ bool TaskDlgMeshShapeNetgen::accept()
         }
 
         // FemSetNodesObject->Label.setValue(name->name);
-        App::Document* doc = FemMeshShapeNetgenObject->getDocument();
+        doc->commitTransaction();
+
         Gui::cmdAppDocument(doc, "recompute()");
         Gui::cmdGuiDocument(doc, "resetEdit()");
-        Gui::Command::commitCommand();
 
         return true;
     }
     catch (const Base::Exception& e) {
-        Base::Console().Warning("TaskDlgMeshShapeNetgen::accept(): %s\n", e.what());
+        doc->abortTransaction();
+        Base::Console().warning("TaskDlgMeshShapeNetgen::accept(): %s\n", e.what());
     }
 
     return false;
@@ -133,8 +137,8 @@ bool TaskDlgMeshShapeNetgen::reject()
     //     //if(doc)
     //     //    doc->resetEdit();
     // param->MeshViewProvider->resetHighlightNodes();
-    Gui::Command::abortCommand();
     App::Document* doc = FemMeshShapeNetgenObject->getDocument();
+    doc->abortTransaction();
     Gui::cmdGuiDocument(doc, "resetEdit()");
     Gui::cmdAppDocument(doc, "recompute()");
 

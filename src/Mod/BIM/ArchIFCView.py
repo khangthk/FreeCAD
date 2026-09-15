@@ -1,23 +1,26 @@
-#***************************************************************************
-#*   Copyright (c) 2020 Yorik van Havre <yorik@uncreated.net>              *
-#*                                                                         *
-#*   This program is free software; you can redistribute it and/or modify  *
-#*   it under the terms of the GNU Lesser General Public License (LGPL)    *
-#*   as published by the Free Software Foundation; either version 2 of     *
-#*   the License, or (at your option) any later version.                   *
-#*   for detail see the LICENCE text file.                                 *
-#*                                                                         *
-#*   This program is distributed in the hope that it will be useful,       *
-#*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-#*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-#*   GNU Library General Public License for more details.                  *
-#*                                                                         *
-#*   You should have received a copy of the GNU Library General Public     *
-#*   License along with this program; if not, write to the Free Software   *
-#*   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-#*   USA                                                                   *
-#*                                                                         *
-#***************************************************************************
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# ***************************************************************************
+# *                                                                         *
+# *   Copyright (c) 2020 Yorik van Havre <yorik@uncreated.net>              *
+# *                                                                         *
+# *   This file is part of FreeCAD.                                         *
+# *                                                                         *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
+# *                                                                         *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
+# *                                                                         *
+# ***************************************************************************
 
 """View providers and UI elements for the Ifc classes."""
 
@@ -25,12 +28,14 @@ import FreeCAD
 import ArchIFC
 
 if FreeCAD.GuiUp:
-    import FreeCADGui
     from PySide import QtCore, QtGui
+    import FreeCADGui
     from draftutils.translate import translate
 else:
-    def translate(ctxt,txt):
+
+    def translate(ctxt, txt):
         return txt
+
 
 class IfcContextView:
     """A default view provider for IfcContext objects."""
@@ -53,37 +58,24 @@ class IfcContextView:
         return True
 
     def setupContextMenu(self, vobj, menu):
-        actionEdit = QtGui.QAction(translate("Arch", "Edit"),
-                                   menu)
-        QtCore.QObject.connect(actionEdit,
-                               QtCore.SIGNAL("triggered()"),
-                               self.edit)
+        if FreeCADGui.activeWorkbench().name() != "BIMWorkbench":
+            return
+        actionEdit = QtGui.QAction(translate("Arch", "Edit"), menu)
+        QtCore.QObject.connect(actionEdit, QtCore.SIGNAL("triggered()"), self.edit)
         menu.addAction(actionEdit)
 
         # The default Part::FeaturePython context menu contains a `Set colors`
-        # option. This option does not makes sense here. We therefore
-        # override this menu and have to add our own `Transform` item.
+        # option. This option does not makes sense here.
         # To override the default menu this function must return `True`.
-        actionTransform = QtGui.QAction(FreeCADGui.getIcon("Std_TransformManip.svg"),
-                                        translate("Command", "Transform"), # Context `Command` instead of `Arch`.
-                                        menu)
-        QtCore.QObject.connect(actionTransform,
-                               QtCore.SIGNAL("triggered()"),
-                               self.transform)
-        menu.addAction(actionTransform)
-
         return True
 
     def edit(self):
         FreeCADGui.ActiveDocument.setEdit(self.Object, 0)
 
-    def transform(self):
-        FreeCADGui.ActiveDocument.setEdit(self.Object, 1)
-
     def dumps(self):
         return None
 
-    def loads(self,state):
+    def loads(self, state):
         return None
 
 
@@ -107,7 +99,9 @@ class IfcContextUI:
         data = {}
         for lineEdit in self.lineEditObjects:
             data[lineEdit.objectName()] = lineEdit.text()
-        ArchIFC.IfcRoot.setObjIfcComplexAttributeValue(self, self.object, "RepresentationContexts", data)
+        ArchIFC.IfcRoot.setObjIfcComplexAttributeValue(
+            self, self.object, "RepresentationContexts", data
+        )
         FreeCADGui.ActiveDocument.resetEdit()
         return True
 
@@ -141,7 +135,9 @@ class IfcContextUI:
         self.baseLayout.addLayout(self.createFormEntry("eastings", "Eastings"))
         self.baseLayout.addLayout(self.createFormEntry("northings", "Northings"))
         self.baseLayout.addLayout(self.createFormEntry("orthogonal_height", "Orthogonal height"))
-        self.baseLayout.addLayout(self.createFormEntry("true_north", "True north (anti-clockwise from +Y)"))
+        self.baseLayout.addLayout(
+            self.createFormEntry("true_north", "True north (anti-clockwise from +Y)")
+        )
         self.baseLayout.addLayout(self.createFormEntry("scale", "Scale"))
 
     def prefillMapConversionForm(self):
@@ -150,7 +146,9 @@ class IfcContextUI:
         Gets the existing value from the object's IfcData, specifically the complex
         attribute, RepresentationContexts.
         """
-        data = ArchIFC.IfcRoot.getObjIfcComplexAttribute(self, self.object, "RepresentationContexts")
+        data = ArchIFC.IfcRoot.getObjIfcComplexAttribute(
+            self, self.object, "RepresentationContexts"
+        )
         for lineEdit in self.lineEditObjects:
             if lineEdit.objectName() in data:
                 lineEdit.setText(data[lineEdit.objectName()])

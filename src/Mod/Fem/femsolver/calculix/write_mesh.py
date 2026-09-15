@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2021 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -26,7 +28,6 @@ __author__ = "Bernd Hahnebach"
 __url__ = "https://www.freecad.org"
 
 
-import codecs
 from os.path import join
 
 from femmesh import meshtools
@@ -37,24 +38,36 @@ def write_mesh(ccxwriter):
     element_param = 1  # highest element order only
     group_param = False  # do not write mesh group data
 
-    # Use reduced integration beam elements if this option is enabled in ccx solver settings
-    vol_variant = "standard"
-    edge_variant = "beam"
-    if ccxwriter.solver_obj.BeamReducedIntegration:
-        edge_variant = "beam reduced"
-    # Check to see if fluid sections are in analysis and use D network element type
-    if ccxwriter.member.geos_fluidsection:
-        edge_variant = "network"
+    is_reduced = ccxwriter.solver_obj.ReducedIntegration
+
+    # Use reduced integration solid/beam elements or replace beams with trusses if these settings are enabled in the ccx solver
+    vol_variant = "reduced" if is_reduced else "standard"
+    if ccxwriter.solver_obj.ExcludeBendingStiffness:
+        edge_variant = "truss"
+    else:
+        if is_reduced:
+            edge_variant = "beam reduced"
+        else:
+            edge_variant = "beam"
+        # Check to see if fluid sections are in analysis and use D network element type
+        if ccxwriter.member.geos_fluidsection:
+            edge_variant = "network"
+
+    face_variant = "shell"
 
     # Use 2D elements if model space is not set to 3D
-    if ccxwriter.solver_obj.ModelSpace == "3D":
-        face_variant = "shell"
+    if ccxwriter.solver_obj.ModelSpace == "3D" and ccxwriter.solver_obj.ExcludeBendingStiffness:
+        face_variant = "membrane"
     elif ccxwriter.solver_obj.ModelSpace == "plane stress":
         face_variant = "stress"
     elif ccxwriter.solver_obj.ModelSpace == "plane strain":
         face_variant = "strain"
     elif ccxwriter.solver_obj.ModelSpace == "axisymmetric":
         face_variant = "axisymmetric"
+
+    # Add "reduced" to the face element group's name if Reduced Integration is enabled
+    if is_reduced:
+        face_variant += " reduced"
 
     if ccxwriter.split_inpfile:
         write_name = "femesh"
@@ -70,7 +83,7 @@ def write_mesh(ccxwriter):
             edgeVariant=edge_variant,
         )
 
-        inpfile = codecs.open(ccxwriter.file_name, "w", encoding="utf-8")
+        inpfile = open(ccxwriter.file_name, "w", encoding="utf-8")
         inpfile.write("{}\n".format(59 * "*"))
         inpfile.write(f"** {write_name}\n")
         inpfile.write(f"*INCLUDE,INPUT={file_name_split}\n")
@@ -87,7 +100,7 @@ def write_mesh(ccxwriter):
         )
 
         # reopen file with "append" to add all the rest
-        inpfile = codecs.open(ccxwriter.femmesh_file, "a", encoding="utf-8")
+        inpfile = open(ccxwriter.femmesh_file, "a", encoding="utf-8")
         inpfile.write("\n\n")
 
     return inpfile

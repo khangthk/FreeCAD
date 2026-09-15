@@ -1,0 +1,765 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# SPDX-FileCopyrightText: 2026 David kaufman <davidgilkaufman@gmail.com>
+# SPDX-FileNotice: Part of the FreeCAD project.
+
+################################################################################
+#                                                                              #
+#   FreeCAD is free software: you can redistribute it and/or modify            #
+#   it under the terms of the GNU Lesser General Public License as             #
+#   published by the Free Software Foundation, either version 2.1              #
+#   of the License, or (at your option) any later version.                     #
+#                                                                              #
+#   FreeCAD is distributed in the hope that it will be useful,                 #
+#   but WITHOUT ANY WARRANTY; without even the implied warranty                #
+#   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    #
+#   See the GNU Lesser General Public License for more details.                #
+#                                                                              #
+#   You should have received a copy of the GNU Lesser General Public           #
+#   License along with FreeCAD. If not, see https://www.gnu.org/licenses       #
+#                                                                              #
+################################################################################
+
+import FreeCAD
+import Part
+import Path.Op.Pocket as PathPocket
+import Path.Main.Job as PathJob
+import Path.Tool.Controller as PathToolController
+import Constants as CAMConstants
+from CAMTests.PathTestUtils import PathTestBase
+
+import math
+
+if FreeCAD.GuiUp:
+    import Path.Main.Gui.Job as PathJobGui
+    import Path.Op.Gui.Pocket as PathPocketGui
+
+
+def countOffsetLoops(commands, pocket_depth):
+    """Count the number of distinct offset loops by counting plunge moves.
+
+    A plunge move is a G1 command that changes Z to the cutting depth.
+    We detect this by looking for G1 commands that go to pocket_depth
+    after being at a higher Z (after a rapid move).
+
+    Args:
+        commands: List of G-code commands
+        pocket_depth: The Z height where cutting occurs
+
+    Returns:
+        Number of distinct offset loops
+    """
+    plunge_count = 0
+    prev_z = None
+    for cmd in commands:
+        params = cmd.Parameters
+        if "Z" in params:
+            current_z = params["Z"]
+            # Check if this is a plunge: G1 command going to pocket depth
+            # from a higher Z position
+            if cmd.Name == "G1" and abs(current_z - pocket_depth) < 0.01:
+                if prev_z is not None and prev_z > pocket_depth + 0.5:
+                    plunge_count += 1
+            prev_z = current_z
+    return plunge_count
+
+
+def getLoopDirection(commands, pocket_depth, loop_index=0):
+    """Determine if a specific offset loop is clockwise or counter-clockwise.
+
+    Uses the shoelace formula to calculate signed area from XY moves.
+    Positive area = CCW, negative area = CW.
+
+    Args:
+        commands: List of G-code commands
+        pocket_depth: The Z height where cutting occurs
+        loop_index: Which loop to check (0 = first loop)
+
+    Returns:
+        "CCW" or "CW", or None if loop not found
+    """
+    # Find the loop by counting plunges
+    current_loop = -1
+    prev_z = None
+    loop_points = []
+    current_pos = FreeCAD.Vector(0, 0, 0)
+    in_target_loop = False
+
+    for cmd in commands:
+        params = cmd.Parameters
+
+        # Update current position
+        if "X" in params:
+            current_pos.x = params["X"]
+        if "Y" in params:
+            current_pos.y = params["Y"]
+        if "Z" in params:
+            current_z = params["Z"]
+            current_pos.z = current_z
+
+            # Check for plunge (start of new loop)
+            if cmd.Name == "G1" and abs(current_z - pocket_depth) < 0.01:
+                if prev_z is not None and prev_z > pocket_depth + 0.5:
+                    current_loop += 1
+                    if current_loop == loop_index:
+                        in_target_loop = True
+                        loop_points = [FreeCAD.Vector(current_pos.x, current_pos.y, 0)]
+                    elif current_loop > loop_index:
+                        # We've passed the target loop, stop collecting
+                        break
+
+            # Check for retract (end of loop)
+            if (
+                prev_z is not None
+                and abs(prev_z - pocket_depth) < 0.01
+                and current_z > pocket_depth + 0.5
+            ):
+                if in_target_loop:
+                    break
+
+            prev_z = current_z
+
+        # Collect points for the target loop (only G1 moves at cutting depth)
+        if in_target_loop and cmd.Name in ("G1", "G2", "G3"):
+            if abs(current_pos.z - pocket_depth) < 0.01:
+                loop_points.append(FreeCAD.Vector(current_pos.x, current_pos.y, 0))
+
+    if len(loop_points) < 3:
+        return None
+
+    # Calculate signed area using shoelace formula
+    signed_area = 0.0
+    for i in range(len(loop_points) - 1):
+        p1 = loop_points[i]
+        p2 = loop_points[i + 1]
+        signed_area += (p2.x - p1.x) * (p2.y + p1.y)
+
+    return "CW" if signed_area > 0 else "CCW"
+
+
+class TestPathPocket(PathTestBase):
+    """Unit tests for the Pocket operation."""
+
+    def setUp(self):
+        """setUp()...
+        This method is called prior to each test() method. Add code and objects here
+        that are needed for multiple test() methods.
+        """
+        # Create a new document for each test
+        self.doc = FreeCAD.newDocument("TestPocket")
+
+    def tearDown(self):
+        """tearDown()...
+        This method is called after each test() method. Add cleanup instructions here.
+        Such cleanup instructions will likely undo those in the setUp() method.
+        """
+        FreeCAD.closeDocument(self.doc.Name)
+
+    def createPocketOperation(
+        self, part_obj, pocket_bottom_z, label, tool_diameter, job=None, **kwargs
+    ):
+        """Create a pocket operation with the given parameters.
+
+        Args:
+            part_obj: The part object containing the geometry
+            pocket_bottom_z: Z height of the pocket bottom
+            label: Label for the pocket operation (job name will be "Job_<label>")
+            tool_diameter: Diameter of the cutting tool
+            job: Optional existing job to add the operation to. If None, a new job is created.
+            **kwargs: Properties to set on the pocket operation
+                     (e.g., StepOver=10, ClearingPattern="Offset", StartAt="Edge")
+
+        Returns:
+            The created pocket operation object
+        """
+        if job is None:
+            job = PathJob.Create("Job_{}".format(label), [part_obj])
+            if FreeCAD.GuiUp:
+                job.ViewObject.Proxy = PathJobGui.ViewProvider(job.ViewObject)
+
+        # Instantiate a Pocket operation
+        pocket = PathPocket.Create(label, parentJob=job)
+
+        # Create a dedicated tool controller for this operation and set its diameter
+        tc = PathToolController.Create(name="TC: {}mm Endmill".format(tool_diameter))
+        job.Proxy.addToolController(tc)
+        tc.Tool.Diameter = tool_diameter
+        pocket.ToolController = tc
+
+        # Find all faces within tolerance of pocket bottom Z
+        tolerance = 0.1
+        pocket_faces = []
+
+        for i, face in enumerate(part_obj.Shape.Faces):
+            # Calculate distance from pocket bottom Z
+            face_z = (face.BoundBox.ZMin + face.BoundBox.ZMax) / 2.0
+            distance = abs(face_z - pocket_bottom_z)
+            if distance < tolerance:
+                pocket_faces.append("Face{}".format(i + 1))
+
+        if not pocket_faces:
+            raise ValueError("Could not find faces near Z={}".format(pocket_bottom_z))
+
+        pocket.Base = [(part_obj, pocket_faces)]
+        pocket.Label = label
+
+        # Set any properties from kwargs
+        for key, value in kwargs.items():
+            if hasattr(pocket, key):
+                pocket.setExpression(key, None)
+                setattr(pocket, key, value)
+            else:
+                FreeCAD.Console.PrintWarning(
+                    "Property '{}' not found on pocket operation\n".format(key)
+                )
+
+        _addViewProvider(pocket)
+
+        # Generate the toolpath
+        # Note: PathPocket.Create() with parentJob already adds the operation
+        # to job.Operations.Group via PathUtils.addToJob, so no need to call
+        # job.addObject() here (which would move it out of Operations).
+        self.doc.recompute()
+
+        return pocket
+
+    # Unit tests
+    def test_pocket_square_offset(self):
+        """test_pocket_square_offset() Verify pocket operation with square geometry and offset clearing."""
+
+        # Test geometry constants
+        pocket_size = 50.0
+        box_margin = 10.0
+        outer_box_size = pocket_size + box_margin
+        outer_box_height = 20.0
+        pocket_depth_amount = 1.0
+        pocket_bottom_z = outer_box_height - pocket_depth_amount
+        pocket_offset_xy = (outer_box_size - pocket_size) / 2.0
+
+        # Tool and operation constants
+        tool_diameter = 5.0
+        stepover_percent = 10
+
+        # Create a box with a square pocket (extrusion with cutout)
+        # Pocket is 1mm deep, from Z=19 to Z=20
+        outer = Part.makeBox(outer_box_size, outer_box_size, outer_box_height)
+        inner = Part.makeBox(
+            pocket_size,
+            pocket_size,
+            pocket_depth_amount,
+            FreeCAD.Vector(pocket_offset_xy, pocket_offset_xy, pocket_bottom_z),
+        )
+        pocket_solid = outer.cut(inner)
+
+        part_obj = FreeCAD.ActiveDocument.addObject("Part::Feature", "PocketPart")
+        part_obj.Shape = pocket_solid
+
+        # Create pocket operation with specified parameters
+        pocket = self.createPocketOperation(
+            part_obj,
+            pocket_bottom_z,
+            "pocket_square_offset",
+            tool_diameter,
+            StepOver=stepover_percent,
+            ClearingPattern="Offset",
+            StartAt="Edge",
+        )
+
+        # Count offset loops using two different methods
+        # Actual: Count plunge moves from generated G-code
+        actual_num_loops = countOffsetLoops(pocket.Path.Commands, pocket_bottom_z)
+
+        # Check that first offset loop is counterclockwise
+        first_loop_direction = getLoopDirection(pocket.Path.Commands, pocket_bottom_z, 0)
+        self.assertEqual(first_loop_direction, "CCW")
+
+        # Expected: Calculate from geometry and stepover
+        # Each offset loop moves inward by stepover distance on each side
+        # Available clearance = (pocket_size - tool_diameter) / 2
+        # Number of loops = available_clearance / stepover_distance
+        stepover_distance = tool_diameter * (stepover_percent / 100.0)
+        available_clearance = (pocket_size - tool_diameter) / 2.0
+        expected_num_loops = int(available_clearance / stepover_distance)
+
+        # Verify actual loop count matches expected loop count
+        self.assertEqual(actual_num_loops, expected_num_loops)
+
+    def test_pocket_pointy_triangle_offset(self):
+        """test_pocket_pointy_triangle_offset() Verify pocket operation with pointy triangular geometry and offset clearing."""
+
+        # Test geometry constants
+        triangle_base = 15.0
+        triangle_height = 100.0
+        box_margin = 10.0
+        outer_box_size = max(triangle_base, triangle_height) + box_margin
+        outer_box_height = 20.0
+        pocket_depth_amount = 1.0
+        pocket_bottom_z = outer_box_height - pocket_depth_amount
+
+        # Tool and operation constants
+        tool_diameter = 5.0
+        stepover_percent = 90
+
+        # Create a box with a triangular pocket (extrusion with cutout)
+        # Pocket is 1mm deep, from Z=19 to Z=20
+        outer = Part.makeBox(outer_box_size, outer_box_size, outer_box_height)
+
+        # Create triangle centered in the box
+        center_x = outer_box_size / 2.0
+        center_y = outer_box_size / 2.0
+
+        # Create a pointy triangle (isosceles with apex pointing up)
+        # Base centered at bottom, apex at top
+        base_y = center_y - triangle_height / 2.0
+        apex_y = center_y + triangle_height / 2.0
+
+        v1 = FreeCAD.Vector(center_x - triangle_base / 2.0, base_y, pocket_bottom_z)
+        v2 = FreeCAD.Vector(center_x + triangle_base / 2.0, base_y, pocket_bottom_z)
+        v3 = FreeCAD.Vector(center_x, apex_y, pocket_bottom_z)
+
+        # Create triangle wire and extrude
+        triangle_wire = Part.makePolygon([v1, v2, v3, v1])
+        triangle_face = Part.Face(triangle_wire)
+        inner = triangle_face.extrude(FreeCAD.Vector(0, 0, pocket_depth_amount))
+
+        pocket_solid = outer.cut(inner)
+
+        part_obj = FreeCAD.ActiveDocument.addObject("Part::Feature", "TrianglePart")
+        part_obj.Shape = pocket_solid
+
+        # Calculate max expected loops based on base width
+        stepover_distance = tool_diameter * (stepover_percent / 100.0)
+        available_clearance = (triangle_base - tool_diameter) / 2.0
+        max_expected_loops = int(available_clearance / stepover_distance)
+
+        # Create pocket operation without ForceMaxStepOver
+        pocket = self.createPocketOperation(
+            part_obj,
+            pocket_bottom_z,
+            "pocket_pointy_triangle_offset",
+            tool_diameter,
+            StepOver=stepover_percent,
+            ClearingPattern="Offset",
+            StartAt="Edge",
+        )
+
+        # Count offset loops from generated G-code
+        actual_num_loops = countOffsetLoops(pocket.Path.Commands, pocket_bottom_z)
+
+        # Check that offset loops are clockwise (climb cutting for this pocket)
+        first_loop_direction = getLoopDirection(pocket.Path.Commands, pocket_bottom_z, 0)
+        self.assertEqual(first_loop_direction, "CCW")
+
+        # Without ForceMaxStepOver, pocket should generate more loops than base-calculated max
+        # to ensure full area coverage
+        self.assertGreater(actual_num_loops, max_expected_loops)
+
+        # Create second pocket with ForceMaxStepOver=True
+        # With the flag set, algorithm should use max stepover even if not all area is cleared
+        # (This is the existing behavior and should pass)
+        pocket_forced = self.createPocketOperation(
+            part_obj,
+            pocket_bottom_z,
+            "pocket_pointy_triangle_forced",
+            tool_diameter,
+            StepOver=stepover_percent,
+            ClearingPattern="Offset",
+            StartAt="Edge",
+            ForceMaxStepOver=True,
+        )
+
+        # Count loops for forced max stepover pocket
+        actual_num_loops_forced = countOffsetLoops(pocket_forced.Path.Commands, pocket_bottom_z)
+
+        # With ForceMaxStepOver=True, should be close to max expected (slightly less, because of
+        # narrowing geometry)
+        self.assertGreaterEqual(actual_num_loops_forced, max_expected_loops - 1)
+        self.assertLessEqual(actual_num_loops_forced, max_expected_loops)
+
+    def test_pocket_square_line(self):
+        """test_pocket_square_line() Verify pocket operation with Line clearing pattern."""
+
+        # Test geometry constants
+        pocket_width = 50.0
+        pocket_height = 30.0
+        box_margin = 10.0
+        outer_box_width = pocket_width + box_margin
+        outer_box_height_xy = pocket_height + box_margin
+        outer_box_height_z = 20.0
+        pocket_depth_amount = 1.0
+        pocket_bottom_z = outer_box_height_z - pocket_depth_amount
+
+        # Tool and operation constants
+        tool_diameter = 5.0
+        stepover_percent = 50  # 50% stepover = 2.5mm spacing
+        line_angle = 0  # Horizontal lines (parallel to X-axis)
+
+        # Create a box with a rectangular pocket
+        # Pocket is 1mm deep, from Z=19 to Z=20
+        outer = Part.makeBox(outer_box_width, outer_box_height_xy, outer_box_height_z)
+        pocket_offset_x = (outer_box_width - pocket_width) / 2.0
+        pocket_offset_y = (outer_box_height_xy - pocket_height) / 2.0
+        inner = Part.makeBox(
+            pocket_width,
+            pocket_height,
+            pocket_depth_amount,
+            FreeCAD.Vector(pocket_offset_x, pocket_offset_y, pocket_bottom_z),
+        )
+        pocket_solid = outer.cut(inner)
+
+        part_obj = FreeCAD.ActiveDocument.addObject("Part::Feature", "LinePocketPart")
+        part_obj.Shape = pocket_solid
+
+        # Create pocket operation with Line clearing pattern
+        pocket = self.createPocketOperation(
+            part_obj,
+            pocket_bottom_z,
+            "pocket_square_line",
+            tool_diameter,
+            StepOver=stepover_percent,
+            ClearingPattern="Line",
+            StartAt="Edge",
+            Angle=line_angle,
+        )
+
+        # Count the number of distinct line passes
+        # For Line pattern, we expect parallel lines spaced by stepover distance
+        # Each line is a separate cutting pass
+        stepover_distance = tool_diameter * (stepover_percent / 100.0)
+
+        # Calculate expected number of lines based on pocket height and stepover
+        # The lines run parallel to the X-axis (angle=0), so spacing is in Y direction
+        # Account for tool radius on each side
+        effective_height = pocket_height - tool_diameter
+        expected_num_lines = int(effective_height / stepover_distance) + 1
+
+        # Count actual cutting passes by looking for Y-coordinate changes in G1 moves
+        # at cutting depth
+        y_positions = set()
+        for cmd in pocket.Path.Commands:
+            params = cmd.Parameters
+            if cmd.Name == "G1" and "Z" in params:
+                z = params["Z"]
+                # If we're at cutting depth and have Y coordinate
+                if abs(z - pocket_bottom_z) < 0.01 and "Y" in params:
+                    y_pos = round(params["Y"], 2)  # Round to avoid floating point issues
+                    y_positions.add(y_pos)
+
+        actual_num_lines = len(y_positions)
+
+        # Verify the number of line passes is close to expected
+        # Allow ±1 line tolerance due to boundary conditions
+        self.assertGreaterEqual(
+            actual_num_lines,
+            expected_num_lines - 1,
+            f"Line pocket should have at least {expected_num_lines - 1} lines, got {actual_num_lines}",
+        )
+        self.assertLessEqual(
+            actual_num_lines,
+            expected_num_lines + 1,
+            f"Line pocket should have at most {expected_num_lines + 1} lines, got {actual_num_lines}",
+        )
+
+    def test_pocket_square_grid(self):
+        """test_pocket_square_grid() Verify pocket operation with Grid clearing pattern."""
+
+        # Test geometry constants
+        pocket_width = 50.0
+        pocket_height = 30.0
+        box_margin = 10.0
+        outer_box_width = pocket_width + box_margin
+        outer_box_height_xy = pocket_height + box_margin
+        outer_box_height_z = 20.0
+        pocket_depth_amount = 1.0
+        pocket_bottom_z = outer_box_height_z - pocket_depth_amount
+
+        # Tool and operation constants
+        tool_diameter = 5.0
+        stepover_percent = 50  # 50% stepover = 2.5mm spacing
+        grid_angle = 0  # Grid aligned with X/Y axes
+
+        # Create a box with a rectangular pocket
+        # Pocket is 1mm deep, from Z=19 to Z=20
+        outer = Part.makeBox(outer_box_width, outer_box_height_xy, outer_box_height_z)
+        pocket_offset_x = (outer_box_width - pocket_width) / 2.0
+        pocket_offset_y = (outer_box_height_xy - pocket_height) / 2.0
+        inner = Part.makeBox(
+            pocket_width,
+            pocket_height,
+            pocket_depth_amount,
+            FreeCAD.Vector(pocket_offset_x, pocket_offset_y, pocket_bottom_z),
+        )
+        pocket_solid = outer.cut(inner)
+
+        part_obj = FreeCAD.ActiveDocument.addObject("Part::Feature", "GridPocketPart")
+        part_obj.Shape = pocket_solid
+
+        # Create pocket operation with Grid clearing pattern
+        pocket = self.createPocketOperation(
+            part_obj,
+            pocket_bottom_z,
+            "pocket_square_grid",
+            tool_diameter,
+            StepOver=stepover_percent,
+            ClearingPattern="Grid",
+            StartAt="Edge",
+            Angle=grid_angle,
+        )
+
+        # Count the number of distinct line passes in both X and Y directions
+        # For Grid pattern, we expect parallel lines in both directions
+        stepover_distance = tool_diameter * (stepover_percent / 100.0)
+
+        # I don't fully understand but grid seems to go both directions, X+ and X-,
+        # resulting in double density
+        stepover_distance /= 2
+
+        # Calculate expected number of lines in each direction
+        # X-direction lines (parallel to X-axis, spaced in Y)
+        effective_height = pocket_height - tool_diameter
+        expected_num_x_lines = int(effective_height / stepover_distance) + 1
+
+        # Y-direction lines (parallel to Y-axis, spaced in X)
+        effective_width = pocket_width - tool_diameter
+        expected_num_y_lines = int(effective_width / stepover_distance) + 1
+
+        # Count actual cutting passes by looking for coordinate changes in G1 moves
+        # at cutting depth
+        x_positions = set()
+        y_positions = set()
+        for cmd in pocket.Path.Commands:
+            params = cmd.Parameters
+            if cmd.Name == "G1" and "Z" in params:
+                z = params["Z"]
+                # If we're at cutting depth
+                if abs(z - pocket_bottom_z) < 0.01:
+                    if "X" in params:
+                        x_pos = round(params["X"], 2)  # Round to avoid floating point issues
+                        x_positions.add(x_pos)
+                    if "Y" in params:
+                        y_pos = round(params["Y"], 2)
+                        y_positions.add(y_pos)
+
+        actual_num_x_lines = len(y_positions)  # Lines parallel to X have constant Y
+        actual_num_y_lines = len(x_positions)  # Lines parallel to Y have constant X
+
+        # Verify the number of line passes in X direction
+        # Allow ±1 line tolerance due to boundary conditions
+        self.assertGreaterEqual(
+            actual_num_x_lines,
+            expected_num_x_lines - 1,
+            f"Grid pocket should have at least {expected_num_x_lines - 1} X-direction lines, got {actual_num_x_lines}",
+        )
+        self.assertLessEqual(
+            actual_num_x_lines,
+            expected_num_x_lines + 1,
+            f"Grid pocket should have at most {expected_num_x_lines + 1} X-direction lines, got {actual_num_x_lines}",
+        )
+
+        # Verify the number of line passes in Y direction
+        self.assertGreaterEqual(
+            actual_num_y_lines,
+            expected_num_y_lines - 1,
+            f"Grid pocket should have at least {expected_num_y_lines - 1} Y-direction lines, got {actual_num_y_lines}",
+        )
+        self.assertLessEqual(
+            actual_num_y_lines,
+            expected_num_y_lines + 1,
+            f"Grid pocket should have at most {expected_num_y_lines + 1} Y-direction lines, got {actual_num_y_lines}",
+        )
+
+    def test_pocket_square_zigzag(self):
+        """test_pocket_square_zigzag() Verify pocket operation with ZigZag clearing pattern."""
+
+        pocket_width = 50.0
+        pocket_height = 33.0
+        box_margin = 10.0
+        outer_box_width = pocket_width + box_margin
+        outer_box_height_xy = pocket_height + box_margin
+        outer_box_height_z = 20.0
+        pocket_depth_amount = 1.0
+        pocket_bottom_z = outer_box_height_z - pocket_depth_amount
+
+        tool_diameter = 5.0
+        stepover_percent = 50
+
+        outer = Part.makeBox(outer_box_width, outer_box_height_xy, outer_box_height_z)
+        pocket_offset_x = (outer_box_width - pocket_width) / 2.0
+        pocket_offset_y = (outer_box_height_xy - pocket_height) / 2.0
+        inner = Part.makeBox(
+            pocket_width,
+            pocket_height,
+            pocket_depth_amount,
+            FreeCAD.Vector(pocket_offset_x, pocket_offset_y, pocket_bottom_z),
+        )
+        pocket_solid = outer.cut(inner)
+
+        part_obj = FreeCAD.ActiveDocument.addObject("Part::Feature", "ZigZagPocketPart")
+        part_obj.Shape = pocket_solid
+
+        pocket = self.createPocketOperation(
+            part_obj,
+            pocket_bottom_z,
+            "pocket_square_zigzag",
+            tool_diameter,
+            StepOver=stepover_percent,
+            ClearingPattern="ZigZagOffset",
+            StartAt="Edge",
+            Angle=0,
+        )
+
+        stepover_distance = tool_diameter * (stepover_percent / 100.0)
+        effective_height = pocket_height - tool_diameter
+        expected_num_horizontal_lines = int(math.ceil(effective_height / stepover_distance)) + 1
+        expected_num_vertical_lines = expected_num_horizontal_lines - 1
+
+        # Collect G1 moves at cutting depth
+        cutting_moves = []
+        for cmd in pocket.Path.Commands:
+            params = cmd.Parameters
+            if cmd.Name == "G1" and "Z" in params and abs(params["Z"] - pocket_bottom_z) < 0.01:
+                cutting_moves.append(params)
+
+        actual_num_horizontal_lines = 0
+        actual_num_vertical_lines = 0
+        actual_num_diagonal = 0
+        last_direction = None
+        pos = {"X": 0.0, "Y": 0.0}
+        for curr in cutting_moves:
+            x = curr.get("X", pos["X"])
+            y = curr.get("Y", pos["Y"])
+            dx = abs(x - pos["X"])
+            dy = abs(y - pos["Y"])
+            pos["X"] = x
+            pos["Y"] = y
+            if dy < 0.01 and dx > 0.01:
+                direction = "horizontal"
+            elif dx < 0.01 and dy > 0.01:
+                direction = "vertical"
+            else:
+                direction = "diagonal"
+
+            if last_direction is not None and direction != last_direction:
+                if direction == "horizontal":
+                    actual_num_horizontal_lines += 1
+                if direction == "vertical":
+                    actual_num_vertical_lines += 1
+                if direction == "diagonal":
+                    actual_num_diagonal += 1
+            last_direction = direction
+
+        self.assertEqual(actual_num_diagonal, 0)
+        self.assertGreaterEqual(actual_num_horizontal_lines, expected_num_horizontal_lines - 1)
+        self.assertLessEqual(actual_num_horizontal_lines, expected_num_horizontal_lines + 1)
+        self.assertGreaterEqual(actual_num_vertical_lines, expected_num_vertical_lines - 1)
+        self.assertLessEqual(actual_num_vertical_lines, expected_num_vertical_lines + 1)
+
+    def test_pocket_rest_machining(self):
+        """test_pocket_rest_machining() Verify pocket rest machining clears remaining material after large tool pass."""
+
+        pocket_width = 50.0
+        pocket_height = 33.0
+        box_margin = 10.0
+        outer_box_width = pocket_width + box_margin
+        outer_box_height_xy = pocket_height + box_margin
+        outer_box_height_z = 20.0
+        pocket_depth_amount = 1.0
+        pocket_bottom_z = outer_box_height_z - pocket_depth_amount
+        large_tool_diameter = 5.0
+        small_tool_diameter = 1.0
+
+        outer = Part.makeBox(outer_box_width, outer_box_height_xy, outer_box_height_z)
+        pocket_offset_x = (outer_box_width - pocket_width) / 2.0
+        pocket_offset_y = (outer_box_height_xy - pocket_height) / 2.0
+        inner = Part.makeBox(
+            pocket_width,
+            pocket_height,
+            pocket_depth_amount,
+            FreeCAD.Vector(pocket_offset_x, pocket_offset_y, pocket_bottom_z),
+        )
+        pocket_solid = outer.cut(inner)
+
+        part_obj = FreeCAD.ActiveDocument.addObject("Part::Feature", "RestMachiningPocketPart")
+        part_obj.Shape = pocket_solid
+
+        job = PathJob.Create("Job_pocket_rest", [part_obj])
+        if FreeCAD.GuiUp:
+            job.ViewObject.Proxy = PathJobGui.ViewProvider(job.ViewObject)
+
+        # Pocket with large tool
+        self.createPocketOperation(
+            part_obj,
+            pocket_bottom_z,
+            "pocket_rest_large",
+            tool_diameter=large_tool_diameter,
+            job=job,
+            StepOver=50,
+            ClearingPattern="ZigZagOffset",
+            StartAt="Edge",
+            Angle=0,
+        )
+
+        # Pocket with small tool; rest machining
+        pocket_small = self.createPocketOperation(
+            part_obj,
+            pocket_bottom_z,
+            "pocket_rest_small",
+            tool_diameter=small_tool_diameter,
+            job=job,
+            StepOver=50,
+            StepDown=5,
+            ClearingPattern="ZigZagOffset",
+            StartAt="Edge",
+            Angle=0,
+            UseRestMachining=True,
+        )
+
+        margin = large_tool_diameter + small_tool_diameter
+
+        pocket_left = pocket_offset_x
+        pocket_right = pocket_offset_x + pocket_width
+        pocket_front = pocket_offset_y
+        pocket_back = pocket_offset_y + pocket_height
+
+        corners = [
+            (pocket_left, pocket_front),
+            (pocket_right, pocket_front),
+            (pocket_left, pocket_back),
+            (pocket_right, pocket_back),
+        ]
+        corners_reached = [False] * 4
+
+        pos = {"X": 0.0, "Y": 0.0}
+        for cmd in pocket_small.Path.Commands:
+            params = cmd.Parameters
+            pos["X"] = params.get("X", pos["X"])
+            pos["Y"] = params.get("Y", pos["Y"])
+
+            if cmd.Name not in CAMConstants.GCODE_MOVE_MILL:
+                continue
+            if "Z" not in params or abs(params["Z"] - pocket_bottom_z) > 0.01:
+                continue
+
+            near_edge = (
+                pos["X"] - pocket_left < margin
+                or pocket_right - pos["X"] < margin
+                or pos["Y"] - pocket_front < margin
+                or pocket_back - pos["Y"] < margin
+            )
+            self.assertTrue(near_edge)
+
+            for i, (cx, cy) in enumerate(corners):
+                if math.hypot(pos["X"] - cx, pos["Y"] - cy) < margin:
+                    corners_reached[i] = True
+
+        for i, (cx, cy) in enumerate(corners):
+            self.assertTrue(
+                corners_reached[i],
+                f"Rest machining never cut within {margin}mm of corner ({cx}, {cy})",
+            )
+
+
+def _addViewProvider(pocketOp):
+    if FreeCAD.GuiUp:
+        PathOpGui = PathPocketGui.PathOpGui
+        cmdRes = PathPocketGui.Command.res
+        pocketOp.ViewObject.Proxy = PathOpGui.ViewProvider(pocketOp.ViewObject, cmdRes)

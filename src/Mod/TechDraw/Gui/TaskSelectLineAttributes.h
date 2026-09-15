@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2021 edi                                                *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef TECHDRAWGUI_TASKSELECTLINEATTRIBUTES_H
-#define TECHDRAWGUI_TASKSELECTLINEATTRIBUTES_H
+#pragma once
 
 #include <Gui/TaskView/TaskDialog.h>
 #include <Gui/TaskView/TaskView.h>
@@ -85,7 +86,7 @@ class Ui_TaskSelectLineAttributes;
 //     float getWidthValue();
 //     void setColor(int);
 //     int getColor() const {return color;}
-//     App::Color getColorValue();
+//     Base::Color getColorValue();
 
 // }; // class lineAttributes
 
@@ -143,5 +144,3 @@ private:
 }; // class TaskDlgSelectLineAttributes
 
 } // namespace TechDrawGui
-
-#endif // #ifndef TECHDRAWGUI_TASKSELECTLINEATTRIBUTES_H

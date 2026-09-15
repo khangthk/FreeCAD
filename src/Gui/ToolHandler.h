@@ -20,8 +20,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef GUI_ToolHandler_H
-#define GUI_ToolHandler_H
+#pragma once
 
 #include <QCursor>
 #include <QPixmap>
@@ -29,13 +28,13 @@
 #include <Base/Parameter.h>
 #include <Base/Tools2D.h>
 
-#include "Selection.h"
+#include "Selection/Selection.h"
 
 
 namespace Gui
 {
 class View3DInventorViewer;
-
+struct InputHint;
 
 class GuiExport ToolHandler
 {
@@ -52,6 +51,9 @@ public:
     /// updates the actCursor with the icon by calling getCrosshairCursorSVGName(),
     /// enabling to set data member dependent icons (i.e. for different construction methods)
     void updateCursor();
+
+    virtual std::list<InputHint> getToolHints() const;
+    void updateHint() const;
 
 private:  // NVI
     virtual void preActivated()
@@ -103,9 +105,13 @@ protected:
     virtual void setWidgetCursor(QCursor cursor);
 
 private:
-    void setSvgCursor(const QString& svgName, int x, int y,
-                      const std::map<unsigned long, unsigned long>& colorMapping =
-                          std::map<unsigned long, unsigned long>());
+    void setSvgCursor(
+        const QString& svgName,
+        int x,
+        int y,
+        const std::map<unsigned long, unsigned long>& colorMapping
+        = std::map<unsigned long, unsigned long>()
+    );
 
 
     void applyCursor(QCursor& newCursor);
@@ -114,7 +120,6 @@ private:
     void setCrosshairCursor(const char* svgName);
 
 protected:
-
     QCursor oldCursor;
     QCursor actCursor;
     QPixmap actCursorPixmap;
@@ -122,6 +127,3 @@ protected:
 
 
 }  // namespace Gui
-
-
-#endif  // GUI_ToolHandler_H

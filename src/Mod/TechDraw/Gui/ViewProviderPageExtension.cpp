@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2022 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <App/DocumentObject.h>
 #include <App/Link.h>
@@ -33,6 +34,7 @@
 
 
 using namespace TechDrawGui;
+using namespace TechDraw;
 
 EXTENSION_PROPERTY_SOURCE(TechDrawGui::ViewProviderPageExtension, Gui::ViewProviderExtension)
 
@@ -61,7 +63,7 @@ bool ViewProviderPageExtension::extensionCanDropObjects() const { return true; }
 bool ViewProviderPageExtension::extensionCanDropObject(App::DocumentObject* obj) const
 {
     // Accept links to views as well.
-    if (obj->isDerivedFrom(App::Link::getClassTypeId())) {
+    if (obj->isDerivedFrom<App::Link>()) {
         auto* link = static_cast<App::Link*>(obj);
         obj = link->getLinkedObject();
     }
@@ -107,14 +109,14 @@ bool ViewProviderPageExtension::extensionCanDropObjectEx(App::DocumentObject* ob
 void ViewProviderPageExtension::extensionDropObject(App::DocumentObject* obj)
 {
     bool linkToView = false;
-    if (obj->isDerivedFrom(App::Link::getClassTypeId())) {
+    if (obj->isDerivedFrom<App::Link>()) {
         auto* link = static_cast<App::Link*>(obj);
-        if (link->getLinkedObject()->isDerivedFrom(TechDraw::DrawView::getClassTypeId())) {
+        if (link->getLinkedObject()->isDerivedFrom<TechDraw::DrawView>()) {
             linkToView = true;
         }
     }
 
-    if (obj->isDerivedFrom(TechDraw::DrawView::getClassTypeId()) || linkToView) {
+    if (obj->isDerivedFrom<TechDraw::DrawView>() || linkToView) {
         dropObject(obj);
         return;
     }
@@ -123,7 +125,8 @@ void ViewProviderPageExtension::extensionDropObject(App::DocumentObject* obj)
 //this code used to live in ViewProviderPage
 void ViewProviderPageExtension::dropObject(App::DocumentObject* obj)
 {
-    if (obj->isDerivedFrom<TechDraw::DrawProjGroupItem>()) {
+    auto dvp = freecad_cast<TechDraw::DrawViewPart*>(obj);
+    if (dvp && DrawView::isProjGroupItem(dvp)) {
         //DPGI can not be dropped onto the Page if it belongs to DPG
         auto* dpgi = static_cast<TechDraw::DrawProjGroupItem*>(obj);
         if (dpgi->getPGroup()) {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /******************************************************************************
  *   Copyright (c) 2012 Jan Rheinländer <jrheinlaender@users.sourceforge.net> *
  *                                                                            *
@@ -21,12 +23,10 @@
  ******************************************************************************/
 
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <BRepGProp.hxx>
 #include <GProp_GProps.hxx>
 #include <Precision.hxx>
-#endif
+
 
 #include "FeatureScaled.h"
 #include "FeatureAddSub.h"
@@ -54,8 +54,7 @@ short Scaled::mustExecute() const
     return Transformed::mustExecute();
 }
 
-const std::list<gp_Trsf>
-Scaled::getTransformations(const std::vector<App::DocumentObject*> originals)
+const std::list<gp_Trsf> Scaled::getTransformations(const std::vector<App::DocumentObject*> originals)
 {
     double const factor = Factor.getValue();
     if (factor < Precision::Confusion()) {
@@ -72,7 +71,7 @@ Scaled::getTransformations(const std::vector<App::DocumentObject*> originals)
     if (!originals.empty()) {
         // Find centre of gravity of first original
         // FIXME: This method will NOT give the expected result for more than one original!
-        if (auto feature = Base::freecad_dynamic_cast<PartDesign::FeatureAddSub>(originals.front())) {
+        if (auto feature = freecad_cast<PartDesign::FeatureAddSub*>(originals.front())) {
             TopoDS_Shape original = feature->AddSubShape.getShape().getShape();
 
             GProp_GProps props;

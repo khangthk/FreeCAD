@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
 /***************************************************************************
  *   Copyright (c) 2014 Yorik van Havre <yorik@uncreated.net>              *
  *                                                                         *
@@ -20,10 +21,8 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <sstream>
-#endif
+
 
 #include <App/DocumentObject.h>
 #include <App/PropertyContainer.h>
@@ -104,19 +103,19 @@ void PropertyPath::Restore(Base::XMLReader& reader)
 {
     reader.readElement("Path");
 
-    std::string file(reader.getAttribute("file"));
+    std::string file(reader.getAttribute<const char*>("file"));
     if (!file.empty()) {
         // initiate a file read
         reader.addFile(file.c_str(), this);
     }
 
     if (reader.hasAttribute("version")) {
-        int version = reader.getAttributeAsInteger("version");
+        int version = reader.getAttribute<long>("version");
         if (version >= Toolpath::SchemaVersion) {
             reader.readElement("Center");
-            double x = reader.getAttributeAsFloat("x");
-            double y = reader.getAttributeAsFloat("y");
-            double z = reader.getAttributeAsFloat("z");
+            double x = reader.getAttribute<double>("x");
+            double y = reader.getAttribute<double>("y");
+            double z = reader.getAttribute<double>("z");
             Base::Vector3d center(x, y, z);
             _Path.setCenter(center);
         }
@@ -132,7 +131,7 @@ void PropertyPath::RestoreDocFile(Base::Reader& reader)
 {
     App::PropertyContainer* container = getContainer();
     App::DocumentObject* obj = nullptr;
-    if (container->isDerivedFrom(App::DocumentObject::getClassTypeId())) {
+    if (container->isDerivedFrom<App::DocumentObject>()) {
         obj = static_cast<App::DocumentObject*>(container);
     }
 

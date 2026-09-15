@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2019 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,10 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef TECHDRAW_COSMETIC_VERTEX_H
-#define TECHDRAW_COSMETIC_VERTEX_H
-
-#include "PreCompiled.h"
+#pragma once
 
 #include <App/FeaturePython.h>
 #include <Base/Persistence.h>
@@ -54,8 +53,8 @@ public:
 
     std::string toString() const;
     void dump(const char* title) override;
-    Base::Vector3d scaled(const double factor);
-    Base::Vector3d rotatedAndScaled(const double scale, const double rotDegrees);
+    Base::Vector3d scaled(const double factor) const;
+    Base::Vector3d rotatedAndScaled(const double scale, const double rotDegrees) const;
 
     static Base::Vector3d makeCanonicalPoint(DrawViewPart* dvp, Base::Vector3d point, bool unscale = true);
     static Base::Vector3d makeCanonicalPointInverted(DrawViewPart* dvp, Base::Vector3d invertedPoint, bool unscale = true);
@@ -73,26 +72,13 @@ public:
     Base::Vector3d permaPoint{Base::Vector3d()};           //permanent, unscaled value
     int            linkGeom{-1};             //connection to corresponding "geom" Vertex (fragile - index based!)
                                          //better to do reverse search for CosmeticTag in vertex geometry
-    App::Color     color{App::Color()};
+    Base::Color     color{Base::Color()};
     double         size{1.0};
     int            style{1};
     bool           visible{true};              //base class vertex also has visible property
 
-    boost::uuids::uuid getTag() const;
-    std::string getTagAsString() const override;
-
 protected:
-    //Uniqueness
-    void createNewTag();
-    void assignTag(const TechDraw::CosmeticVertex* cv);
-
-    boost::uuids::uuid tag;
-
     Py::Object PythonObject;
-
-
 };
 
 } //end namespace TechDraw
-
-#endif  // TECHDRAW_COSMETIC_VERTEX_H

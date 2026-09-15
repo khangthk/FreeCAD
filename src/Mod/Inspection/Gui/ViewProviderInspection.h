@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2011 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
@@ -20,8 +22,9 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef INSPECTIOGUI_VIEWPROVIDERINSPECTION_H
-#define INSPECTIOGUI_VIEWPROVIDERINSPECTION_H
+#pragma once
+
+#include <limits>
 
 #include <App/ComplexGeoData.h>
 #include <Base/Observer.h>
@@ -107,7 +110,7 @@ private:
     SoCoordinate3* pcCoords;
 
 private:
-    float search_radius {FLT_MAX};
+    float search_radius {std::numeric_limits<float>::max()};
     static bool addflag;
     static App::PropertyFloatConstraint::Constraints floatRange;
 };
@@ -125,6 +128,3 @@ public:
 };
 
 }  // namespace InspectionGui
-
-
-#endif  // INSPECTIOGUI_VIEWPROVIDERINSPECTION_H

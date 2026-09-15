@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jan Rheinländer                                    *
  *                                   <jrheinlaender@users.sourceforge.net> *
@@ -21,8 +23,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef GUI_TASKVIEW_TaskFemConstraintForce_H
-#define GUI_TASKVIEW_TaskFemConstraintForce_H
+#pragma once
 
 #include <QObject>
 #include <memory>
@@ -52,8 +53,10 @@ class TaskFemConstraintForce: public TaskFemConstraintOnBoundary
     Q_OBJECT
 
 public:
-    explicit TaskFemConstraintForce(ViewProviderFemConstraintForce* ConstraintView,
-                                    QWidget* parent = nullptr);
+    explicit TaskFemConstraintForce(
+        ViewProviderFemConstraintForce* ConstraintView,
+        QWidget* parent = nullptr
+    );
     ~TaskFemConstraintForce() override;
     const std::string getForce() const;
     const std::string getReferences() const override;
@@ -73,8 +76,9 @@ protected:
     void clearButtons(const SelectionChangeModes notThis) override;
 
 private:
-    std::pair<App::DocumentObject*, std::string>
-    getDirection(const std::vector<Gui::SelectionObject>&) const;
+    std::pair<App::DocumentObject*, std::string> getDirection(
+        const std::vector<Gui::SelectionObject>&
+    ) const;
     void updateUI();
 
 private:
@@ -94,5 +98,3 @@ public:
 };
 
 }  // namespace FemGui
-
-#endif  // GUI_TASKVIEW_TaskFemConstraintForce_H

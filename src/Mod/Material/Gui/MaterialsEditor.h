@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Carter <dcarter@david.carter.ca>             *
  *                                                                         *
@@ -19,13 +21,11 @@
  *                                                                         *
  **************************************************************************/
 
-#ifndef MATGUI_MATERIALSEDITOR_H
-#define MATGUI_MATERIALSEDITOR_H
+#pragma once
 
 #include <memory>
 
 #include <QDialog>
-#include <QDir>
 #include <QIcon>
 #include <QPoint>
 #include <QStandardItem>
@@ -53,7 +53,7 @@ class MaterialsEditor: public QDialog
     Q_OBJECT
 
 public:
-    explicit MaterialsEditor(std::shared_ptr<Materials::MaterialFilter> filter,
+    explicit MaterialsEditor(Materials::MaterialFilter filter,
                              QWidget* parent = nullptr);
     explicit MaterialsEditor(QWidget* parent = nullptr);
     ~MaterialsEditor() override = default;
@@ -82,14 +82,14 @@ public:
 
     Materials::MaterialManager& getMaterialManager()
     {
-        return _materialManager;
-    }
-    Materials::ModelManager& getModelManager()
-    {
-        return _modelManager;
+        return Materials::MaterialManager::getManager();
     }
 
     static QString libraryPath(const std::shared_ptr<Materials::Material>& material);
+
+    static QIcon getIcon(const std::shared_ptr<Materials::MaterialLibrary>& library);
+    static QIcon getIcon(const std::shared_ptr<Materials::ModelLibrary>& library);
+    static QIcon getIcon(const std::shared_ptr<Materials::Library>& library);
 
     void updateMaterialAppearance();
     void updateMaterialProperties();
@@ -114,8 +114,6 @@ protected:
 
 private:
     std::unique_ptr<Ui_MaterialsEditor> ui;
-    Materials::MaterialManager _materialManager;
-    Materials::ModelManager _modelManager;
     std::shared_ptr<Materials::Material> _material;
     AppearancePreview* _rendered;
     bool _materialSelected;
@@ -123,7 +121,7 @@ private:
     std::list<QString> _recents;
     int _recentMax;
     QIcon _warningIcon;
-    std::shared_ptr<Materials::MaterialFilter> _filter;
+    Materials::MaterialFilter _filter;
     Materials::MaterialFilterOptions _filterOptions;
 
     void setup();
@@ -155,7 +153,7 @@ private:
     bool updateTexturePreview() const;
     bool updateMaterialPreview() const;
     void updatePreview() const;
-    static QString getColorHash(const QString& colorString, int colorRange = 255);
+    static QString getColorHash(const QString& colorString);
 
     static void addExpanded(QTreeView* tree, QStandardItem* parent, QStandardItem* child);
     static void addExpanded(QTreeView* tree,
@@ -224,7 +222,7 @@ private:
     }
     void setIncludeEmptyLibraries(bool value)
     {
-        Base::Console().Log("setIncludeEmptyLibraries(%s)\n", (value ? "true" : "false"));
+        Base::Console().log("setIncludeEmptyLibraries(%s)\n", (value ? "true" : "false"));
         _filterOptions.setIncludeEmptyLibraries(value);
     }
 
@@ -241,5 +239,3 @@ private:
 };
 
 }  // namespace MatGui
-
-#endif  // MATGUI_MATERIALSEDITOR_H

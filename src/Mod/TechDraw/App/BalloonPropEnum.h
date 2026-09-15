@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2020 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef BALLOONENUMS_H_
-#define BALLOONENUMS_H_
+#pragma once
 
 #include <string>
 #include <vector>
@@ -33,14 +34,16 @@
 namespace TechDraw
 {
 
-enum BalloonType { Circular = 0,
-                 None,
-                 Triangle,
-                 Inspection,
-                 Hexagon,
-                 Square,
-                 Rectangle,
-                 Line};
+enum class BalloonType {
+    Circular = 0,
+    None,
+    Triangle,
+    Inspection,
+    Hexagon,
+    Square,
+    Rectangle,
+    Line
+};
 
 class TechDrawExport BalloonPropEnum {
     Q_DECLARE_TR_FUNCTIONS(TechDraw::BalloonPropEnum)
@@ -55,4 +58,3 @@ private:
 };
 
 } //end namespace TechDraw
-#endif

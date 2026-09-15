@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2006 Werner Mayer <werner.wm.mayer@gmx.de>              *
  *                                                                         *
@@ -21,12 +23,12 @@
  ***************************************************************************/
 
 
-#ifndef GUI_CUSTOMWIDGETS_H
-#define GUI_CUSTOMWIDGETS_H
+#pragma once
 
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCompleter>
 #include <QDoubleSpinBox>
 #include <QFontComboBox>
 #include <QGridLayout>
@@ -386,6 +388,33 @@ private:
 
 // ------------------------------------------------------------------------------
 
+class ExpressionLineEdit: public QLineEdit
+{
+    Q_OBJECT
+public:
+    ExpressionLineEdit(QWidget* parent = nullptr);
+
+public Q_SLOTS:
+    void slotTextChanged(const QString& text);
+    void slotCompleteText(const QString& completionPrefix, bool isActivated);
+    void slotCompleteTextHighlighted(const QString& completionPrefix);
+    void slotCompleteTextSelected(const QString& completionPrefix);
+    void setExactMatch(bool enabled = true);
+
+protected:
+    void keyPressEvent(QKeyEvent* event) override;
+    void contextMenuEvent(QContextMenuEvent* event) override;
+
+Q_SIGNALS:
+    void textChanged2(QString text, int pos);
+
+private:
+    QCompleter* completer;
+    bool exactMatch;
+};
+
+// ------------------------------------------------------------------------------
+
 class QuantitySpinBoxPrivate;
 class QuantitySpinBox: public QAbstractSpinBox
 {
@@ -462,7 +491,6 @@ public:
 
     QSize sizeHint() const;
     QSize minimumSizeHint() const;
-    bool event(QEvent* event);
 
 public Q_SLOTS:
     /// Sets the field with a quantity
@@ -893,5 +921,3 @@ private:
     QByteArray m_sPrefGrp;
 };
 }  // namespace Gui
-
-#endif  // GUI_CUSTOMWIDGETS_H

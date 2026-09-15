@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2006 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
@@ -20,17 +22,15 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef MESHGUI_PROPERTYEDITOR_MESH_H
-#define MESHGUI_PROPERTYEDITOR_MESH_H
+#pragma once
 
 #include <Gui/propertyeditor/PropertyItem.h>
-#ifndef MESH_GLOBAL_H
 #include <Mod/Mesh/MeshGlobal.h>
-#endif
-
 
 namespace MeshGui
 {
+
+using FrameOption = Gui::PropertyEditor::FrameOption;
 
 /**
  * Display data of a mesh kernel.
@@ -45,7 +45,9 @@ class MeshGuiExport PropertyMeshKernelItem: public Gui::PropertyEditor::Property
     PROPERTYITEM_HEADER
 
     // clang-format off
-    QWidget* createEditor(QWidget* parent, const std::function<void()>& method) const override;
+    QWidget* createEditor(QWidget* parent,
+                          const std::function<void()>& method,
+                          FrameOption frameOption) const override;
     // clang-format on
     void setEditorData(QWidget* editor, const QVariant& data) const override;
     QVariant editorData(QWidget* editor) const override;
@@ -70,6 +72,3 @@ private:
 };
 
 }  // namespace MeshGui
-
-
-#endif  // MESHGUI_PROPERTYEDITOR_MESH_H

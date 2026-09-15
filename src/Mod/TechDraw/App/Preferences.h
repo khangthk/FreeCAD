@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2020 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef Preferences_h_
-#define Preferences_h_
+#pragma once
 
 #include <Qt>
 #include <string>
@@ -29,17 +30,19 @@
 #include <Base/Parameter.h>
 #include <Mod/TechDraw/TechDrawGlobal.h>
 
+#include "DrawBrokenView.h"
 
 class QColor;
 class QString;
 
-namespace App
+namespace Base
 {
 class Color;
 }
 
 namespace TechDraw
 {
+enum class ArrowType : int;
 
 //getters for parameters used in multiple places.
 class TechDrawExport Preferences
@@ -54,10 +57,10 @@ public:
     static double dimFontSizeMM();
     static double dimArrowSize();
 
-    static App::Color normalColor();
-    static App::Color selectColor();
-    static App::Color preselectColor();
-    static App::Color vertexColor();
+    static Base::Color normalColor();
+    static Base::Color selectColor();
+    static Base::Color preselectColor();
+    static Base::Color vertexColor();
     static double vertexScale();
     static int scaleType();
     static double scale();
@@ -69,7 +72,7 @@ public:
     static double groupSpaceX();
     static double groupSpaceY();
 
-    static int balloonArrow();
+    static ArrowType balloonArrow();
     static double balloonKinkLength();
     static int balloonShape();
 
@@ -102,9 +105,9 @@ public:
     static void lightOnDark(bool state);
     static bool monochrome();
     static void monochrome(bool state);
-    static App::Color lightTextColor();
-    static App::Color lightenColor(App::Color orig);
-    static App::Color getAccessibleColor(App::Color orig);
+    static Base::Color lightTextColor();
+    static Base::Color lightenColor(Base::Color orig);
+    static Base::Color getAccessibleColor(Base::Color orig);
 
     static bool autoCorrectDimRefs();
     static int scrubCount();
@@ -127,7 +130,7 @@ public:
     static int LineCapStyle();
     static int LineCapIndex();
 
-    static int LineSpacingISO();
+    static float LineSpacingISO();
 
     static std::string currentLineDefFile();
     static std::string currentElementDefFile();
@@ -136,7 +139,7 @@ public:
     static bool showSectionLine();
     static bool includeCutLine();
 
-    static int BreakType();
+    static DrawBrokenView::BreakType BreakType();
 
     static bool useExactMatchOnDims();
 
@@ -146,12 +149,35 @@ public:
     static bool SnapViews();
     static double SnapLimitFactor();
 
+    static bool SnapDimensions();
+    static double SnapDimensionsTextFactor();
+    static double SnapDimensionsChainFactor();
+
+
     static Qt::KeyboardModifiers multiselectModifiers();
 
     static Qt::KeyboardModifiers balloonDragModifiers();
     static void setBalloonDragModifiers(Qt::KeyboardModifiers newModifiers);
+
+    static bool enforceISODate();
+    static bool switchOnClick();
+
+    static bool checkShapesBeforeUse();
+    static bool debugBadShape();
+
+    static bool useLegacySvgScaling();
+
+    static bool showUnits();
+
+    static bool snapDetailHighlights();
+    static double detailSnapRadius();
+
+    static bool showCenterMarks();
+    static bool printCenterMarks();
+
+    static bool fixColorAlphaOnLoad();
+
 };
 
 
 }//end namespace TechDraw
-#endif

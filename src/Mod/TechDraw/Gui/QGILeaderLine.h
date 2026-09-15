@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2019 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef DRAWINGGUI_QGRAPHICSITEMLEADERLINE_H
-#define DRAWINGGUI_QGRAPHICSITEMLEADERLINE_H
+#pragma once
 
 #include <Mod/TechDraw/TechDrawGlobal.h>
 
@@ -34,6 +35,7 @@
 #include <Base/Vector3D.h>
 
 #include "QGIView.h"
+#include "QGIUserTypes.h"
 
 
 namespace TechDraw
@@ -56,10 +58,7 @@ class TechDrawGuiExport QGILeaderLine: public QGIView
     Q_OBJECT
 
 public:
-    enum
-    {
-        Type = QGraphicsItem::UserType + 232
-    };
+    enum {Type = UserType::QGILeaderLine};
 
     explicit QGILeaderLine();
     ~QGILeaderLine() override = default;
@@ -71,9 +70,13 @@ public:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option,
                QWidget* widget = nullptr) override;
     QRectF boundingRect() const override;
+    QPainterPath shape() const override;
 
     void drawBorder() override;
     void updateView(bool update = false) override;
+
+    // leaders are not draggable
+    void dragFinished() override { };
 
     virtual TechDraw::DrawLeaderLine* getLeaderFeature();
 
@@ -84,7 +87,6 @@ public:
     void closeEdit();
 
     double getLineWidth();
-    double getEdgeFuzz() const;
 
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
@@ -99,6 +101,7 @@ public:
     void setLeaderFeature(TechDraw::DrawLeaderLine* feat);
 
     bool useOldCoords() const;
+    Base::Vector3d getAttachPoint();
 
 
 public Q_SLOTS:
@@ -143,5 +146,3 @@ private:
 };
 
 }// namespace TechDrawGui
-
-#endif// DRAWINGGUI_QGRAPHICSITEMLEADERLINE_H

@@ -1,26 +1,29 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2019 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU Lesser General Public License (LGPL)    *
-# *   as published by the Free Software Foundation; either version 2 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU Library General Public License for more details.                  *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 import os
+
 import FreeCAD
 import FreeCADGui
 
@@ -38,13 +41,13 @@ class BIM_IfcExplorer:
 
         return {
             "Pixmap": "IFC",
-            "MenuText": QT_TRANSLATE_NOOP("BIM_IfcExplorer", "IFC explorer"),
-            "ToolTip": QT_TRANSLATE_NOOP("BIM_IfcExplorer", "IFC explorer utility"),
+            "MenuText": QT_TRANSLATE_NOOP("BIM_IfcExplorer", "IFC Explorer"),
+            "ToolTip": QT_TRANSLATE_NOOP("BIM_IfcExplorer", "Opens the IFC explorer utility"),
         }
 
     def Activated(self):
 
-        from PySide import QtCore, QtGui
+        from PySide import QtGui
 
         try:
             import ifcopenshell
@@ -60,7 +63,6 @@ class BIM_IfcExplorer:
 
         # setting up a font
         self.bold = QtGui.QFont()
-        self.bold.setWeight(75)
         self.bold.setBold(True)
 
         # setting up a link fint
@@ -108,19 +110,20 @@ class BIM_IfcExplorer:
         self.dialog.resize(720, 540)
         toolbar = FreeCADGui.UiLoader().createWidget("Gui::ToolBar")
 
-        layout = QtGui.QVBoxLayout(self.dialog)
+        layout = QtGui.QVBoxLayout()
         layout.addWidget(toolbar)
-        hlayout = QtGui.QHBoxLayout(self.dialog)
+        hlayout = QtGui.QHBoxLayout()
         hlayout.addWidget(self.tree)
         layout.addLayout(hlayout)
-        vlayout = QtGui.QVBoxLayout(self.dialog)
+        vlayout = QtGui.QVBoxLayout()
         hlayout.addLayout(vlayout)
         vlayout.addWidget(self.attributes)
         vlayout.addWidget(self.properties)
+        self.dialog.setLayout(layout)
 
         # draw the toolbar buttons
         self.openAction = QtGui.QAction(translate("BIM", "Open"), None)
-        self.openAction.setToolTip(translate("BIM", "Open another IFC file..."))
+        self.openAction.setToolTip(translate("BIM", "Open another IFC file"))
         self.openAction.triggered.connect(self.open)
         self.openAction.setIcon(QtGui.QIcon(":/icons/document-open.svg"))
         toolbar.addAction(self.openAction)
@@ -160,9 +163,7 @@ class BIM_IfcExplorer:
         # center the dialog over FreeCAD window
         mw = FreeCADGui.getMainWindow()
         self.dialog.move(
-            mw.frameGeometry().topLeft()
-            + mw.rect().center()
-            - self.dialog.rect().center()
+            mw.frameGeometry().topLeft() + mw.rect().center() - self.dialog.rect().center()
         )
 
         # open a file and show the dialog
@@ -174,15 +175,15 @@ class BIM_IfcExplorer:
         "opens a file"
 
         import ifcopenshell
-        from PySide import QtCore, QtGui
+        from PySide import QtGui
 
         self.filename = ""
-        lastfolder = FreeCAD.ParamGet(
-            "User parameter:BaseApp/Preferences/Mod/BIM"
-        ).GetString("lastIfcExplorerFolder", "")
+        lastfolder = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM").GetString(
+            "lastIfcExplorerFolder", ""
+        )
         filename = QtGui.QFileDialog.getOpenFileName(
             None,
-            translate("BIM", "Select an IFC file"),
+            translate("BIM", "Select an IFC File"),
             lastfolder,
             translate("BIM", "IFC files (*.ifc)"),
         )
@@ -217,6 +218,18 @@ class BIM_IfcExplorer:
         self.ifc = ifcopenshell.open(self.filename)
         root = self.getEntitiesTree()
 
+        # unable to find IfcSite
+        if not root:
+            FreeCAD.Console.PrintError(
+                translate(
+                    "BIM",
+                    "IfcSite element was not found in %s. Unable to explore.",
+                )
+                % self.filename
+                + "\n"
+            )
+            return
+
         # populate tree contents
         for eid, children in root.items():
             self.addEntity(eid, children, self.tree)
@@ -241,8 +254,8 @@ class BIM_IfcExplorer:
     def insert(self):
         "inserts selected objects in the active document"
 
-        import importIFC
-        from PySide import QtCore, QtGui
+        from importers import importIFC
+        from PySide import QtCore
 
         doc = FreeCAD.ActiveDocument
         if doc and self.filename:
@@ -274,11 +287,11 @@ class BIM_IfcExplorer:
                     self.mesh.ViewObject.show()
                 else:
                     try:
-                        import importIFCHelper
+                        from importers import importIFCHelper
 
                         s = importIFCHelper.getScaling(self.ifc)
                     except:
-                        import importIFC
+                        from importers import importIFC
 
                         s = importIFC.getScaling(self.ifc)
                     s *= 1000  # ifcopenshell outputs its meshes in metres
@@ -295,10 +308,7 @@ class BIM_IfcExplorer:
                             g = m.geometry
                             v = g.verts
                             f = g.faces
-                            verts = [
-                                FreeCAD.Vector(v[i : i + 3])
-                                for i in range(0, len(v), 3)
-                            ]
+                            verts = [FreeCAD.Vector(v[i : i + 3]) for i in range(0, len(v), 3)]
                             faces = [tuple(f[i : i + 3]) for i in range(0, len(f), 3)]
                             omesh = Mesh.Mesh((verts, faces))
                             if trf:
@@ -307,15 +317,13 @@ class BIM_IfcExplorer:
                             basemesh.addMesh(omesh)
                         except:
                             pass
-                    self.mesh = FreeCAD.ActiveDocument.addObject(
-                        "Mesh::Feature", "IFCMesh"
-                    )
+                    self.mesh = FreeCAD.ActiveDocument.addObject("Mesh::Feature", "IFCMesh")
                     self.mesh.Mesh = basemesh
                     self.mesh.ViewObject.Transparency = 85
                     FreeCAD.ActiveDocument.recompute()
                     FreeCADGui.Selection.clearSelection()
                     FreeCADGui.Selection.addSelection(self.mesh)
-                    FreeCADGui.SendMsgToActiveView("ViewSelection")
+                    FreeCADGui.ActiveDocument.ActiveView.sendMessage("ViewSelection")
             else:
                 if self.mesh:
                     self.mesh.ViewObject.hide()
@@ -400,9 +408,7 @@ class BIM_IfcExplorer:
                 item.setFont(0, self.bold)
                 if isinstance(parent, QtGui.QTreeWidgetItem):
                     parent.setExpanded(True)
-            item.setText(
-                0, "#" + self.tostr(eid) + " : " + self.tostr(entity.is_a()) + name
-            )
+            item.setText(0, "#" + self.tostr(eid) + " : " + self.tostr(entity.is_a()) + name)
             if entity.is_a() in ["IfcWall", "IfcWallStandardCase"]:
                 item.setIcon(0, QtGui.QIcon(":icons/Arch_Wall_Tree.svg"))
             elif entity.is_a() in ["IfcBuildingElementProxy"]:
@@ -451,7 +457,7 @@ class BIM_IfcExplorer:
                 item.setIcon(0, QtGui.QIcon(":icons/Arch_Rebar.svg"))
             elif entity.is_a("IfcProduct"):
                 item.setIcon(0, QtGui.QIcon(":icons/Arch_Component.svg"))
-            self.tree.setFirstItemColumnSpanned(item, True)
+            item.setFirstColumnSpanned(True)
             item.setData(0, QtCore.Qt.UserRole, eid)
             for childid, grandchildren in children.items():
                 self.addEntity(childid, grandchildren, item)
@@ -461,7 +467,7 @@ class BIM_IfcExplorer:
         "adds the attributes of the given IFC entity under the given QTreeWidgetITem"
 
         import ifcopenshell
-        from PySide import QtCore, QtGui
+        from PySide import QtGui
 
         entity = self.ifc[eid]
 
@@ -476,10 +482,7 @@ class BIM_IfcExplorer:
                     argvalue = getattr(entity, argname)
                 except AttributeError:
                     FreeCAD.Console.PrintError(
-                        translate("BIM", "Error in entity")
-                        + " "
-                        + self.tostr(entity)
-                        + "\n"
+                        translate("BIM", "Error in entity") + " " + self.tostr(entity) + "\n"
                     )
                     break
                 else:
@@ -544,7 +547,7 @@ class BIM_IfcExplorer:
     def addProperties(self, eid, parent):
         "adds properties of a given entity to the given QTReeWidgetItem"
 
-        from PySide import QtCore, QtGui
+        from PySide import QtGui
 
         entity = self.ifc[eid]
         if hasattr(entity, "IsDefinedBy"):
@@ -554,11 +557,10 @@ class BIM_IfcExplorer:
                         item = QtGui.QTreeWidgetItem(parent)
                         item.setText(
                             0,
-                            "PropertySet: "
-                            + self.tostr(rel.RelatingPropertyDefinition.Name),
+                            "PropertySet: " + self.tostr(rel.RelatingPropertyDefinition.Name),
                         )
                         item.setFont(0, self.bold)
-                        self.properties.setFirstItemColumnSpanned(item, True)
+                        item.setFirstColumnSpanned(True)
                         if hasattr(rel.RelatingPropertyDefinition, "HasProperties"):
                             for prop in rel.RelatingPropertyDefinition.HasProperties:
                                 subitem = QtGui.QTreeWidgetItem(item)
@@ -566,25 +568,15 @@ class BIM_IfcExplorer:
                                 self.addAttributes(prop.id(), subitem)
 
     def tostr(self, text):
-        "resolves py2/py3 string representation hassles"
-
-        import six
-
-        if six.PY2:
-            if isinstance(text, unicode):
-                return text.encode("utf8")
-            else:
-                return str(text)
+        if isinstance(text, str):
+            return text
         else:
-            if isinstance(text, str):
-                return text
-            else:
-                return str(text)
+            return str(text)
 
     def onSelectTree(self, item, previous):
         "displays attributes and properties of a tree item"
 
-        from PySide import QtCore, QtGui
+        from PySide import QtCore
 
         self.backnav.append(previous)
         eid = item.data(0, QtCore.Qt.UserRole)
@@ -627,7 +619,7 @@ class BIM_IfcExplorer:
     def onDoubleClickTree(self, item, column):
         "when a property or attribute is double-clicked"
 
-        from PySide import QtCore, QtGui
+        from PySide import QtCore
 
         if self.tree:
             txt = item.text(column)

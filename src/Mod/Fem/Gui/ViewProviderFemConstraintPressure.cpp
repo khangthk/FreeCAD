@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Author: Przemo Firszt <przemo@firszt.eu>                              *
@@ -21,13 +23,11 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <Inventor/SbMatrix.h>
 #include <Inventor/SbRotation.h>
 #include <Inventor/SbVec3f.h>
-#endif
+
 
 #include "Mod/Fem/App/FemConstraintPressure.h"
 #include <Gui/Control.h>
@@ -38,13 +38,12 @@
 
 using namespace FemGui;
 
-PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintPressure,
-                FemGui::ViewProviderFemConstraintOnBoundary)
+PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintPressure, FemGui::ViewProviderFemConstraintOnBoundary)
 
 ViewProviderFemConstraintPressure::ViewProviderFemConstraintPressure()
 {
     sPixmap = "FEM_ConstraintPressure";
-    loadSymbol((resourceSymbolDir + "ConstraintPressure.iv").c_str());
+    loadSymbol(resourceSymbolDir / "ConstraintPressure.iv");
     ShapeAppearance.setDiffuseColor(0.0f, 0.2f, 0.8f);
 }
 
@@ -67,7 +66,7 @@ bool ViewProviderFemConstraintPressure::setEdit(int ModNum)
 
 void ViewProviderFemConstraintPressure::updateData(const App::Property* prop)
 {
-    auto pcConstraint = static_cast<Fem::ConstraintPressure*>(this->getObject());
+    auto pcConstraint = this->getObject<Fem::ConstraintPressure>();
 
     if (prop == &pcConstraint->Reversed) {
         updateSymbol();
@@ -77,25 +76,31 @@ void ViewProviderFemConstraintPressure::updateData(const App::Property* prop)
     }
 }
 
-void ViewProviderFemConstraintPressure::transformSymbol(const Base::Vector3d& point,
-                                                        const Base::Vector3d& normal,
-                                                        SbMatrix& mat) const
+void ViewProviderFemConstraintPressure::transformSymbol(
+    const Base::Vector3d& point,
+    const Base::Vector3d& normal,
+    SbMatrix& mat
+) const
 {
-    auto obj = static_cast<const Fem::ConstraintPressure*>(this->getObject());
-    float rotAngle = obj->Reversed.getValue() ? F_PI : 0.0f;
+    auto obj = this->getObject<const Fem::ConstraintPressure>();
+    float rotAngle = obj->Reversed.getValue() ? std::numbers::pi_v<float> : 0.0f;
     float s = obj->getScaleFactor();
     // Symbol length from .iv file
     float symLen = 4.0f;
     SbMatrix mat0, mat1;
-    mat0.setTransform(SbVec3f(0, 0, 0),
-                      SbRotation(SbVec3f(0, 0, 1), rotAngle),
-                      SbVec3f(1, 1, 1),
-                      SbRotation(SbVec3f(0, 0, 1), 0),
-                      SbVec3f(0, symLen / 2.0f, 0));
+    mat0.setTransform(
+        SbVec3f(0, 0, 0),
+        SbRotation(SbVec3f(0, 0, 1), rotAngle),
+        SbVec3f(1, 1, 1),
+        SbRotation(SbVec3f(0, 0, 1), 0),
+        SbVec3f(0, symLen / 2.0f, 0)
+    );
 
-    mat1.setTransform(SbVec3f(point.x, point.y, point.z),
-                      SbRotation(SbVec3f(0, 1, 0), SbVec3f(normal.x, normal.y, normal.z)),
-                      SbVec3f(s, s, s));
+    mat1.setTransform(
+        SbVec3f(point.x, point.y, point.z),
+        SbRotation(SbVec3f(0, 1, 0), SbVec3f(normal.x, normal.y, normal.z)),
+        SbVec3f(s, s, s)
+    );
 
     mat = mat0 * mat1;
 }

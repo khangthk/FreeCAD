@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Authors: Michael Hindley <hindlemp@eskom.co.za>                       *
@@ -23,8 +25,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef GUI_TASKVIEW_TaskFemConstraintHeatflux_H
-#define GUI_TASKVIEW_TaskFemConstraintHeatflux_H
+#pragma once
 
 #include <QObject>
 #include <memory>
@@ -42,14 +43,17 @@ class TaskFemConstraintHeatflux: public TaskFemConstraintOnBoundary
     Q_OBJECT
 
 public:
-    explicit TaskFemConstraintHeatflux(ViewProviderFemConstraintHeatflux* ConstraintView,
-                                       QWidget* parent = nullptr);
+    explicit TaskFemConstraintHeatflux(
+        ViewProviderFemConstraintHeatflux* ConstraintView,
+        QWidget* parent = nullptr
+    );
     ~TaskFemConstraintHeatflux() override;
-    double getAmbientTemp() const;
+    std::string getAmbientTemp() const;
     /*double getFaceTemp(void) const;*/
-    double getFilmCoef() const;
+    std::string getFilmCoef() const;
+    std::string getDFlux() const;
     double getEmissivity() const;
-    std::string get_constraint_type() const;
+    std::string getConstraintType() const;
     const std::string getReferences() const override;
 
 private Q_SLOTS:
@@ -59,6 +63,7 @@ private Q_SLOTS:
     void onFilmCoefChanged(double val);
     void onEmissivityChanged(double val);
     void onHeatFluxChanged(double val);
+    void onConstrTypeChanged(int val);
     void Conv();
     void Rad();
     void Flux();
@@ -84,5 +89,3 @@ public:
 };
 
 }  // namespace FemGui
-
-#endif  // GUI_TASKVIEW_TaskFemConstraintHeatflux_H

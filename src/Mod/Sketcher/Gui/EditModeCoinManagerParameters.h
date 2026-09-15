@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2021 Abdullah Tahiri <abdullah.tahiri.yo@gmail.com>     *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef SKETCHERGUI_EditModeCoinManagerParameters_H
-#define SKETCHERGUI_EditModeCoinManagerParameters_H
+#pragma once
 
 #include <map>
 #include <vector>
@@ -40,6 +41,8 @@
 #include <Inventor/nodes/SoText2.h>
 #include <Inventor/nodes/SoTranslation.h>
 
+#include <Base/Color.h>
+#include <Gui/ViewParams.h>
 #include <Gui/Inventor/SmSwitchboard.h>
 #include <Mod/Sketcher/App/GeoList.h>
 
@@ -73,7 +76,7 @@ struct DrawingParameters
     const float zMidLines = 0.006f;    // Height used for in-the-middle rendered lines
     const float zHighLines = 0.007f;   // Height used for on top rendered lines
     const float zHighLine = 0.008f;    // Height for highlighted lines (selected/preselected)
-    const float zConstr = 0.009f;      // Height for rendering constraints
+    const float zConstr = 0.004f;      // Height for rendering constraints
     const float zRootPoint = 0.010f;   // Height used for rendering the root point
     const float zLowPoints = 0.011f;   // Height used for bottom rendered points
     const float zMidPoints = 0.012f;   // Height used for mid rendered points
@@ -100,7 +103,7 @@ struct DrawingParameters
     /** @name Rendering Coin Colors **/
     //@{
     static SbColor InformationColor;                       // Information Overlay Color
-    static SbColor CreateCurveColor;                       // Color for Edit Curves during creation
+    static SbColor GridLineColor;                          // Color used for inactive hint lines
     static SbColor CrossColorH;                            // Color for the Horizontal Axis
     static SbColor CrossColorV;                            // Color for the Vertical Axis
     static SbColor InvalidSketchColor;                     // Color for rendering an invalid sketch
@@ -110,20 +113,20 @@ struct DrawingParameters
     static SbColor InternalAlignedGeoColor;  // Color for non-fully constrained internal geometry
     static SbColor FullyConstraintElementColor;  // Color for a fully constrained element
     static SbColor CurveColor;                   // Color for curves
-    static SbColor PreselectColor;               // Color used for pre-selection
-    static SbColor
-        PreselectSelectedColor;  // Color used for pre-selection when geometry is already selected
-    static SbColor SelectColor;  // Color used for selected geometry
-    static SbColor CurveExternalColor;                       // Color used for external geometry
-    static SbColor CurveDraftColor;                          // Color used for construction geometry
+    static SbColor PreselectColor;               // Color used for preselection
+    static SbColor PreselectSelectedColor;  // Color used for preselection when geometry is already
+                                            // selected
+    static SbColor SelectColor;             // Color used for selected geometry
+    static SbColor CurveExternalColor;      // Color used for external geometry
+    static SbColor CurveExternalDefiningColor;  // Color used for external defining geometry
+    static SbColor CurveDraftColor;             // Color used for construction geometry
     static SbColor FullyConstraintConstructionElementColor;  // Color used for a fully constrained
                                                              // construction element
-    static SbColor ConstrDimColor;  // Color used for a dimensional constraints
-    static SbColor ConstrIcoColor;  // Color used for constraint icons
-    static SbColor
-        NonDrivingConstrDimColor;  // Color used for non-driving (reference) dimensional constraints
-    static SbColor
-        ExprBasedConstrDimColor;  // Color used for expression based dimensional constraints
+    static SbColor ConstrDimColor;            // Color used for a dimensional constraints
+    static SbColor ConstrIcoColor;            // Color used for constraint icons
+    static SbColor NonDrivingConstrDimColor;  // Color used for non-driving (reference) dimensional
+                                              // constraints
+    static SbColor ExprBasedConstrDimColor;  // Color used for expression based dimensional constraints
     static SbColor DeactivatedConstrDimColor;  // Color used for deactivated dimensional constraints
     static SbColor CursorTextColor;            // Color used by the edit mode cursor
     //@}
@@ -132,21 +135,53 @@ struct DrawingParameters
     //@{
     double pixelScalingFactor = 1.0;  // Scaling factor to be used for pixels
     int coinFontSize = 17;            // Font size to be used by coin
-    int labelFontSize =
-        17;  // Font size to be used by SoDatumLabel, which uses a QPainter and a QFont internally
-    int constraintIconSize = 15;  // Size of constraint icons
-    int markerSize = 7;           // Size used for markers
+    int labelFontSize = 17;  // Font size to be used by SoDatumLabel, which uses a QPainter and a
+                             // QFont internally
+    static QString labelFontName;        // Font face to be used by SoDatumLabel
+    int constraintIconSize = 15;         // Size of constraint icons
+    int constraintIconHitPaddingPx = 3;  // Extra hit padding for constraint icons
+    int markerSize = 7;                  // Size used for markers
 
-    int CurveWidth = 2;         // width of normal edges
-    int ConstructionWidth = 1;  // width of construction edges
-    int InternalWidth = 1;      // width of internal edges
-    int ExternalWidth = 1;      // width of external edges
+    // transparency of visible axis
+    float axisTransparency = 0.3f;
+    // transparency of axis when occluded
+    float occludedAxisTransparency = 0.9f;
+    // The visible origin point must explicitly override inherited transparency.
+    static constexpr float originTransparency = 0.0f;
 
-    unsigned int CurvePattern = 0b1111111111111111;         // pattern of normal edges
-    unsigned int ConstructionPattern = 0b1111110011111100;  // pattern of construction edges
-    unsigned int InternalPattern = 0b1111110011111100;      // pattern of internal edges
-    unsigned int ExternalPattern = 0b1110010011100100;      // pattern of external edges
+    int CurveWidth = 2;                      // width of normal edges
+    int ConstructionWidth = 1;               // width of construction edges
+    int InternalWidth = 1;                   // width of internal edges
+    int ExternalWidth = 1;                   // width of external edges
+    int ExternalDefiningWidth = 1;           // width of external defining edges
+    int InformationWidth = 1;                // width of information edges
+    int DimensionalConstraintLineWidth = 2;  // width of dimensional constraint lines
+    int AxisLineWidth = 2;                   // width of axis lines
+
+    unsigned int CurvePattern = 0b1111111111111111;             // pattern of normal edges
+    unsigned int ConstructionPattern = 0b1111110011111100;      // pattern of construction edges
+    unsigned int InternalPattern = 0b1111110011111100;          // pattern of internal edges
+    unsigned int ExternalPattern = 0b1111110011111100;          // pattern of external edges
+    unsigned int ExternalDefiningPattern = 0b1111111111111111;  // pattern of external defining edges
+    unsigned int InformationPattern = 0b1111110011111100;  // pattern of information layer edges
+    unsigned int DimensionalConstraintLinePattern = 0b1111111111111111;  // pattern of dimensional
+                                                                         // constraints lines
+    unsigned int AxisLinePattern = 0b1111111111111111;                   // pattern of axis lines
     //@}
+
+    DrawingParameters()
+    {
+        unsigned long colorLong;
+        Base::Color color;
+
+        colorLong = Gui::ViewParams::instance()->getAxisXColor();
+        color = Base::Color(static_cast<uint32_t>(colorLong));
+        CrossColorH = SbColor(color.r, color.g, color.b);
+
+        colorLong = Gui::ViewParams::instance()->getAxisYColor();
+        color = Base::Color(static_cast<uint32_t>(colorLong));
+        CrossColorV = SbColor(color.r, color.g, color.b);
+    }
 };
 
 /** @brief      Struct for storing references to the scenegraph nodes necessary for geometry layers
@@ -221,8 +256,7 @@ namespace std
 template<>
 struct less<SketcherGui::MultiFieldId>
 {
-    bool operator()(const SketcherGui::MultiFieldId& lhs,
-                    const SketcherGui::MultiFieldId& rhs) const
+    bool operator()(const SketcherGui::MultiFieldId& lhs, const SketcherGui::MultiFieldId& rhs) const
     {
         return (lhs.layerId != rhs.layerId)
             ? (lhs.layerId < rhs.layerId)
@@ -273,6 +307,7 @@ public:
         Construction = 1,
         Internal = 2,
         External = 3,
+        ExternalDefining = 4
     };
 
     void reset()
@@ -304,17 +339,7 @@ public:
         return SubLayers;
     }
 
-    int inline getSubLayerIndex(const int geoId, const Sketcher::GeometryFacade* geom) const
-    {
-        bool isConstruction = geom->getConstruction();
-        bool isInternal = geom->isInternalAligned();
-        bool isExternal = geoId <= Sketcher::GeoEnum::RefExt;
-
-        return static_cast<int>(isExternal           ? SubLayer::External
-                                    : isInternal     ? SubLayer::Internal
-                                    : isConstruction ? SubLayer::Construction
-                                                     : SubLayer::Normal);
-    }
+    int getSubLayerIndex(const int geoId, const Sketcher::GeometryFacade* geom) const;
 
     bool isNormalSubLayer(int t) const
     {
@@ -336,9 +361,15 @@ public:
         return t == static_cast<int>(SubLayer::External);
     }
 
+    bool isExternalDefiningSubLayer(int t) const
+    {
+        return t == static_cast<int>(SubLayer::ExternalDefining);
+    }
+
+
 private:
     int CoinLayers = 1;  // defaults to a single Coin Geometry Layer.
-    int SubLayers = 4;   // Normal, Construction, Internal, External.
+    int SubLayers = 5;   // Normal, Construction, Internal, External.
 };
 
 /** @brief     Struct to hold the results of analysis performed on geometry
@@ -374,9 +405,8 @@ struct OverlayParameters
  */
 struct ConstraintParameters
 {
-    bool bHideUnits;  // whether units should be hidden or not
-    bool
-        bShowDimensionalName;  // whether the name of dimensional constraints should be shown or not
+    bool bHideUnits;            // whether units should be hidden or not
+    bool bShowDimensionalName;  // whether the name of dimensional constraints should be shown or not
     QString sDimensionalStringFormat;  // how to code strings of dimensional constraints
 };
 
@@ -394,6 +424,20 @@ struct EditModeScenegraphNodes
     std::vector<SoMarkerSet*> PointSet;
     //@}
 
+    /** @name Origin Point nodes*/
+    //@{
+    SoMaterial* OriginPointMaterial;
+    SoCoordinate3* OriginPointCoordinate;
+    SoMarkerSet* OriginPointSet;
+    SoDrawStyle* OriginPointDrawStyle;
+
+    // occluded
+    SoMaterial* OriginPointMaterialOccluded;
+    SoMarkerSet* OriginPointSetOccluded;
+    SoDrawStyle* OriginPointDrawStyleOccluded;
+    SoCoordinate3* OriginPointCoordinateOccluded;
+    //@}
+
     /** @name Curve nodes*/
     //@{
     SmSwitchboard* CurvesGroup;
@@ -404,16 +448,29 @@ struct EditModeScenegraphNodes
     SoDrawStyle* CurvesConstructionDrawStyle;
     SoDrawStyle* CurvesInternalDrawStyle;
     SoDrawStyle* CurvesExternalDrawStyle;
+    SoDrawStyle* CurvesExternalDefiningDrawStyle;
     SoDrawStyle* HiddenCurvesDrawStyle;
     //@}
 
     /** @name Axes nodes*/
-    /// @warning Root Point is added together with the Point nodes above
     //@{
-    SoMaterial* RootCrossMaterials;
-    SoCoordinate3* RootCrossCoordinate;
-    SoLineSet* RootCrossSet;
+    SoMaterial* RootCrossHMaterials;
+    SoCoordinate3* RootCrossHCoordinate;
+    SoLineSet* RootCrossHSet;
     SoDrawStyle* RootCrossDrawStyle;
+
+    SoMaterial* RootCrossVMaterials;
+    SoCoordinate3* RootCrossVCoordinate;
+    SoLineSet* RootCrossVSet;
+
+    // occluded
+    SoDrawStyle* RootCrossDrawStyleOccluded;
+    SoCoordinate3* RootCrossHCoordinateOccluded;
+    SoCoordinate3* RootCrossVCoordinateOccluded;
+    SoMaterial* RootCrossMaterialsOccludedH;
+    SoLineSet* RootCrossSetOccludedH;
+    SoMaterial* RootCrossMaterialsOccludedV;
+    SoLineSet* RootCrossSetOccludedV;
     //@}
 
     /** @name Temporal edit curve nodes - For geometry creation */
@@ -423,6 +480,20 @@ struct EditModeScenegraphNodes
     SoLineSet* EditCurveSet;
     SoDrawStyle* EditCurvesDrawStyle;
     SoPickStyle* pickStyleAxes;
+    //@}
+
+    /** @name Line-extension auto-constraint hint nodes */
+    //@{
+    SoMaterial* LineExtensionAutoConstraintHintMaterials;
+    SoCoordinate3* LineExtensionAutoConstraintHintCoordinate;
+    SoLineSet* LineExtensionAutoConstraintHintSet;
+    //@}
+
+    /** @name Parallel/Perpendicular reference line hint nodes */
+    //@{
+    SoMaterial* ParallelPerpendicularHintMaterials;
+    SoCoordinate3* ParallelPerpendicularHintCoordinate;
+    SoLineSet* ParallelPerpendicularHintSet;
     //@}
 
     /** @name Temporal edit markers nodes- For operation rendering, such as trimming green circles*/
@@ -481,12 +552,31 @@ struct CoinMapping
     {
         return CurvIdToGeoId[layerindex][sublayerindex][curveindex];
     }
+
+    bool isValidCurveId(int curveindex, int layerindex, int sublayerindex = 0) const
+    {
+        // clang-format off
+        return static_cast<int>(CurvIdToGeoId.size()) > layerindex &&
+               static_cast<int>(CurvIdToGeoId[layerindex].size()) > sublayerindex &&
+               static_cast<int>(CurvIdToGeoId[layerindex][sublayerindex].size()) > curveindex;
+        // clang-format on
+    }
+
     /// given the MF index of a point and the coin layer in which it is drawn returns the GeoId of
     /// the point
     int getPointGeoId(int pointindex, int layerindex)
     {
         return PointIdToGeoId[layerindex][pointindex];
     }
+
+    bool isValidPointId(int pointindex, int layerindex) const
+    {
+        // clang-format off
+        return static_cast<int>(PointIdToGeoId.size()) > layerindex &&
+               static_cast<int>(PointIdToGeoId[layerindex].size()) > pointindex;
+        // clang-format on
+    }
+
     /// given the MF index of a point and the coin layer in which it is drawn returns the PosId of
     /// the point
     Sketcher::PointPos getPointPosId(int pointindex, int layerindex)
@@ -504,6 +594,10 @@ struct CoinMapping
     /// index and the coin layer of the curve or point
     MultiFieldId getIndexLayer(int geoid, Sketcher::PointPos pos)
     {
+        if (geoid == -1) {
+            return MultiFieldId(-1, 0, 0);
+        }
+
         auto indexit = GeoElementId2SetId.find(Sketcher::GeoElementId(geoid, pos));
 
         if (indexit != GeoElementId2SetId.end()) {
@@ -517,12 +611,14 @@ struct CoinMapping
     /// layer of the point
     MultiFieldId getIndexLayer(int vertexId)
     {
+        if (vertexId == -1) {
+            return MultiFieldId(-1, 0, 0);
+        }
 
         for (size_t l = 0; l < PointIdToVertexId.size(); l++) {
-            auto indexit =
-                std::find(PointIdToVertexId[l].begin(), PointIdToVertexId[l].end(), vertexId);
 
-            if (indexit != PointIdToVertexId[l].end()) {
+            if (auto indexit = std::ranges::find(PointIdToVertexId[l], vertexId);
+                indexit != PointIdToVertexId[l].end()) {
                 return MultiFieldId(std::distance(PointIdToVertexId[l].begin(), indexit), l);
             }
         }
@@ -532,8 +628,7 @@ struct CoinMapping
 
     //* These map a MF index (second index) within a coin layer (first index) for points or curves
     // to a GeoId */
-    std::vector<std::vector<std::vector<int>>>
-        CurvIdToGeoId;                             // conversion of SoLineSet index to GeoId
+    std::vector<std::vector<std::vector<int>>> CurvIdToGeoId;  // conversion of SoLineSet index to GeoId
     std::vector<std::vector<int>> PointIdToGeoId;  // conversion of SoCoordinate3 index to GeoId
     std::vector<std::vector<Sketcher::PointPos>> PointIdToPosId;  // SoCoordinate3 index to PosId
 
@@ -547,5 +642,3 @@ struct CoinMapping
 };
 
 }  // namespace SketcherGui
-
-#endif  // SKETCHERGUI_EditModeCoinManagerParameters_H

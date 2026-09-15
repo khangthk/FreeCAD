@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2021 edi                                                *
  *                                                                         *
@@ -20,27 +22,29 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 # include <QApplication>
+# include <QLabel>
+# include <QLineEdit>
 # include <QMessageBox>
+# include <cmath>
 # include <sstream>
 # include <BRepGProp.hxx>
 # include <GProp_GProps.hxx>
-#endif
+
 
 # include <App/Document.h>
 # include <App/DocumentObject.h>
 # include <Base/Console.h>
 # include <Base/Type.h>
+# include <Base/Tools.h>
 # include <Gui/Action.h>
 # include <Gui/Application.h>
 # include <Gui/BitmapFactory.h>
 # include <Gui/Command.h>
 # include <Gui/Control.h>
 # include <Gui/MainWindow.h>
-# include <Gui/Selection.h>
-# include <Gui/SelectionObject.h>
+# include <Gui/Selection/Selection.h>
+# include <Gui/Selection/SelectionObject.h>
 
 # include <Mod/TechDraw/App/Cosmetic.h>
 # include <Mod/TechDraw/App/DrawViewBalloon.h>
@@ -51,7 +55,6 @@
 # include <Mod/TechDraw/App/Preferences.h>
 # include <Mod/TechDraw/App/LineGroup.h>
 
-#include "DlgTemplateField.h"
 #include "DrawGuiUtil.h"
 #include "TaskCustomizeFormat.h"
 #include "TaskSelectLineAttributes.h"
@@ -103,47 +106,55 @@ namespace TechDrawGui {
 //===========================================================================
 // TechDraw_ExtensionInsertDiameter
 //===========================================================================
-
-void execInsertPrefixChar(Gui::Command* cmd, std::string prefixFormat, const QAction *action = nullptr) {
+void execInsertPrefixChar(Gui::Command* cmd, const std::string& prefixFormat) {
     // insert a prefix character into the format specifier
     std::vector<Gui::SelectionObject> selection;
-    if (!_checkSelection(cmd, selection, QT_TRANSLATE_NOOP("Command","TechDraw Insert Prefix"))) {
+    if (!_checkSelection(cmd, selection, QObject::tr("TechDraw Insert Prefix").toStdString())) {
         return;
     }
 
     std::string prefixText(prefixFormat);
-    if (prefixFormat.find("%s") != std::string::npos) {
-        DlgTemplateField ui;
-        const int MAX_PREFIX_LENGTH = 31;
+    if (prefixFormat.find("%s") == 0) {
+        QDialog dialog(Gui::getMainWindow());
+        dialog.setWindowTitle(QObject::tr("Prefix Text"));
 
-        if (action) {
-            if (action->objectName() == QString::fromUtf8("TechDraw_ExtensionInsertRepetition")) {
-                ui.setFieldName(QT_TR_NOOP("Repeat Count"));
-            }
-        }
+        QLineEdit edit(&dialog);
+        edit.setAlignment(Qt::AlignRight);
+        QLabel label(QString::fromStdString(prefixFormat.c_str() + 2), &dialog);
 
-        ui.setFieldLength(MAX_PREFIX_LENGTH);
-        ui.setFieldContent("");
-        if (ui.exec() != QDialog::Accepted) {
+        auto hlayout = new QHBoxLayout();
+        hlayout->addWidget(&edit);
+        hlayout->addWidget(&label);
+
+        QDialogButtonBox box(&dialog);
+        box.setStandardButtons(QDialogButtonBox::Ok);
+
+        QVBoxLayout vlayout;
+        vlayout.addLayout(hlayout);
+        vlayout.addWidget(&box);
+        dialog.setLayout(&vlayout);
+
+        QObject::connect(&box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        if (dialog.exec() != QDialog::Accepted) {
             return;
         }
 
-        char prefixData[(MAX_PREFIX_LENGTH + 1)*4];
-        snprintf(prefixData, sizeof(prefixData), prefixFormat.c_str(), ui.getFieldContent().toUtf8().constData());
-        prefixText = prefixData;
+        prefixText.replace(0, strlen("%s"), edit.text().toStdString());
     }
+    size_t prefixSize = prefixText.capacity();
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Insert Prefix"));
+    cmd->openCommand(QObject::tr("Insert Prefix").toStdString().c_str());
     for (auto selected : selection) {
         auto object = selected.getObject();
-        if (object->isDerivedFrom(TechDraw::DrawViewDimension::getClassTypeId())) {
+        if (object->isDerivedFrom<TechDraw::DrawViewDimension>()) {
             auto dim = static_cast<TechDraw::DrawViewDimension*>(selected.getObject());
             std::string formatSpec = dim->FormatSpec.getStrValue();
-            formatSpec = prefixText + formatSpec;
+            formatSpec.reserve(formatSpec.capacity() + prefixSize);
+            formatSpec.insert(0, prefixText);
             dim->FormatSpec.setValue(formatSpec);
         }
     }
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionInsertDiameter)
@@ -154,9 +165,7 @@ CmdTechDrawExtensionInsertDiameter::CmdTechDrawExtensionInsertDiameter()
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Insert '⌀' Prefix");
-    sToolTipText    = QT_TR_NOOP("Insert a '⌀' symbol at the beginning of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool");
+    sToolTipText    = QT_TR_NOOP("Inserts a '⌀' symbol at the beginning of the dimension");
     sWhatsThis      = "TechDraw_ExtensionInsertDiameter";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionInsertDiameter";
@@ -187,9 +196,7 @@ CmdTechDrawExtensionInsertSquare::CmdTechDrawExtensionInsertSquare()
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Insert '□' Prefix");
-    sToolTipText    = QT_TR_NOOP("Insert a '□' symbol at the beginning of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool");
+    sToolTipText    = QT_TR_NOOP("Inserts a '□' symbol at the beginning of the dimension");
     sWhatsThis      = "TechDraw_ExtensionInsertSquare";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionInsertSquare";
@@ -220,9 +227,7 @@ CmdTechDrawExtensionInsertRepetition::CmdTechDrawExtensionInsertRepetition()
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Insert 'n×' Prefix");
-    sToolTipText    = QT_TR_NOOP("Insert repeated feature count at the beginning of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool");
+    sToolTipText    = QT_TR_NOOP("Inserts a repeated feature count at the beginning of the dimension");
     sWhatsThis      = "TechDraw_ExtensionInsertRepetition";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionInsertRepetition";
@@ -232,7 +237,7 @@ void CmdTechDrawExtensionInsertRepetition::activated(int iMsg)
 {
     Q_UNUSED(iMsg);
 
-    execInsertPrefixChar(this, "%s× ", this->getAction()->action()); //× Multiplication sign U+00D7
+    execInsertPrefixChar(this, "%s× "); //× Multiplication sign U+00D7
 }
 
 bool CmdTechDrawExtensionInsertRepetition::isActive()
@@ -253,11 +258,11 @@ void execRemovePrefixChar(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Remove Prefix"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Remove Prefix"));
     for (auto selected : selection)
     {
         auto object = selected.getObject();
-        if (object->isDerivedFrom(TechDraw::DrawViewDimension::getClassTypeId())) {
+        if (object->isDerivedFrom<TechDraw::DrawViewDimension>()) {
             auto dim = static_cast<TechDraw::DrawViewDimension*>(selected.getObject());
             std::string formatSpec = dim->FormatSpec.getStrValue();
             int pos = formatSpec.find("%.");
@@ -268,7 +273,7 @@ void execRemovePrefixChar(Gui::Command* cmd) {
             }
         }
     }
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionRemovePrefixChar)
@@ -279,9 +284,7 @@ CmdTechDrawExtensionRemovePrefixChar::CmdTechDrawExtensionRemovePrefixChar()
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Remove Prefix");
-    sToolTipText    = QT_TR_NOOP("Remove prefix symbols at the beginning of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool");
+    sToolTipText    = QT_TR_NOOP("Removes the prefix symbols at the beginning of the dimension");
     sWhatsThis      = "TechDraw_ExtensionRemovePrefixChar";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionRemovePrefixChar";
@@ -312,20 +315,18 @@ CmdTechDrawExtensionInsertPrefixGroup::CmdTechDrawExtensionInsertPrefixGroup()
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Insert '⌀' Prefix");
-    sToolTipText    = QT_TR_NOOP("Insert a '⌀' symbol at the beginning of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool");
+    sToolTipText    = QT_TR_NOOP("Inserts a '⌀' symbol at the beginning of the dimension text");
     sWhatsThis      = "TechDraw_ExtensionInsertPrefixGroup";
     sStatusTip      = sMenuText;
 }
 
 void CmdTechDrawExtensionInsertPrefixGroup::activated(int iMsg)
 {
-    //    Base::Console().Message("CMD::ExtensionLinePPGroup - activated(%d)\n", iMsg);
+    //    Base::Console().message("CMD::ExtensionLinePPGroup - activated(%d)\n", iMsg);
     Gui::TaskView::TaskDialog* dlg = Gui::Control().activeDialog();
     if (dlg) {
-        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task In Progress"),
-            QObject::tr("Close active task dialog and try again."));
+        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task in progress"),
+            QObject::tr("Close active task dialog and try again"));
         return;
     }
 
@@ -339,13 +340,13 @@ void CmdTechDrawExtensionInsertPrefixGroup::activated(int iMsg)
         execInsertPrefixChar(this, "□");
         break;
     case 2:                 //insert "n×" as prefix
-        execInsertPrefixChar(this, "%s× ", pcAction->actions().at(iMsg));
+        execInsertPrefixChar(this, "%s× ");
         break;
     case 3:                 //remove prefix characters
         execRemovePrefixChar(this);
         break;
     default:
-        Base::Console().Message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
+        Base::Console().message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
     };
 }
 
@@ -357,20 +358,20 @@ Gui::Action* CmdTechDrawExtensionInsertPrefixGroup::createAction()
 
     QAction* p1 = pcAction->addAction(QString());
     p1->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionInsertDiameter"));
-    p1->setObjectName(QString::fromLatin1("TechDraw_ExtensionInsertDiameter"));
-    p1->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionInsertDiameter"));
+    p1->setObjectName(QStringLiteral("TechDraw_ExtensionInsertDiameter"));
+    p1->setWhatsThis(QStringLiteral("TechDraw_ExtensionInsertDiameter"));
     QAction* p2 = pcAction->addAction(QString());
     p2->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionInsertSquare"));
-    p2->setObjectName(QString::fromLatin1("TechDraw_ExtensionInsertSquare"));
-    p2->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionInsertSquare"));
+    p2->setObjectName(QStringLiteral("TechDraw_ExtensionInsertSquare"));
+    p2->setWhatsThis(QStringLiteral("TechDraw_ExtensionInsertSquare"));
     QAction* p3 = pcAction->addAction(QString());
     p3->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionInsertRepetition"));
-    p3->setObjectName(QString::fromLatin1("TechDraw_ExtensionInsertRepetition"));
-    p3->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionInsertRepetition"));
+    p3->setObjectName(QStringLiteral("TechDraw_ExtensionInsertRepetition"));
+    p3->setWhatsThis(QStringLiteral("TechDraw_ExtensionInsertRepetition"));
     QAction* p4 = pcAction->addAction(QString());
     p4->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionRemovePrefixChar"));
-    p4->setObjectName(QString::fromLatin1("TechDraw_ExtensionRemovePrefixChar"));
-    p4->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionRemovePrefixChar"));
+    p4->setObjectName(QStringLiteral("TechDraw_ExtensionRemovePrefixChar"));
+    p4->setWhatsThis(QStringLiteral("TechDraw_ExtensionRemovePrefixChar"));
 
     _pcAction = pcAction;
     languageChange();
@@ -394,30 +395,22 @@ void CmdTechDrawExtensionInsertPrefixGroup::languageChange()
     QAction* arc1 = a[0];
     arc1->setText(QApplication::translate("CmdTechDrawExtensionInsertDiameter", "Insert '⌀' Prefix"));
     arc1->setToolTip(QApplication::translate("CmdTechDrawExtensionInsertDiameter",
-"Insert a '⌀' symbol at the beginning of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool"));
+"Inserts a '⌀' symbol at the beginning of the dimension"));
     arc1->setStatusTip(arc1->text());
     QAction* arc2 = a[1];
     arc2->setText(QApplication::translate("CmdTechDrawExtensionInsertSquare", "Insert '□' Prefix"));
     arc2->setToolTip(QApplication::translate("CmdTechDrawExtensionInsertSquare",
-"Insert a '□' symbol at the beginning of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool"));
+"Inserts a '□' symbol at the beginning of the dimension"));
     arc2->setStatusTip(arc2->text());
     QAction* arc3 = a[2];
     arc3->setText(QApplication::translate("CmdTechDrawExtensionInsertRepetition", "Insert 'n×' Prefix"));
     arc3->setToolTip(QApplication::translate("CmdTechDrawExtensionInsertRepetition",
-"Insert repeated feature count at the beginning of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool"));
+"Inserts a repeated feature count at the beginning of the dimension"));
     arc3->setStatusTip(arc3->text());
     QAction* arc4 = a[3];
     arc4->setText(QApplication::translate("TechDraw_ExtensionremovePrefixChar", "Remove Prefix"));
     arc4->setToolTip(QApplication::translate("TechDraw_ExtensionremovePrefixChar",
-"Remove prefix symbols at the beginning of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool"));
+"Removes the prefix symbols at the beginning of the dimension"));
     arc4->setStatusTip(arc4->text());
 }
 
@@ -439,11 +432,11 @@ void execIncreaseDecreaseDecimal(Gui::Command* cmd, int delta) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Increase/Decrease Decimal"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Increase/Decrease Decimal"));
     std::string numStr;
     for (auto selected : selection) {
         auto object = selected.getObject();
-        if (object->isDerivedFrom(TechDraw::DrawViewDimension::getClassTypeId())) {
+        if (object->isDerivedFrom<TechDraw::DrawViewDimension>()) {
             auto dim = static_cast<TechDraw::DrawViewDimension*>(selected.getObject());
             std::string formatSpec = dim->FormatSpec.getStrValue();
             std::string searchStr("%.");
@@ -458,7 +451,7 @@ void execIncreaseDecreaseDecimal(Gui::Command* cmd, int delta) {
             }
         }
     }
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionIncreaseDecimal)
@@ -469,9 +462,7 @@ CmdTechDrawExtensionIncreaseDecimal::CmdTechDrawExtensionIncreaseDecimal()
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Increase Decimal Places");
-    sToolTipText    = QT_TR_NOOP("Increase the number of decimal places of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool");
+    sToolTipText    = QT_TR_NOOP("Increases the number of decimal places of the dimension");
     sWhatsThis      = "TechDraw_ExtensionIncreaseDecimal";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionIncreaseDecimal";
@@ -502,9 +493,7 @@ CmdTechDrawExtensionDecreaseDecimal::CmdTechDrawExtensionDecreaseDecimal()
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Decrease Decimal Places");
-    sToolTipText    = QT_TR_NOOP("Decrease the number of decimal places of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool");
+    sToolTipText    = QT_TR_NOOP("Decreases the number of decimal places of the dimension");
     sWhatsThis      = "TechDraw_ExtensionDecreaseDecimal";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionDecreaseDecimal";
@@ -535,20 +524,18 @@ CmdTechDrawExtensionIncreaseDecreaseGroup::CmdTechDrawExtensionIncreaseDecreaseG
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Increase Decimal Places");
-    sToolTipText    = QT_TR_NOOP("Increase the number of decimal places of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool");
+    sToolTipText    = QT_TR_NOOP("Increases the number of decimal places of the dimension");
     sWhatsThis      = "TechDraw_ExtensionIncreaseDecreaseGroup";
     sStatusTip      = sMenuText;
 }
 
 void CmdTechDrawExtensionIncreaseDecreaseGroup::activated(int iMsg)
 {
-    //    Base::Console().Message("CMD::ExtensionIncreaseDecreaseGroup - activated(%d)\n", iMsg);
+    //    Base::Console().message("CMD::ExtensionIncreaseDecreaseGroup - activated(%d)\n", iMsg);
     Gui::TaskView::TaskDialog* dlg = Gui::Control().activeDialog();
     if (dlg) {
-        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task In Progress"),
-            QObject::tr("Close active task dialog and try again."));
+        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task in progress"),
+            QObject::tr("Close active task dialog and try again"));
         return;
     }
 
@@ -562,7 +549,7 @@ void CmdTechDrawExtensionIncreaseDecreaseGroup::activated(int iMsg)
         execIncreaseDecreaseDecimal(this, -1);
         break;
     default:
-        Base::Console().Message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
+        Base::Console().message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
     };
 }
 
@@ -574,12 +561,12 @@ Gui::Action* CmdTechDrawExtensionIncreaseDecreaseGroup::createAction()
 
     QAction* p1 = pcAction->addAction(QString());
     p1->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionIncreaseDecimal"));
-    p1->setObjectName(QString::fromLatin1("TechDraw_ExtensionIncreaseDecimal"));
-    p1->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionIncreaseDecimal"));
+    p1->setObjectName(QStringLiteral("TechDraw_ExtensionIncreaseDecimal"));
+    p1->setWhatsThis(QStringLiteral("TechDraw_ExtensionIncreaseDecimal"));
     QAction* p2 = pcAction->addAction(QString());
     p2->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionDecreaseDecimal"));
-    p2->setObjectName(QString::fromLatin1("TechDraw_ExtensionDecreaseDecimal"));
-    p2->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionDecreaseDecimal"));
+    p2->setObjectName(QStringLiteral("TechDraw_ExtensionDecreaseDecimal"));
+    p2->setWhatsThis(QStringLiteral("TechDraw_ExtensionDecreaseDecimal"));
 
     _pcAction = pcAction;
     languageChange();
@@ -603,16 +590,12 @@ void CmdTechDrawExtensionIncreaseDecreaseGroup::languageChange()
     QAction* arc1 = a[0];
     arc1->setText(QApplication::translate("CmdTechDrawExtensionIncreaseDecimal", "Increase Decimal Places"));
     arc1->setToolTip(QApplication::translate("CmdTechDrawExtensionIncreaseDecimal",
-"Increase the number of decimal places of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool"));
+"Increases the number of decimal places of the dimension"));
     arc1->setStatusTip(arc1->text());
     QAction* arc2 = a[1];
     arc2->setText(QApplication::translate("CmdTechDrawExtensionDecreaseDecimal", "Decrease Decimal Places"));
     arc2->setToolTip(QApplication::translate("CmdTechDrawExtensionDecreaseDecimal",
-"Decrease the number of decimal places of the dimension text:<br>\
-- Select one or more dimensions<br>\
-- Click this tool"));
+"Decreases the number of decimal places of the dimension"));
     arc2->setStatusTip(arc2->text());
 }
 
@@ -634,7 +617,7 @@ void execPosHorizChainDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Pos Horiz Chain Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Position Horizontal Chain Dimension"));
     std::vector<TechDraw::DrawViewDimension*> validDimension;
     validDimension = _getDimensions(selection, "DistanceX");
     if (validDimension.empty()) {
@@ -651,7 +634,7 @@ void execPosHorizChainDimension(Gui::Command* cmd) {
         Base::Vector3d p2 = pp.second();
         dim->X.setValue((p1.x + p2.x) / 2.0);
     }
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionPosHorizChainDimension)
@@ -661,8 +644,8 @@ CmdTechDrawExtensionPosHorizChainDimension::CmdTechDrawExtensionPosHorizChainDim
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Position Horizontal Chain Dimensions");
-    sToolTipText    = QT_TR_NOOP("Align horizontal dimensions to create a chain dimension:<br>\
+    sMenuText       = QT_TR_NOOP("Align Horizontal Chain Dimensions");
+    sToolTipText    = QT_TR_NOOP("Aligns the horizontal dimensions to create a chain dimension:<br>\
 - Select two or more horizontal dimensions<br>\
 - The first dimension defines the position<br>\
 - Click this tool");
@@ -695,7 +678,7 @@ void execPosVertChainDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Pos Vert Chain Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Position Vert Chain Dimension"));
     std::vector<TechDraw::DrawViewDimension*> validDimension;
     validDimension = _getDimensions(selection, "DistanceY");
     if (validDimension.empty()) {
@@ -713,7 +696,7 @@ void execPosVertChainDimension(Gui::Command* cmd) {
         Base::Vector3d p2 = pp.second();
         dim->Y.setValue((p1.y + p2.y) / -2.0 + 0.5 * fontSize);
     }
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionPosVertChainDimension)
@@ -723,8 +706,8 @@ CmdTechDrawExtensionPosVertChainDimension::CmdTechDrawExtensionPosVertChainDimen
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Position Vertical Chain Dimensions");
-    sToolTipText    = QT_TR_NOOP("Align vertical dimensions to create a chain dimension:<br>\
+    sMenuText       = QT_TR_NOOP("Align Vertical Chain Dimensions");
+    sToolTipText    = QT_TR_NOOP("Aligns the vertical dimensions to create a chain dimension:<br>\
 - Select two or more vertical dimensions<br>\
 - The first dimension defines the position<br>\
 - Click this tool");
@@ -757,7 +740,7 @@ void execPosObliqueChainDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Pos Oblique Chain Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Position Oblique Chain Dimension"));
     std::vector<TechDraw::DrawViewDimension*> validDimension;
     validDimension = _getDimensions(selection, "Distance");
     if (validDimension.empty()) {
@@ -780,7 +763,7 @@ void execPosObliqueChainDimension(Gui::Command* cmd) {
         dim->X.setValue(p3.x);
         dim->Y.setValue(p3.y);
     }
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionPosObliqueChainDimension)
@@ -790,8 +773,8 @@ CmdTechDrawExtensionPosObliqueChainDimension::CmdTechDrawExtensionPosObliqueChai
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Position Oblique Chain Dimensions");
-    sToolTipText    = QT_TR_NOOP("Align oblique dimensions to create a chain dimension:<br>\
+    sMenuText       = QT_TR_NOOP("Align Oblique Chain Dimensions");
+    sToolTipText    = QT_TR_NOOP("Aligns the oblique dimensions to create a chain dimension:<br>\
 - Select two or more parallel oblique dimensions<br>\
 - The first dimension defines the position<br>\
 - Click this tool");
@@ -804,7 +787,7 @@ void CmdTechDrawExtensionPosObliqueChainDimension::activated(int iMsg)
 {
     Q_UNUSED(iMsg);
     execPosObliqueChainDimension(this);
-    ///Base::Console().Message("TechDraw_ExtensionPosObliqueChainDimension started\n");
+    ///Base::Console().message("TechDraw_ExtensionPosObliqueChainDimension started\n");
 }
 
 bool CmdTechDrawExtensionPosObliqueChainDimension::isActive()
@@ -825,8 +808,8 @@ CmdTechDrawExtensionPosChainDimensionGroup::CmdTechDrawExtensionPosChainDimensio
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Position Horizontal Chain Dimensions");
-    sToolTipText    = QT_TR_NOOP("Align horizontal dimensions to create a chain dimension:<br>\
+    sMenuText       = QT_TR_NOOP("Align Horizontal Chain Dimensions");
+    sToolTipText    = QT_TR_NOOP("Aligns the horizontal dimensions to create a chain dimension:<br>\
 - Select two or more horizontal dimensions<br>\
 - The first dimension defines the position<br>\
 - Click this tool");
@@ -836,11 +819,11 @@ CmdTechDrawExtensionPosChainDimensionGroup::CmdTechDrawExtensionPosChainDimensio
 
 void CmdTechDrawExtensionPosChainDimensionGroup::activated(int iMsg)
 {
-    //    Base::Console().Message("CMD::ExtensionPosChainDimensionGroup - activated(%d)\n", iMsg);
+    //    Base::Console().message("CMD::ExtensionPosChainDimensionGroup - activated(%d)\n", iMsg);
     Gui::TaskView::TaskDialog* dlg = Gui::Control().activeDialog();
     if (dlg) {
-        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task In Progress"),
-            QObject::tr("Close active task dialog and try again."));
+        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task in progress"),
+            QObject::tr("Close active task dialog and try again"));
         return;
     }
 
@@ -857,7 +840,7 @@ void CmdTechDrawExtensionPosChainDimensionGroup::activated(int iMsg)
         execPosObliqueChainDimension(this);
         break;
     default:
-        Base::Console().Message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
+        Base::Console().message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
     };
 }
 
@@ -869,16 +852,16 @@ Gui::Action* CmdTechDrawExtensionPosChainDimensionGroup::createAction()
 
     QAction* p1 = pcAction->addAction(QString());
     p1->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionPosHorizChainDimension"));
-    p1->setObjectName(QString::fromLatin1("TechDraw_ExtensionPosHorizChainDimension"));
-    p1->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionPosHorizChainDimension"));
+    p1->setObjectName(QStringLiteral("TechDraw_ExtensionPosHorizChainDimension"));
+    p1->setWhatsThis(QStringLiteral("TechDraw_ExtensionPosHorizChainDimension"));
     QAction* p2 = pcAction->addAction(QString());
     p2->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionPosVertChainDimension"));
-    p2->setObjectName(QString::fromLatin1("TechDraw_ExtensionPosVertChainDimension"));
-    p2->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionPosVertChainDimension"));
+    p2->setObjectName(QStringLiteral("TechDraw_ExtensionPosVertChainDimension"));
+    p2->setWhatsThis(QStringLiteral("sion"));
     QAction* p3 = pcAction->addAction(QString());
     p3->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionPosObliqueChainDimension"));
-    p3->setObjectName(QString::fromLatin1("TechDraw_ExtensionPosObliqueChainDimension"));
-    p3->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionPosObliqueChainDimension"));
+    p3->setObjectName(QStringLiteral("TechDraw_ExtensionPosObliqueChainDimension"));
+    p3->setWhatsThis(QStringLiteral("TechDraw_ExtensionPosObliqueChainDimension"));
 
     _pcAction = pcAction;
     languageChange();
@@ -902,7 +885,7 @@ void CmdTechDrawExtensionPosChainDimensionGroup::languageChange()
     QAction* arc1 = a[0];
     arc1->setText(QApplication::translate("CmdTechDrawExtensionPosHorizChainDimension", "Position Horizontal Chain Dimensions"));
     arc1->setToolTip(QApplication::translate("CmdTechDrawExtensionPosHorizChainDimension",
-"Align horizontal dimensions to create a chain dimension:<br>\
+"Aligns the horizontal dimensions to create a chain dimension:<br>\
 - Select two or more horizontal dimensions<br>\
 - The first dimension defines the position<br>\
 - Click this tool"));
@@ -910,7 +893,7 @@ void CmdTechDrawExtensionPosChainDimensionGroup::languageChange()
     QAction* arc2 = a[1];
     arc2->setText(QApplication::translate("CmdTechDrawExtensionPosVertChainDimension", "Position Vertical Chain Dimensions"));
     arc2->setToolTip(QApplication::translate("CmdTechDrawExtensionPosVertChainDimension",
-"Align vertical dimensions to create a chain dimension:<br>\
+"Aligns the vertical dimensions to create a chain dimension:<br>\
 - Select two or more vertical dimensions<br>\
 - The first dimension defines the position<br>\
 - Click this tool"));
@@ -918,7 +901,7 @@ void CmdTechDrawExtensionPosChainDimensionGroup::languageChange()
     QAction* arc3 = a[2];
     arc3->setText(QApplication::translate("CmdTechDrawExtensionPosObliqueChainDimension", "Position Oblique Chain Dimensions"));
     arc3->setToolTip(QApplication::translate("CmdTechDrawExtensionPosObliqueChainDimension",
-"Align oblique dimensions to create a chain dimension:<br>\
+"Aligns the oblique dimensions to create a chain dimension:<br>\
 - Select two or more parallel oblique dimensions<br>\
 - The first dimension defines the position<br>\
 - Click this tool"));
@@ -943,7 +926,7 @@ void execCascadeHorizDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Cascade Horiz Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Cascade Horizontal Dimension"));
     std::vector<TechDraw::DrawViewDimension*> validDimension;
     validDimension = _getDimensions(selection, "DistanceX");
     if (validDimension.empty()) {
@@ -964,7 +947,7 @@ void execCascadeHorizDimension(Gui::Command* cmd) {
         dim->X.setValue((p1.x + p2.x) / 2.0);
         yMaster = yMaster + dimDistance;
     }
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionCascadeHorizDimension)
@@ -975,7 +958,7 @@ CmdTechDrawExtensionCascadeHorizDimension::CmdTechDrawExtensionCascadeHorizDimen
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Cascade Horizontal Dimensions");
-    sToolTipText    = QT_TR_NOOP("Evenly space horizontal dimensions:<br>\
+    sToolTipText    = QT_TR_NOOP("Evenly spaces the selected horizontal dimensions:<br>\
 - Specify the cascade spacing (optional)<br>\
 - Select two or more horizontal dimensions<br>\
 - The first dimension defines the position<br>\
@@ -1009,7 +992,7 @@ void execCascadeVertDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Cascade Vert Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Cascade Vertical Dimension"));
     std::vector<TechDraw::DrawViewDimension*> validDimension;
     validDimension = _getDimensions(selection, "DistanceY");
     if (validDimension.empty()) {
@@ -1031,7 +1014,7 @@ void execCascadeVertDimension(Gui::Command* cmd) {
         dim->Y.setValue((p1.y + p2.y) / -2.0 + 0.5 * fontSize);
         xMaster = xMaster + dimDistance;
     }
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionCascadeVertDimension)
@@ -1042,7 +1025,7 @@ CmdTechDrawExtensionCascadeVertDimension::CmdTechDrawExtensionCascadeVertDimensi
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Cascade Vertical Dimensions");
-    sToolTipText    = QT_TR_NOOP("Evenly space vertical dimensions:<br>\
+    sToolTipText    = QT_TR_NOOP("Evenly spaces the selected vertical dimensions:<br>\
 - Specify the cascade spacing (optional)<br>\
 - Select two or more vertical dimensions<br>\
 - The first dimension defines the position<br>\
@@ -1076,7 +1059,7 @@ void execCascadeObliqueDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Cascade Oblique Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Cascade Oblique Dimension"));
     std::vector<TechDraw::DrawViewDimension*> validDimension;
     validDimension = _getDimensions(selection, "Distance");
     if (validDimension.empty()) {
@@ -1106,7 +1089,7 @@ void execCascadeObliqueDimension(Gui::Command* cmd) {
         dim->Y.setValue(p3.y);
         i = i + 1;
     }
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionCascadeObliqueDimension)
@@ -1117,7 +1100,7 @@ CmdTechDrawExtensionCascadeObliqueDimension::CmdTechDrawExtensionCascadeObliqueD
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Cascade Oblique Dimensions");
-    sToolTipText    = QT_TR_NOOP("Evenly space oblique dimensions:<br>\
+    sToolTipText    = QT_TR_NOOP("Evenly spaces the selected oblique dimensions:<br>\
 - Specify the cascade spacing (optional)<br>\
 - Select two or more parallel oblique dimensions<br>\
 - The first dimension defines the position<br>\
@@ -1131,7 +1114,7 @@ void CmdTechDrawExtensionCascadeObliqueDimension::activated(int iMsg)
 {
     Q_UNUSED(iMsg);
     execCascadeObliqueDimension(this);
-    ///Base::Console().Message("TechDraw_ExtensionPosObliqueChainDimension started\n");
+    ///Base::Console().message("TechDraw_ExtensionPosObliqueChainDimension started\n");
 }
 
 bool CmdTechDrawExtensionCascadeObliqueDimension::isActive()
@@ -1153,7 +1136,7 @@ CmdTechDrawExtensionCascadeDimensionGroup::CmdTechDrawExtensionCascadeDimensionG
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Cascade Horizontal Dimensions");
-    sToolTipText    = QT_TR_NOOP("Evenly space horizontal dimensions:<br>\
+    sToolTipText    = QT_TR_NOOP("Evenly spaces the selected horizontal dimensions:<br>\
 - Specify the cascade spacing (optional)<br>\
 - Select two or more horizontal dimensions<br>\
 - The first dimension defines the position<br>\
@@ -1164,11 +1147,11 @@ CmdTechDrawExtensionCascadeDimensionGroup::CmdTechDrawExtensionCascadeDimensionG
 
 void CmdTechDrawExtensionCascadeDimensionGroup::activated(int iMsg)
 {
-    //    Base::Console().Message("CMD::ExtensionCascadeDimansionGroup - activated(%d)\n", iMsg);
+    //    Base::Console().message("CMD::ExtensionCascadeDimansionGroup - activated(%d)\n", iMsg);
     Gui::TaskView::TaskDialog* dlg = Gui::Control().activeDialog();
     if (dlg) {
-        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task In Progress"),
-            QObject::tr("Close active task dialog and try again."));
+        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task in progress"),
+            QObject::tr("Close active task dialog and try again"));
         return;
     }
 
@@ -1185,7 +1168,7 @@ void CmdTechDrawExtensionCascadeDimensionGroup::activated(int iMsg)
         execCascadeObliqueDimension(this);
         break;
     default:
-        Base::Console().Message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
+        Base::Console().message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
     };
 }
 
@@ -1197,16 +1180,16 @@ Gui::Action* CmdTechDrawExtensionCascadeDimensionGroup::createAction()
 
     QAction* p1 = pcAction->addAction(QString());
     p1->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionCascadeHorizDimension"));
-    p1->setObjectName(QString::fromLatin1("TechDraw_ExtensionCascadeHorizDimension"));
-    p1->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionCascadeHorizDimension"));
+    p1->setObjectName(QStringLiteral("TechDraw_ExtensionCascadeHorizDimension"));
+    p1->setWhatsThis(QStringLiteral("TechDraw_ExtensionCascadeHorizDimension"));
     QAction* p2 = pcAction->addAction(QString());
     p2->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionCascadeVertDimension"));
-    p2->setObjectName(QString::fromLatin1("TechDraw_ExtensionCascadeVertDimension"));
-    p2->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionCascadeVertDimension"));
+    p2->setObjectName(QStringLiteral("TechDraw_ExtensionCascadeVertDimension"));
+    p2->setWhatsThis(QStringLiteral("TechDraw_ExtensionCascadeVertDimension"));
     QAction* p3 = pcAction->addAction(QString());
     p3->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionCascadeObliqueDimension"));
-    p3->setObjectName(QString::fromLatin1("TechDraw_ExtensionCascadeObliqueDimension"));
-    p3->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionCascadeObliqueDimension"));
+    p3->setObjectName(QStringLiteral("TechDraw_ExtensionCascadeObliqueDimension"));
+    p3->setWhatsThis(QStringLiteral("TechDraw_ExtensionCascadeObliqueDimension"));
 
     _pcAction = pcAction;
     languageChange();
@@ -1230,7 +1213,7 @@ void CmdTechDrawExtensionCascadeDimensionGroup::languageChange()
     QAction* arc1 = a[0];
     arc1->setText(QApplication::translate("CmdTechDrawExtensionCascadeHorizDimension", "Cascade Horizontal Dimensions"));
     arc1->setToolTip(QApplication::translate("CmdTechDrawExtensionCascadeHorizDimension",
-"Evenly space horizontal dimensions:<br>\
+"Evenly spaces the selected horizontal dimensions:<br>\
 - Specify the cascade spacing (optional)<br>\
 - Select two or more horizontal dimensions<br>\
 - The first dimension defines the position<br>\
@@ -1239,7 +1222,7 @@ void CmdTechDrawExtensionCascadeDimensionGroup::languageChange()
     QAction* arc2 = a[1];
     arc2->setText(QApplication::translate("CmdTechDrawExtensionCascadeVertDimension", "Cascade Vertical Dimensions"));
     arc2->setToolTip(QApplication::translate("CmdTechDrawExtensionCascadeVertDimension",
-"Evenly space vertical dimensions:<br>\
+"Evenly spaces the selected vertical dimensions:<br>\
 - Specify the cascade spacing (optional)<br>\
 - Select two or more vertical dimensions<br>\
 - The first dimension defines the position<br>\
@@ -1248,7 +1231,7 @@ void CmdTechDrawExtensionCascadeDimensionGroup::languageChange()
     QAction* arc3 = a[2];
     arc3->setText(QApplication::translate("CmdTechDrawExtensionCascadeObliqueDimension", "Cascade Oblique Dimensions"));
     arc3->setToolTip(QApplication::translate("CmdTechDrawExtensionCascadeObliqueDimension",
-"Evenly space oblique dimensions:<br>\
+"Evenly spaces the selected oblique dimensions:<br>\
 - Specify the cascade spacing (optional)<br>\
 - Select two or more parallel oblique dimensions<br>\
 - The first dimension defines the position<br>\
@@ -1275,7 +1258,7 @@ void execCreateHorizChainDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create Horiz Chain Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Create Horizontal Chain Dimension"));
     const std::vector<std::string> subNames = selection[0].getSubNames();
     std::vector<dimVertex> allVertexes;
     allVertexes = _getVertexInfo(objFeat, subNames);
@@ -1296,7 +1279,7 @@ void execCreateHorizChainDimension(Gui::Command* cmd) {
     objFeat->refreshCEGeoms();
     objFeat->requestPaint();
     cmd->getSelection().clearSelection();
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionCreateHorizChainDimension)
@@ -1306,10 +1289,9 @@ CmdTechDrawExtensionCreateHorizChainDimension::CmdTechDrawExtensionCreateHorizCh
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Horizontal Chain Dimensions");
-    sToolTipText    = QT_TR_NOOP("Create a sequence of aligned horizontal dimensions:<br>\
-- Select three or more vertexes<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Horizontal Chain Dimension");
+    sToolTipText    = QT_TR_NOOP("Inserts a sequence of aligned horizontal dimensions to at least "
+            "three selected vertices");
     sWhatsThis      = "TechDraw_ExtensionCreateHorizChainDimension";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionCreateHorizChainDimension";
@@ -1341,7 +1323,7 @@ void execCreateVertChainDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create Vert Chain Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Create Vert Chain dimension"));
     const std::vector<std::string> subNames = selection[0].getSubNames();
     std::vector<dimVertex> allVertexes;
     allVertexes = _getVertexInfo(objFeat, subNames);
@@ -1363,7 +1345,7 @@ void execCreateVertChainDimension(Gui::Command* cmd) {
     objFeat->refreshCEGeoms();
     objFeat->requestPaint();
     cmd->getSelection().clearSelection();
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionCreateVertChainDimension)
@@ -1373,10 +1355,9 @@ CmdTechDrawExtensionCreateVertChainDimension::CmdTechDrawExtensionCreateVertChai
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Vertical Chain Dimensions");
-    sToolTipText    = QT_TR_NOOP("Create a sequence of aligned vertical dimensions:<br>\
-- Select three or more vertexes<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Vertical Chain Dimension");
+    sToolTipText    = QT_TR_NOOP("Inserts a sequence of aligned vertical dimensions to at least "
+            "three selected vertices");
     sWhatsThis      = "TechDraw_ExtensionCreateVertChainDimension";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionCreateVertChainDimension";
@@ -1407,7 +1388,7 @@ void execCreateObliqueChainDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create Oblique Chain Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Create oblique chain dimension"));
 
     std::vector<TechDraw::ReferenceEntry> refs;
     for (auto& subName : selection[0].getSubNames()) {
@@ -1416,13 +1397,13 @@ void execCreateObliqueChainDimension(Gui::Command* cmd) {
 
     auto dims = makeObliqueChainDimension(refs);
     if(dims.empty()){
-        Gui::Command::abortCommand();
+        cmd->abortCommand();
     }
     else {
         objFeat->refreshCEGeoms();
         objFeat->requestPaint();
         cmd->getSelection().clearSelection();
-        Gui::Command::commitCommand();
+        cmd->commitCommand();
     }
 }
 
@@ -1468,7 +1449,7 @@ std::vector<DrawViewDimension*> TechDrawGui::makeObliqueChainDimension(std::vect
                 edge->m_format.setStyle(1);
                 edge->m_format.setLineNumber(1);
                 edge->m_format.setWidth(TechDraw::LineGroup::getDefaultWidth("Thin"));
-                edge->m_format.setColor(App::Color(0.0f, 0.0f, 0.0f));
+                edge->m_format.setColor(Base::Color(0.0f, 0.0f, 0.0f));
             }
             else
                 carrierVertexes.push_back(oldVertex);
@@ -1496,11 +1477,9 @@ CmdTechDrawExtensionCreateObliqueChainDimension::CmdTechDrawExtensionCreateObliq
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Oblique Chain Dimensions");
-    sToolTipText    = QT_TR_NOOP("Create a sequence of aligned oblique dimensions:<br>\
-- Select three or more vertexes<br>\
-- The first two vertexes define the direction<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Oblique Chain Dimension");
+    sToolTipText    = QT_TR_NOOP("Inserts a sequence of aligned oblique dimensions to at least "
+            "three selected vertices, where the first two define the direction");
     sWhatsThis      = "TechDraw_ExtensionCreateObliqueChainDimension";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionCreateObliqueChainDimension";
@@ -1530,21 +1509,20 @@ CmdTechDrawExtensionCreateChainDimensionGroup::CmdTechDrawExtensionCreateChainDi
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Horizontal Chain Dimensions");
-    sToolTipText    = QT_TR_NOOP("Create a sequence of aligned horizontal dimensions:<br>\
-- Select three or more vertexes<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Horizontal Chain Dimension");
+    sToolTipText    = QT_TR_NOOP("Inserts a sequence of aligned horizontal dimensions to at least "
+            "three selected vertices, where the first two define the direction");
     sWhatsThis      = "TechDraw_ExtensionCreateChainDimensionGroup";
     sStatusTip      = sMenuText;
 }
 
 void CmdTechDrawExtensionCreateChainDimensionGroup::activated(int iMsg)
 {
-    //    Base::Console().Message("CMD::ExtensionCascadeDimansionGroup - activated(%d)\n", iMsg);
+    //    Base::Console().message("CMD::ExtensionCascadeDimansionGroup - activated(%d)\n", iMsg);
     Gui::TaskView::TaskDialog* dlg = Gui::Control().activeDialog();
     if (dlg) {
-        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task In Progress"),
-            QObject::tr("Close active task dialog and try again."));
+        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task in progress"),
+            QObject::tr("Close active task dialog and try again"));
         return;
     }
 
@@ -1561,7 +1539,7 @@ void CmdTechDrawExtensionCreateChainDimensionGroup::activated(int iMsg)
         execCreateObliqueChainDimension(this);
         break;
     default:
-        Base::Console().Message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
+        Base::Console().message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
     };
 }
 
@@ -1573,16 +1551,16 @@ Gui::Action* CmdTechDrawExtensionCreateChainDimensionGroup::createAction()
 
     QAction* p1 = pcAction->addAction(QString());
     p1->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionCreateHorizChainDimension"));
-    p1->setObjectName(QString::fromLatin1("TechDraw_ExtensionCreateHorizChainDimension"));
-    p1->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionCreateHorizChainDimension"));
+    p1->setObjectName(QStringLiteral("TechDraw_ExtensionCreateHorizChainDimension"));
+    p1->setWhatsThis(QStringLiteral("TechDraw_ExtensionCreateHorizChainDimension"));
     QAction* p2 = pcAction->addAction(QString());
     p2->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionCreateVertChainDimension"));
-    p2->setObjectName(QString::fromLatin1("TechDraw_ExtensionCreateVertChainDimension"));
-    p2->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionCreateVertChainDimension"));
+    p2->setObjectName(QStringLiteral("TechDraw_ExtensionCreateVertChainDimension"));
+    p2->setWhatsThis(QStringLiteral("TechDraw_ExtensionCreateVertChainDimension"));
     QAction* p3 = pcAction->addAction(QString());
     p3->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionCreateObliqueChainDimension"));
-    p3->setObjectName(QString::fromLatin1("TechDraw_ExtensionCreateObliqueChainDimension"));
-    p3->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionCreateObliqueChainDimension"));
+    p3->setObjectName(QStringLiteral("TechDraw_ExtensionCreateObliqueChainDimension"));
+    p3->setWhatsThis(QStringLiteral("TechDraw_ExtensionCreateObliqueChainDimension"));
 
     _pcAction = pcAction;
     languageChange();
@@ -1604,26 +1582,19 @@ void CmdTechDrawExtensionCreateChainDimensionGroup::languageChange()
     QList<QAction*> a = pcAction->actions();
 
     QAction* arc1 = a[0];
-    arc1->setText(QApplication::translate("CmdTechDrawExtensionCreateHorizChainDimension", "Create Horizontal Chain Dimensions"));
+    arc1->setText(QApplication::translate("CmdTechDrawExtensionCreateHorizChainDimension", "Horizontal Chain Dimension"));
     arc1->setToolTip(QApplication::translate("CmdTechDrawExtensionCreateHorizChainDimension",
-"Create a sequence of aligned horizontal dimensions:<br>\
-- Select three or more vertexes<br>\
-- Click this tool"));
+"Inserts a sequence of aligned horizontal dimensions to at least three selected vertices, where the first two define the direction"));
     arc1->setStatusTip(arc1->text());
     QAction* arc2 = a[1];
-    arc2->setText(QApplication::translate("CmdTechDrawExtensionCreateVertChainDimension", "Create Vertical Chain Dimensions"));
+    arc2->setText(QApplication::translate("CmdTechDrawExtensionCreateVertChainDimension", "Vertical Chain Dimension"));
     arc2->setToolTip(QApplication::translate("CmdTechDrawExtensionCreateVertChainDimension",
-"Create a sequence of aligned vertical dimensions:<br>\
-- Select three or more vertexes<br>\
-- Click this tool"));
+"Inserts a sequence of aligned vertical dimensions to at least three selected vertices, where the first two define the direction"));
     arc2->setStatusTip(arc2->text());
     QAction* arc3 = a[2];
-    arc3->setText(QApplication::translate("CmdTechDrawExtensionCreateObliqueChainDimension", "Create Oblique Chain Dimensions"));
+    arc3->setText(QApplication::translate("CmdTechDrawExtensionCreateObliqueChainDimension", "Oblique Chain Dimension"));
     arc3->setToolTip(QApplication::translate("CmdTechDrawExtensionCreateObliqueChainDimension",
-"Create a sequence of aligned oblique dimensions:<br>\
-- Select three or more vertexes<br>\
-- The first two vertexes define the direction<br>\
-- Click this tool"));
+"Inserts a sequence of aligned oblique dimensions to at least three selected vertices, where the first two define the direction"));
     arc3->setStatusTip(arc3->text());
 }
 
@@ -1642,11 +1613,11 @@ void execCreateHorizCoordDimension(Gui::Command* cmd) {
     //create horizontal coordinate dimensions
     std::vector<Gui::SelectionObject> selection;
     TechDraw::DrawViewPart* objFeat;
-    if (!_checkSelObjAndSubs(cmd, selection, objFeat, QT_TRANSLATE_NOOP("QObject","TechDraw Create Horizontal Coord Dimension"))) {
+    if (!_checkSelObjAndSubs(cmd, selection, objFeat, QT_TRANSLATE_NOOP("QObject","TechDraw Create Horizontal Coordinate Dimension"))) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create Horiz Coord Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Create Horizontal Coord Dimension"));
     const std::vector<std::string> subNames = selection[0].getSubNames();
     std::vector<dimVertex> allVertexes;
     allVertexes = _getVertexInfo(objFeat, subNames);
@@ -1673,7 +1644,7 @@ void execCreateHorizCoordDimension(Gui::Command* cmd) {
     objFeat->refreshCEGeoms();
     objFeat->requestPaint();
     cmd->getSelection().clearSelection();
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionCreateHorizCoordDimension)
@@ -1683,12 +1654,8 @@ CmdTechDrawExtensionCreateHorizCoordDimension::CmdTechDrawExtensionCreateHorizCo
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Horizontal Coordinate Dimensions");
-    sToolTipText    = QT_TR_NOOP("Create multiple evenly spaced horizontal dimensions starting from the same baseline:<br>\
-- Specify the cascade spacing (optional)<br>\
-- Select three or more vertexes<br>\
-- The selection order of the first two vertexes determines the position of the baseline<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Horizontal Coordinate Dimension");
+    sToolTipText    = QT_TR_NOOP("Adds evenly spaced horizontal dimensions between 3 or more vertices aligned to a shared baseline");
     sWhatsThis      = "TechDraw_ExtensionCreateHorizCoordDimension";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionCreateHorizCoordDimension";
@@ -1715,10 +1682,10 @@ void execCreateVertCoordDimension(Gui::Command* cmd) {
     //create vertical coordinate dimensions
     std::vector<Gui::SelectionObject> selection;
     TechDraw::DrawViewPart* objFeat;
-    if (!_checkSelObjAndSubs(cmd, selection, objFeat, QT_TRANSLATE_NOOP("QObject","TechDraw Create Vertical Coord Dimension"))) {
+    if (!_checkSelObjAndSubs(cmd, selection, objFeat, QT_TRANSLATE_NOOP("QObject","TechDraw Create Vertical Coord dimension"))) {
         return;
     }
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create Vert Coord Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Create vert coord dimension"));
     const std::vector<std::string> subNames = selection[0].getSubNames();
     std::vector<dimVertex> allVertexes;
     allVertexes = _getVertexInfo(objFeat, subNames);
@@ -1746,7 +1713,7 @@ void execCreateVertCoordDimension(Gui::Command* cmd) {
     objFeat->refreshCEGeoms();
     objFeat->requestPaint();
     cmd->getSelection().clearSelection();
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionCreateVertCoordDimension)
@@ -1756,12 +1723,8 @@ CmdTechDrawExtensionCreateVertCoordDimension::CmdTechDrawExtensionCreateVertCoor
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Vertical Coordinate Dimensions");
-    sToolTipText    = QT_TR_NOOP("Create multiple evenly spaced vertical dimensions starting from the same baseline:<br>\
-- Specify the cascade spacing (optional)<br>\
-- Select three or more vertexes<br>\
-- The selection order of the first two vertexes determines the position of the baseline<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Vertical Coordinate Dimension");
+    sToolTipText    = QT_TR_NOOP("Adds evenly spaced vertical dimensions between 3 or more vertices aligned to a shared baseline");
     sWhatsThis      = "TechDraw_ExtensionCreateVertCoordDimension";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionCreateVertCoordDimension";
@@ -1792,7 +1755,7 @@ void execCreateObliqueCoordDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create Oblique Coord Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Create oblique coord dimension"));
 
     std::vector<TechDraw::ReferenceEntry> refs;
     for (auto& subName : selection[0].getSubNames()) {
@@ -1801,13 +1764,13 @@ void execCreateObliqueCoordDimension(Gui::Command* cmd) {
 
     auto dims = makeObliqueCoordDimension(refs);
     if (dims.empty()) {
-        Gui::Command::abortCommand();
+        cmd->abortCommand();
     }
     else {
         objFeat->refreshCEGeoms();
         objFeat->requestPaint();
         cmd->getSelection().clearSelection();
-        Gui::Command::commitCommand();
+        cmd->commitCommand();
     }
 }
 
@@ -1851,7 +1814,7 @@ std::vector<DrawViewDimension*> TechDrawGui::makeObliqueCoordDimension(std::vect
                 edge->m_format.setStyle(1);
                 edge->m_format.setLineNumber(1);
                 edge->m_format.setWidth(TechDraw::LineGroup::getDefaultWidth("Thin"));
-                edge->m_format.setColor(App::Color(0.0, 0.0, 0.0));
+                edge->m_format.setColor(Base::Color(0.0, 0.0, 0.0));
             }
             else {
                 carrierVertexes.push_back(oldVertex);
@@ -1885,13 +1848,8 @@ CmdTechDrawExtensionCreateObliqueCoordDimension::CmdTechDrawExtensionCreateObliq
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Oblique Coordinate Dimensions");
-    sToolTipText    = QT_TR_NOOP("Create multiple evenly spaced oblique dimensions starting from the same baseline:<br>\
-- Specify the cascade spacing (optional)<br>\
-- Select three or more vertexes<br>\
-- The selection order of the first two vertexes determines the position of the baseline<br>\
-- The first two vertexes also define the direction<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Oblique Coordinate Dimension");
+    sToolTipText    = QT_TR_NOOP("Adds evenly spaced oblique dimensions between 3 or more vertices aligned to a shared baseline");
     sWhatsThis      = "TechDraw_ExtensionCreateObliqueCoordDimension";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionCreateObliqueCoordDimension";
@@ -1921,23 +1879,19 @@ CmdTechDrawExtensionCreateCoordDimensionGroup::CmdTechDrawExtensionCreateCoordDi
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Horizontal Coordinate Dimensions");
-    sToolTipText    = QT_TR_NOOP("Create multiple evenly spaced horizontal dimensions starting from the same baseline:<br>\
-- Specify the cascade spacing (optional)<br>\
-- Select three or more vertexes<br>\
-- The selection order of the first two vertexes determines the position of the baseline<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Horizontal Coordinate Dimension");
+    sToolTipText    = QT_TR_NOOP("Adds evenly spaced horizontal dimensions between 3 or more vertices aligned to a shared baseline");
     sWhatsThis      = "TechDraw_ExtensionCreateCoordDimensionGroup";
     sStatusTip      = sMenuText;
 }
 
 void CmdTechDrawExtensionCreateCoordDimensionGroup::activated(int iMsg)
 {
-    //    Base::Console().Message("CMD::ExtensionCascadeDimansionGroup - activated(%d)\n", iMsg);
+    //    Base::Console().message("CMD::ExtensionCascadeDimansionGroup - activated(%d)\n", iMsg);
     Gui::TaskView::TaskDialog* dlg = Gui::Control().activeDialog();
     if (dlg) {
-        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task In Progress"),
-            QObject::tr("Close active task dialog and try again."));
+        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task in progress"),
+            QObject::tr("Close active task dialog and try again"));
         return;
     }
 
@@ -1954,7 +1908,7 @@ void CmdTechDrawExtensionCreateCoordDimensionGroup::activated(int iMsg)
         execCreateObliqueCoordDimension(this);
         break;
     default:
-        Base::Console().Message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
+        Base::Console().message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
     };
 }
 
@@ -1966,16 +1920,16 @@ Gui::Action* CmdTechDrawExtensionCreateCoordDimensionGroup::createAction()
 
     QAction* p1 = pcAction->addAction(QString());
     p1->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionCreateHorizCoordDimension"));
-    p1->setObjectName(QString::fromLatin1("TechDraw_ExtensionCreateHorizCoordDimension"));
-    p1->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionCreateHorizCoordDimension"));
+    p1->setObjectName(QStringLiteral("TechDraw_ExtensionCreateHorizCoordDimension"));
+    p1->setWhatsThis(QStringLiteral("TechDraw_ExtensionCreateHorizCoordDimension"));
     QAction* p2 = pcAction->addAction(QString());
     p2->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionCreateVertCoordDimension"));
-    p2->setObjectName(QString::fromLatin1("TechDraw_ExtensionCreateVertCoordDimension"));
-    p2->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionCreateVertCoordDimension"));
+    p2->setObjectName(QStringLiteral("TechDraw_ExtensionCreateVertCoordDimension"));
+    p2->setWhatsThis(QStringLiteral("TechDraw_ExtensionCreateVertCoordDimension"));
     QAction* p3 = pcAction->addAction(QString());
     p3->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionCreateObliqueCoordDimension"));
-    p3->setObjectName(QString::fromLatin1("TechDraw_ExtensionCreateObliqueCoordDimension"));
-    p3->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionCreateObliqueCoordDimension"));
+    p3->setObjectName(QStringLiteral("TechDraw_ExtensionCreateObliqueCoordDimension"));
+    p3->setWhatsThis(QStringLiteral("TechDraw_ExtensionCreateObliqueCoordDimension"));
 
     _pcAction = pcAction;
     languageChange();
@@ -1997,32 +1951,19 @@ void CmdTechDrawExtensionCreateCoordDimensionGroup::languageChange()
     QList<QAction*> a = pcAction->actions();
 
     QAction* arc1 = a[0];
-    arc1->setText(QApplication::translate("CmdTechDrawExtensionCreateHorizCoordDimension", "Create Horizontal Coordinate Dimensions"));
+    arc1->setText(QApplication::translate("CmdTechDrawExtensionCreateHorizCoordDimension", "Horizontal Coordinate Dimension"));
     arc1->setToolTip(QApplication::translate("CmdTechDrawExtensionCreateHorizCoordDimension",
-"Create multiple evenly spaced horizontal dimensions starting from the same baseline:<br>\
-- Specify the cascade spacing (optional)<br>\
-- Select three or more vertexes<br>\
-- The selection order of the first two vertexes determines the position of the baseline<br>\
-- Click this tool"));
+"Adds evenly spaced horizontal dimensions between 3 or more vertices aligned to a shared baseline"));
     arc1->setStatusTip(arc1->text());
     QAction* arc2 = a[1];
-    arc2->setText(QApplication::translate("CmdTechDrawExtensionCreateVertCoordDimension", "Create Vertical Coordinate Dimensions"));
+    arc2->setText(QApplication::translate("CmdTechDrawExtensionCreateVertCoordDimension", "Vertical Coordinate Dimension"));
     arc2->setToolTip(QApplication::translate("CmdTechDrawExtensionCreateVertCoordDimension",
-"Create multiple evenly spaced vertical dimensions starting from the same baseline:<br>\
-- Specify the cascade spacing (optional)<br>\
-- Select three or more vertexes<br>\
-- The selection order of the first two vertexes determines the position of the baseline<br>\
-- Click this tool"));
+"Adds evenly spaced vertical dimensions between 3 or more vertices aligned to a shared baseline"));
     arc2->setStatusTip(arc2->text());
     QAction* arc3 = a[2];
-    arc3->setText(QApplication::translate("CmdTechDrawExtensionCreateObliqueCoordDimension", "Create Oblique Coordinate Dimensions"));
+    arc3->setText(QApplication::translate("CmdTechDrawExtensionCreateObliqueCoordDimension", "Oblique Coordinate Dimension"));
     arc3->setToolTip(QApplication::translate("CmdTechDrawExtensionCreateObliqueCoordDimension",
-"Create multiple evenly spaced oblique dimensions starting from the same baseline:<br>\
-- Specify the cascade spacing (optional)<br>\
-- Select three or more vertexes<br>\
-- The selection order of the first two vertexes determines the position of the baseline<br>\
-- The first two vertexes also define the direction<br>\
-- Click this tool"));
+"Adds evenly spaced oblique dimensions between 3 or more vertices aligned to a shared baseline"));
     arc3->setStatusTip(arc3->text());
 }
 
@@ -2045,12 +1986,11 @@ void execCreateHorizChamferDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create Horiz Chamfer Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Create Horizontal Chamfer Dimension"));
     const std::vector<std::string> subNames = selection[0].getSubNames();
     std::vector<dimVertex> allVertexes;
     allVertexes = _getVertexInfo(objFeat, subNames);
     if (!allVertexes.empty() && allVertexes.size() > 1) {
-        const auto Pi180 = 180.0 / M_PI;
         TechDraw::DrawViewDimension* dim;
         dim = _createLinDimension(objFeat, allVertexes[0].name, allVertexes[1].name, "DistanceX");
         float yMax = std::max(abs(allVertexes[0].point.y), abs(allVertexes[1].point.y)) + 7.0;
@@ -2062,7 +2002,7 @@ void execCreateHorizChamferDimension(Gui::Command* cmd) {
         dim->Y.setValue(-yMax);
         float dx = allVertexes[0].point.x - allVertexes[1].point.x;
         float dy = allVertexes[0].point.y - allVertexes[1].point.y;
-        float alpha = round(abs(atan(dy / dx)) * Pi180);
+        float alpha = std::round(Base::toDegrees(std::abs(std::atan(dy / dx))));
         std::string sAlpha = std::to_string((int)alpha);
         std::string formatSpec = dim->FormatSpec.getStrValue();
         formatSpec = formatSpec + " x" + sAlpha + "°";
@@ -2070,7 +2010,7 @@ void execCreateHorizChamferDimension(Gui::Command* cmd) {
         objFeat->requestPaint();
         cmd->getSelection().clearSelection();
     }
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionCreateHorizChamferDimension)
@@ -2080,10 +2020,8 @@ CmdTechDrawExtensionCreateHorizChamferDimension::CmdTechDrawExtensionCreateHoriz
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Horizontal Chamfer Dimension");
-    sToolTipText    = QT_TR_NOOP("Create a horizontal size and angle dimension for a chamfer:<br>\
-- Select two vertexes<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Horizontal Chamfer Dimension");
+    sToolTipText    = QT_TR_NOOP("Inserts a horizontal size and angle dimension for a chamfer from 2 selected vertices");
     sWhatsThis      = "TechDraw_ExtensionCreateHorizChamferDimension";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionCreateHorizChamferDimension";
@@ -2114,12 +2052,11 @@ void execCreateVertChamferDimension(Gui::Command* cmd) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create Vert Chamfer Dim"));
+    cmd->openCommand(QT_TRANSLATE_NOOP("Command", "Create Vert Chamfer Dimension"));
     const std::vector<std::string> subNames = selection[0].getSubNames();
     std::vector<dimVertex> allVertexes;
     allVertexes = _getVertexInfo(objFeat, subNames);
     if (!allVertexes.empty() && allVertexes.size() > 1) {
-        const auto Pi180 = 180.0 / M_PI;
         TechDraw::DrawViewDimension* dim;
         dim = _createLinDimension(objFeat, allVertexes[0].name, allVertexes[1].name, "DistanceY");
         float xMax = std::max(abs(allVertexes[0].point.x), abs(allVertexes[1].point.x)) + 7.0;
@@ -2131,7 +2068,7 @@ void execCreateVertChamferDimension(Gui::Command* cmd) {
         dim->Y.setValue(-mid.y);
         float dx = allVertexes[0].point.x - allVertexes[1].point.x;
         float dy = allVertexes[0].point.y - allVertexes[1].point.y;
-        float alpha = round(abs(atan(dx / dy)) * Pi180);
+        float alpha = std::round(Base::toDegrees(std::abs(std::atan(dx / dy))));
         std::string sAlpha = std::to_string((int)alpha);
         std::string formatSpec = dim->FormatSpec.getStrValue();
         formatSpec = formatSpec + " x" + sAlpha + "°";
@@ -2139,7 +2076,7 @@ void execCreateVertChamferDimension(Gui::Command* cmd) {
         objFeat->requestPaint();
         cmd->getSelection().clearSelection();
     }
-    Gui::Command::commitCommand();
+    cmd->commitCommand();
 }
 
 DEF_STD_CMD_A(CmdTechDrawExtensionCreateVertChamferDimension)
@@ -2149,10 +2086,8 @@ CmdTechDrawExtensionCreateVertChamferDimension::CmdTechDrawExtensionCreateVertCh
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Vertical Chamfer Dimension");
-    sToolTipText    = QT_TR_NOOP("Create a vertical size and angle dimension for a chamfer:<br>\
-- Select two vertexes<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Vertical Chamfer Dimension");
+    sToolTipText    = QT_TR_NOOP("Inserts a vertical size and angle dimension for a chamfer from 2 selected vertices");
     sWhatsThis      = "TechDraw_ExtensionCreateVertChamferDimension";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionCreateVertChamferDimension";
@@ -2182,21 +2117,19 @@ CmdTechDrawExtensionChamferDimensionGroup::CmdTechDrawExtensionChamferDimensionG
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Horizontal Chamfer Dimension");
-    sToolTipText    = QT_TR_NOOP("Create a horizontal size and angle dimension for a chamfer:<br>\
-- Select two vertexes<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Horizontal Chamfer Dimension");
+    sToolTipText    = QT_TR_NOOP("Inserts a horizontal size and angle dimension for a chamfer from 2 selected vertices");
     sWhatsThis      = "TechDraw_ExtensionChamferDimensionGroup";
     sStatusTip      = sMenuText;
 }
 
 void CmdTechDrawExtensionChamferDimensionGroup::activated(int iMsg)
 {
-    //    Base::Console().Message("CMD::ExtensionIncreaseDecreaseGroup - activated(%d)\n", iMsg);
+    //    Base::Console().message("CMD::ExtensionIncreaseDecreaseGroup - activated(%d)\n", iMsg);
     Gui::TaskView::TaskDialog* dlg = Gui::Control().activeDialog();
     if (dlg) {
-        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task In Progress"),
-            QObject::tr("Close active task dialog and try again."));
+        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Task in progress"),
+            QObject::tr("Close active task dialog and try again"));
         return;
     }
 
@@ -2210,7 +2143,7 @@ void CmdTechDrawExtensionChamferDimensionGroup::activated(int iMsg)
         execCreateVertChamferDimension(this);
         break;
     default:
-        Base::Console().Message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
+        Base::Console().message("CMD::CVGrp - invalid iMsg: %d\n", iMsg);
     };
 }
 
@@ -2222,12 +2155,12 @@ Gui::Action* CmdTechDrawExtensionChamferDimensionGroup::createAction()
 
     QAction* p1 = pcAction->addAction(QString());
     p1->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionCreateHorizChamferDimension"));
-    p1->setObjectName(QString::fromLatin1("TechDraw_ExtensionCreateHorizChamferDimension"));
-    p1->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionCreateHorizChamferDimension"));
+    p1->setObjectName(QStringLiteral("TechDraw_ExtensionCreateHorizChamferDimension"));
+    p1->setWhatsThis(QStringLiteral("TechDraw_ExtensionCreateHorizChamferDimension"));
     QAction* p2 = pcAction->addAction(QString());
     p2->setIcon(Gui::BitmapFactory().iconFromTheme("TechDraw_ExtensionCreateVertChamferDimension"));
-    p2->setObjectName(QString::fromLatin1("TechDraw_ExtensionCreateVertChamferDimension"));
-    p2->setWhatsThis(QString::fromLatin1("TechDraw_ExtensionCreateVertChamferDimension"));
+    p2->setObjectName(QStringLiteral("TechDraw_ExtensionCreateVertChamferDimension"));
+    p2->setWhatsThis(QStringLiteral("TechDraw_ExtensionCreateVertChamferDimension"));
 
     _pcAction = pcAction;
     languageChange();
@@ -2249,18 +2182,14 @@ void CmdTechDrawExtensionChamferDimensionGroup::languageChange()
     QList<QAction*> a = pcAction->actions();
 
     QAction* arc1 = a[0];
-    arc1->setText(QApplication::translate("CmdTechDrawExtensionCreateHorizChamferDimension", "Create Horizontal Chamfer Dimension"));
+    arc1->setText(QApplication::translate("CmdTechDrawExtensionCreateHorizChamferDimension", "Horizontal Chamfer Dimension"));
     arc1->setToolTip(QApplication::translate("CmdTechDrawExtensionCreateHorizChamferDimension",
-"Create a horizontal size and angle dimension for a chamfer:<br>\
-- Select two vertexes<br>\
-- Click this tool"));
+"Inserts a horizontal size and angle dimension for a chamfer from 2 selected vertices"));
     arc1->setStatusTip(arc1->text());
     QAction* arc2 = a[1];
-    arc2->setText(QApplication::translate("CmdTechDrawExtensionCreateVertChamferDimension", "Create Vertical Chamfer Dimension"));
+    arc2->setText(QApplication::translate("CmdTechDrawExtensionCreateVertChamferDimension", "Vertical Chamfer Dimension"));
     arc2->setToolTip(QApplication::translate("CmdTechDrawExtensionCreateVertChamferDimension",
-"Create a vertical size and angle dimension for a chamfer:<br>\
-- Select two vertexes<br>\
-- Click this tool"));
+"Inserts a vertical size and angle dimension for a chamfer from 2 selected vertices"));
     arc2->setStatusTip(arc2->text());
 }
 
@@ -2282,10 +2211,8 @@ CmdTechDrawExtensionCreateLengthArc::CmdTechDrawExtensionCreateLengthArc()
 {
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
-    sMenuText       = QT_TR_NOOP("Create Arc Length Dimension");
-    sToolTipText    = QT_TR_NOOP("Create an arc length dimension:<br>\
-- Select a single arc<br>\
-- Click this tool");
+    sMenuText       = QT_TR_NOOP("Arc Length Dimension");
+    sToolTipText    = QT_TR_NOOP("Inserts an arc length dimension to the selected arc");
     sWhatsThis      = "TechDraw_ExtensionCreateLengthArc";
     sStatusTip      = sMenuText;
     sPixmap         = "TechDraw_ExtensionCreateLengthArc";
@@ -2300,7 +2227,7 @@ void CmdTechDrawExtensionCreateLengthArc::activated(int iMsg) {
         return;
     }
 
-    Gui::Command::openCommand(QT_TRANSLATE_NOOP("Command", "Create Arc Length Dim"));
+    openCommand(QT_TRANSLATE_NOOP("Command", "Create Arc Length Dimension"));
     ReferenceEntry ref(objFeat, selection[0].getSubNames()[0]);
 
     TechDraw::DrawViewDimension* dim = makeArcLengthDimension(ref);
@@ -2308,10 +2235,10 @@ void CmdTechDrawExtensionCreateLengthArc::activated(int iMsg) {
     if (dim) {
         objFeat->refreshCEGeoms();
         objFeat->requestPaint();
-        Gui::Command::commitCommand();
+        commitCommand();
     }
     else {
-        Gui::Command::abortCommand();
+        abortCommand();
     }
 }
 
@@ -2334,9 +2261,7 @@ CmdTechDrawExtensionCustomizeFormat::CmdTechDrawExtensionCustomizeFormat()
     sAppModule      = "TechDraw";
     sGroup          = QT_TR_NOOP("TechDraw");
     sMenuText       = QT_TR_NOOP("Customize Format Label");
-    sToolTipText    = QT_TR_NOOP("Select a dimension or a balloon<br>\
-    - click this tool<br>\
-    - edit the Format field, using the keyboard and/or the special buttons");
+    sToolTipText    = QT_TR_NOOP("Customizes the format label of a selected dimension or balloon");
     sWhatsThis      = "TechDraw_ExtensionCustomizeFormat";
     sStatusTip      = sToolTipText;
     sPixmap         = "TechDraw_ExtensionCustomizeFormat";
@@ -2349,8 +2274,8 @@ void CmdTechDrawExtensionCustomizeFormat::activated(int iMsg)
     if (!_checkSelection(this, selected, QT_TRANSLATE_NOOP("QObject","TechDraw Customize Format")))
         return;
     auto object = selected[0].getObject();
-    if (object->isDerivedFrom(TechDraw::DrawViewDimension::getClassTypeId()) ||
-        object->isDerivedFrom(TechDraw::DrawViewBalloon::getClassTypeId()))
+    if (object->isDerivedFrom<TechDraw::DrawViewDimension>() ||
+        object->isDerivedFrom<TechDraw::DrawViewBalloon>())
         Gui::Control().showDialog(new TaskDlgCustomizeFormat(object));
 }
 
@@ -2455,7 +2380,7 @@ namespace TechDrawGui {
             if (subs.empty()) {
                 QMessageBox::warning(Gui::getMainWindow(),
                     QObject::tr(message.c_str()),
-                    QObject::tr("No subelements selected"));
+                    QObject::tr("No sub-elements selected"));
                 return false;
             }
         } else {
@@ -2521,7 +2446,7 @@ namespace TechDrawGui {
         std::vector<TechDraw::DrawViewDimension*> validDimension;
         for (auto selected : selection) {
             auto object = selected.getObject();
-            if (object->isDerivedFrom(TechDraw::DrawViewDimension::getClassTypeId())) {
+            if (object->isDerivedFrom<TechDraw::DrawViewDimension>()) {
                 auto dim = static_cast<TechDraw::DrawViewDimension*>(selected.getObject());
                 std::string dimType = dim->Type.getValueAsString();
                 if (dimType == needDimType)

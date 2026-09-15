@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Author: WandererFan <wandererfan@gmail.com>                           *
@@ -22,7 +24,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Mod/TechDraw/App/Preferences.h>
 #include "DlgPrefsTechDrawAdvancedImp.h"
@@ -63,7 +64,12 @@ void DlgPrefsTechDrawAdvancedImp::saveSettings()
     ui->cbNewFaceFinder->onSave();
     ui->sbScrubCount->onSave();
 
+    ui->cbDebugBadShape->onSave();
+    ui->cbValidateShapes->onSave();
+
     saveBalloonOverride();
+
+    ui->cbSwitchWB->onSave();
 }
 
 
@@ -113,7 +119,12 @@ void DlgPrefsTechDrawAdvancedImp::loadSettings()
     ui->cbNewFaceFinder->onRestore();
     ui->sbScrubCount->onRestore();
 
+    ui->cbDebugBadShape->onRestore();
+    ui->cbValidateShapes->onRestore();
+
     loadBalloonOverride();
+
+    ui->cbSwitchWB->onRestore();
 }
 
 void DlgPrefsTechDrawAdvancedImp::loadBalloonOverride()
@@ -189,6 +200,28 @@ void DlgPrefsTechDrawAdvancedImp::slotBalloonBoxChecked()
 
 void DlgPrefsTechDrawAdvancedImp::makeBalloonBoxConnections()
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6,7,0)
+    connect(ui->cbBalloonDefault,
+            &QCheckBox::checkStateChanged,
+            this,
+            &DlgPrefsTechDrawAdvancedImp::slotBalloonBoxChecked);
+    connect(ui->cbBalloonShift,
+            &QCheckBox::checkStateChanged,
+            this,
+            &DlgPrefsTechDrawAdvancedImp::slotBalloonBoxChecked);
+    connect(ui->cbBalloonControl,
+            &QCheckBox::checkStateChanged,
+            this,
+            &DlgPrefsTechDrawAdvancedImp::slotBalloonBoxChecked);
+    connect(ui->cbBalloonAlt,
+            &QCheckBox::checkStateChanged,
+            this,
+            &DlgPrefsTechDrawAdvancedImp::slotBalloonBoxChecked);
+    connect(ui->cbBalloonMeta,
+            &QCheckBox::checkStateChanged,
+            this,
+            &DlgPrefsTechDrawAdvancedImp::slotBalloonBoxChecked);
+#else
     connect(ui->cbBalloonDefault,
             qOverload<int>(&QCheckBox::stateChanged),
             this,
@@ -209,6 +242,7 @@ void DlgPrefsTechDrawAdvancedImp::makeBalloonBoxConnections()
             qOverload<int>(&QCheckBox::stateChanged),
             this,
             &DlgPrefsTechDrawAdvancedImp::slotBalloonBoxChecked);
+#endif
 }
 
 

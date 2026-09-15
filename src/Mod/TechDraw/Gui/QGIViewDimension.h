@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Luke Parry <l.parry@warwick.ac.uk>                 *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef DRAWINGGUI_QGRAPHICSITEMVIEWDIMENSION_H
-#define DRAWINGGUI_QGRAPHICSITEMVIEWDIMENSION_H
+#pragma once
 
 #include <Mod/TechDraw/TechDrawGlobal.h>
 
@@ -36,6 +37,7 @@
 
 #include "QGCustomText.h"
 #include "QGIView.h"
+#include "QGIUserTypes.h"
 #include "Rez.h"
 
 
@@ -52,117 +54,20 @@ namespace TechDrawGui
 {
 class QGCustomText;
 class QGIArrow;
+class QGIDatumLabel;
 class QGIDimLines;
 class QGIViewDimension;
 class QGCustomSvg;
 class ViewProviderDimension;
+enum class DragState;
 
-class QGIDatumLabel : public QGraphicsObject
-{
-Q_OBJECT
-
-public:
-    QGIDatumLabel();
-    ~QGIDatumLabel() override = default;
-
-    enum {Type = QGraphicsItem::UserType + 107};
-    int type() const override { return Type;}
-
-    QRectF boundingRect() const override;
-    void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
-    void paint( QPainter *painter,
-                        const QStyleOptionGraphicsItem *option,
-                        QWidget *widget = nullptr ) override;
-    void setLabelCenter();
-    void setPosFromCenter(const double &xCenter, const double &yCenter);
-    double X() const { return posX; }
-    double Y() const { return posY; }              //minus posY?
-    Base::Vector2d getPosToCenterVec();
-
-    void setFont(QFont font);
-    QFont getFont() const { return m_dimText->font(); }
-    void setDimString(QString text);
-    void setDimString(QString text, qreal maxWidth);
-    void setUnitString(QString text);
-    void setToleranceString();
-    void setPrettySel();
-    void setPrettyPre();
-    void setPrettyNormal();
-    void setColor(QColor color);
-    void setSelectability(bool val);
-    void setFrameColor(QColor color);
-
-    QGCustomText* getDimText() { return m_dimText; }
-    void setDimText(QGCustomText* newText) { m_dimText = newText; }
-    QGCustomText* getTolTextOver() { return m_tolTextOver; }
-    void setTolTextOver(QGCustomText* newTol) { m_tolTextOver = newTol; }
-    QGCustomText* getTolTextUnder() { return m_tolTextUnder; }
-    void setTolTextUnder(QGCustomText* newTol) { m_tolTextOver = newTol; }
-
-    double getTolAdjust();
-
-    bool isFramed() const { return m_frame->parentItem(); }  // If empty pointer, then no frame
-    void setFramed(bool framed);
-
-    double getLineWidth() const { return m_frame->pen().widthF(); }
-    void setLineWidth(double lineWidth);
-    void setQDim(QGIViewDimension* qDim) { parent = qDim;}
-
-Q_SIGNALS:
-    void setPretty(int state);
-    void dragging(bool);
-    void hover(bool state);
-    void selected(bool state);
-    void dragFinished();
-
-protected:
-    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
-    void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
-    void hoverEnterEvent(QGraphicsSceneHoverEvent *event) override;
-    void hoverLeaveEvent(QGraphicsSceneHoverEvent *event) override;
-    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event) override;
-    void updateFrameRect();
-
-    int getPrecision();
-
-    void snapPosition(QPointF& position);
-
-    bool getVerticalSep() const { return verticalSep; }
-    void setVerticalSep(bool sep) { verticalSep = sep; }
-    std::vector<int> getSeps() const { return seps; }
-    void setSeps(std::vector<int> newSeps) { seps = newSeps; }
-
-private:
-    bool verticalSep;
-    std::vector<int> seps;
-
-    QGIViewDimension* parent;
-
-    QGCustomText* m_dimText;
-    QGCustomText* m_tolTextOver;
-    QGCustomText* m_tolTextUnder;
-    QGCustomText* m_unitText;
-    QGraphicsItemGroup* m_textItems;
-    QGraphicsRectItem* m_frame;
-    QColor m_colNormal;
-    bool m_ctrl;
-
-    double posX;
-    double posY;
-
-    int m_dragState;
-
-private:
-};
-
-//*******************************************************************
 
 class TechDrawGuiExport QGIViewDimension : public QGIView
 {
     Q_OBJECT
 
 public:
-    enum {Type = QGraphicsItem::UserType + 106};
+    enum {Type = UserType::QGIViewDimension};
 
     QGIViewDimension();
     ~QGIViewDimension() override = default;
@@ -192,6 +97,7 @@ public:
 public Q_SLOTS:
     void onPrettyChanged(int state);
     void datumLabelDragged(bool ctrl);
+    void areaLeaderPointLabelDragged();
     void datumLabelDragFinished();
     void select(bool state);
     void hover(bool state);
@@ -267,7 +173,7 @@ protected:
                              double endAngle, double startRotation, const Base::BoundBox2d &labelRectangle,
                              double centerOverhang, int standardStyle, int renderExtent, bool flipArrow) const;
 
-    void drawAreaExecutive(const Base::Vector2d &centerPoint, double area, const Base::BoundBox2d &labelRectangle,
+    void drawAreaExecutive(const Base::Vector2d &centerPoint, double area, const Base::BoundBox2d &labelRectangle, 
                              double centerOverhang, int standardStyle, int renderExtent, bool flipArrow) const;
 
     void drawDistance(TechDraw::DrawViewDimension *dimension, ViewProviderDimension *viewProvider) const;
@@ -316,11 +222,12 @@ private:
     QGIArrow* aHead1;
     QGIArrow* aHead2;
     double m_lineWidth;
+    QGIDatumLabel* areaLeaderPointLabel;
+    bool isAreaLeaderPointDragged;
 
-    QGCustomSvg* m_refFlag;
+    // needs Phase2 of autocorrect to be useful
+    // QGCustomSvg* m_refFlag;
 
 };
 
 } // namespace MDIViewPageGui
-
-#endif // DRAWINGGUI_QGRAPHICSITEMVIEWDIMENSION_H

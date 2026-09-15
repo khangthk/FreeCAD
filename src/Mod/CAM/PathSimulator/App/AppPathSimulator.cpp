@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2017 Shai Seger <shaise at gmail>                       *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <Base/Console.h>
 #include <Base/Interpreter.h>
@@ -71,7 +72,7 @@ PyMOD_INIT_FUNC(PathSimulator)
 
     //
     PyObject* mod = PathSimulator::initModule();
-    Base::Console().Log("Loading PathSimulator module.... done\n");
+    Base::Console().log("Loading PathSimulator module.... done\n");
 
     // Add Types to module
     Base::Interpreter().addType(&PathSimulator::PathSimPy::Type, mod, "PathSim");

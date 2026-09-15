@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jürgen Riegel <FreeCAD@juergen-riegel.net>         *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <App/DocumentObjectPy.h>
 #include <App/FeaturePythonPyImp.h>
@@ -43,9 +44,11 @@ FemAnalysis::FemAnalysis()
 
 FemAnalysis::~FemAnalysis() = default;
 
-void FemAnalysis::handleChangedPropertyName(Base::XMLReader& reader,
-                                            const char* TypeName,
-                                            const char* PropName)
+void FemAnalysis::handleChangedPropertyName(
+    Base::XMLReader& reader,
+    const char* TypeName,
+    const char* PropName
+)
 {
     Base::Type type = Base::Type::fromName(TypeName);
     if (Group.getClassTypeId() == type && strcmp(PropName, "Member") == 0) {

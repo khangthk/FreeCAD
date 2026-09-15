@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2018 sliptonic <shopinthewoods@gmail.com>               *
 # *                                                                         *
@@ -91,9 +92,6 @@ class TaskPanelOpPage(PathOpGui.TaskPanelPage):
         if obj.Direction != str(self.form.direction.currentData()):
             obj.Direction = str(self.form.direction.currentData())
 
-        self.updateToolController(obj, self.form.toolController)
-        self.updateCoolant(obj, self.form.coolantController)
-
     def setFields(self, obj):
         self.form.value_W.setText(
             FreeCAD.Units.Quantity(obj.Width.Value, FreeCAD.Units.Length).UserString
@@ -101,8 +99,6 @@ class TaskPanelOpPage(PathOpGui.TaskPanelPage):
         self.form.value_h.setText(
             FreeCAD.Units.Quantity(obj.ExtraDepth.Value, FreeCAD.Units.Length).UserString
         )
-        self.setupToolController(obj, self.form.toolController)
-        self.setupCoolant(obj, self.form.coolantController)
         self.form.joinRound.setChecked("Round" == obj.Join)
         self.form.joinMiter.setChecked("Miter" == obj.Join)
         self.form.joinFrame.hide()
@@ -118,7 +114,6 @@ class TaskPanelOpPage(PathOpGui.TaskPanelPage):
         signals = []
         signals.append(self.form.joinMiter.clicked)
         signals.append(self.form.joinRound.clicked)
-        signals.append(self.form.coolantController.currentIndexChanged)
         signals.append(self.form.direction.currentIndexChanged)
         signals.append(self.form.value_W.valueChanged)
         signals.append(self.form.value_h.valueChanged)

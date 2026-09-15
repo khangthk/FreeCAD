@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2019 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef TECHDRAWGUI_TASKTEXTLEADER_H
-#define TECHDRAWGUI_TASKTEXTLEADER_H
+#pragma once
 
 #include "QGTracker.h"
 
@@ -91,7 +92,7 @@ protected:
     void setUiPrimary();
     void setUiEdit();
     void enableVPUi(bool enable);
-    void setEditCursor(QCursor cursor);
+    void setEditCursor(const QCursor& cursor);
 
     QGIView* findParentQGIV();
 
@@ -120,7 +121,7 @@ private:
     QPushButton* m_btnOK;
     QPushButton* m_btnCancel;
 
-    int m_pbTrackerState;
+    TrackerAction m_pbTrackerState;
 
     double m_saveX;
     double m_saveY;
@@ -175,5 +176,3 @@ private:
 };
 
 } //namespace TechDrawGui
-
-#endif // #ifndef TECHDRAWGUI_TASKTEXTLEADER_H

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 Stefan Tröger <stefantroeger@gmx.net>              *
  *                                                                         *
@@ -21,13 +23,20 @@
  ***************************************************************************/
 
 
-#ifndef GUI_TASKVIEW_TaskThicknessParameters_H
-#define GUI_TASKVIEW_TaskThicknessParameters_H
+#pragma once
+
+#include <Gui/Inventor/Draggers/Gizmo.h>
 
 #include "TaskDressUpParameters.h"
 #include "ViewProviderThickness.h"
 
 class Ui_TaskThicknessParameters;
+
+namespace Gui
+{
+class LinearGizmo;
+class GizmoContainer;
+}  // namespace Gui
 
 namespace PartDesign
 {
@@ -63,7 +72,6 @@ private Q_SLOTS:
 
 protected:
     void setButtons(const selectionModes mode) override;
-    bool event(QEvent* e) override;
     void changeEvent(QEvent* e) override;
     void onSelectionChanged(const Gui::SelectionChanges& msg) override;
 
@@ -71,11 +79,17 @@ private:
     void addContainerWidget();
     void initControls();
     void setupConnections();
+    void updateModeControls(int mode);
     PartDesign::Thickness* onBeforeChange();
     void onAfterChange(PartDesign::Thickness* obj);
 
 private:
     std::unique_ptr<Ui_TaskThicknessParameters> ui;
+
+    std::unique_ptr<Gui::GizmoContainer> gizmoContainer;
+    Gui::LinearGizmo* linearGizmo = nullptr;
+    void setupGizmos(ViewProviderDressUp* vp);
+    void setGizmoPositions();
 };
 
 /// simulation dialog for the TaskView
@@ -93,5 +107,3 @@ public:
 };
 
 }  // namespace PartDesignGui
-
-#endif  // GUI_TASKVIEW_TASKAPPERANCE_H

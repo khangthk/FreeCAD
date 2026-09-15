@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2013 Jan Rheinländer                                    *
  *                                   <jrheinlaender@users.sourceforge.net> *
@@ -21,11 +23,9 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
-#ifndef _PreComp_
 #include <Precision.hxx>
-#endif
+
 
 #include <Base/Console.h>
 
@@ -131,8 +131,8 @@ void ConstraintFluidBoundary::onChanged(const App::Property* prop)
             Subtype.setEnums(OutletSubtypes);
         }
         else {
-            Base::Console().Message(boundaryType.c_str());
-            Base::Console().Message(" Error: this boundaryType is not defined\n");
+            Base::Console().message(boundaryType.c_str());
+            Base::Console().message(" Error: this boundaryType is not defined\n");
         }
 
         // must set a default (0 or 1) as freestream has only 2 subtypes
@@ -160,8 +160,7 @@ void ConstraintFluidBoundary::onChanged(const App::Property* prop)
             if (Reversed.getValue() && (DirectionVector.getValue() == naturalDirectionVector)) {
                 DirectionVector.setValue(-naturalDirectionVector);
             }
-            else if (!Reversed.getValue()
-                     && (DirectionVector.getValue() != naturalDirectionVector)) {
+            else if (!Reversed.getValue() && (DirectionVector.getValue() != naturalDirectionVector)) {
                 DirectionVector.setValue(naturalDirectionVector);
             }
         }

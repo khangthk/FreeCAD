@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2022 Ajinkya Dahale <dahale.a.p@gmail.com>              *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef FEM_CONSTRAINTRIGIDBODY_H
-#define FEM_CONSTRAINTRIGIDBODY_H
+#pragma once
 
 #include "FemConstraint.h"
 
@@ -36,6 +37,9 @@ class FemExport ConstraintRigidBody: public Fem::Constraint
 public:
     /// Constructor
     ConstraintRigidBody();
+
+    App::PropertyBool EnableAmplitude;
+    App::PropertyStringList AmplitudeValues;
 
     // Rigid Body parameters
     App::PropertyPosition ReferenceNode;
@@ -71,6 +75,3 @@ private:
 };
 
 }  // namespace Fem
-
-
-#endif  // FEM_CONSTRAINTRIGIDBODY_H

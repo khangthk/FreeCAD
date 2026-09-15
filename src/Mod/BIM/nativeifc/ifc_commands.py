@@ -1,31 +1,33 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2023 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU General Public License (GPL)            *
-# *   as published by the Free Software Foundation; either version 3 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU General Public License for more details.                          *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 """This module contains IFC-related FreeCAD commands"""
 
-
 import FreeCAD
 import FreeCADGui
-from nativeifc import ifc_openshell
+
+from . import ifc_openshell
 
 translate = FreeCAD.Qt.translate
 QT_TRANSLATE_NOOP = FreeCAD.Qt.QT_TRANSLATE_NOOP
@@ -34,7 +36,7 @@ QT_TRANSLATE_NOOP = FreeCAD.Qt.QT_TRANSLATE_NOOP
 def get_project():
     """Gets the current project"""
 
-    from nativeifc import ifc_tools
+    from . import ifc_tools
 
     if FreeCADGui.Selection.getSelection():
         return ifc_tools.get_project(FreeCADGui.Selection.getSelection()[0])
@@ -46,18 +48,16 @@ class IFC_Diff:
     """Shows a diff of the changes in the current IFC document"""
 
     def GetResources(self):
-        tt = QT_TRANSLATE_NOOP(
-            "IFC_Diff", "Shows the current unsaved changes in the IFC file"
-        )
+        tt = QT_TRANSLATE_NOOP("IFC_Diff", "Shows the current unsaved changes in the IFC file")
         return {
             "Pixmap": "IFC",
-            "MenuText": QT_TRANSLATE_NOOP("IFC_Diff", "IFC Diff..."),
+            "MenuText": QT_TRANSLATE_NOOP("IFC_Diff", "IFC File Diff"),
             "ToolTip": tt,
             "Accel": "I, D",
         }
 
     def Activated(self):
-        from nativeifc import ifc_diff
+        from . import ifc_diff
 
         proj = get_project()
         if proj:
@@ -88,8 +88,8 @@ class IFC_Expand:
                         no = obj.ViewObject.Proxy.expandChildren(obj)
                         ns.extend(no)
         else:
-            from nativeifc import ifc_generator
-            from nativeifc import ifc_tools
+            from . import ifc_generator
+            from . import ifc_tools
 
             document = FreeCAD.ActiveDocument
             ifc_generator.delete_ghost(document)
@@ -114,23 +114,19 @@ class IFC_ConvertDocument:
         )
         return {
             "Pixmap": "IFC",
-            "MenuText": QT_TRANSLATE_NOOP("IFC_ConvertDocument", "Convert document"),
+            "MenuText": QT_TRANSLATE_NOOP("IFC_ConvertDocument", "Convert Document"),
             "ToolTip": tt,
             # "Accel": "I, C",
         }
 
     def Activated(self):
         doc = FreeCAD.ActiveDocument
-        if (
-            hasattr(doc, "Proxy")
-            and hasattr(doc.Proxy, "ifcfile")
-            and doc.Proxy.ifcfile
-        ):
+        if hasattr(doc, "Proxy") and hasattr(doc.Proxy, "ifcfile") and doc.Proxy.ifcfile:
             FreeCAD.Console.PrintError(
                 translate("BIM", "The active document is already an IFC document")
             )
         else:
-            from nativeifc import ifc_tools
+            from . import ifc_tools
 
             ifc_tools.convert_document(doc)
 
@@ -144,7 +140,7 @@ class IFC_MakeProject:
         )
         return {
             "Pixmap": "IFC",
-            "MenuText": QT_TRANSLATE_NOOP("IFC_MakeProject", "Make IFC project"),
+            "MenuText": QT_TRANSLATE_NOOP("IFC_MakeProject", "Convert to IFC Project"),
             "ToolTip": tt,
             "Accel": "I, P",
         }
@@ -154,14 +150,14 @@ class IFC_MakeProject:
 
     def Activated(self):
         from importers import exportIFC  # lazy loading
-        from nativeifc import ifc_tools
-        from PySide import QtCore, QtGui
+        from . import ifc_tools
+        from PySide import QtGui
 
         doc = FreeCAD.ActiveDocument
         objs = FreeCADGui.Selection.getSelection()
         sf = QtGui.QFileDialog.getSaveFileName(
             None,
-            "Save an IFC file",
+            "Save an IFC File",
             None,
             "Industry Foundation Classes (*.ifc)",
         )
@@ -179,12 +175,10 @@ class IFC_Save:
     """Saves the current IFC document"""
 
     def GetResources(self):
-        tt = QT_TRANSLATE_NOOP(
-            "IFC_Save", "Saves the current IFC document"
-        )
+        tt = QT_TRANSLATE_NOOP("IFC_Save", "Saves the current IFC document")
         return {
             "Pixmap": "IFC_document",
-            "MenuText": QT_TRANSLATE_NOOP("IFC_Save", "Save IFC file"),
+            "MenuText": QT_TRANSLATE_NOOP("IFC_Save", "Save IFC File"),
             "ToolTip": tt,
             "Accel": "Ctrl+S",
         }
@@ -196,7 +190,7 @@ class IFC_Save:
         return False
 
     def Activated(self):
-        from nativeifc import ifc_tools  # lazy loading
+        from . import ifc_tools  # lazy loading
 
         doc = FreeCAD.ActiveDocument
         if getattr(doc, "IfcFilePath", None):
@@ -214,12 +208,10 @@ class IFC_SaveAs:
     """Saves the current IFC document as another name"""
 
     def GetResources(self):
-        tt = QT_TRANSLATE_NOOP(
-            "IFC_SaveAs", "Saves the current IFC document as another file"
-        )
+        tt = QT_TRANSLATE_NOOP("IFC_SaveAs", "Saves the current IFC document as another file")
         return {
             "Pixmap": "IFC_document",
-            "MenuText": QT_TRANSLATE_NOOP("IFC_SaveAs", "Save IFC file as..."),
+            "MenuText": QT_TRANSLATE_NOOP("IFC_SaveAs", "Save IFC File As…"),
             "ToolTip": tt,
             "Accel": "Ctrl+Shift+S",
         }
@@ -231,8 +223,8 @@ class IFC_SaveAs:
         return False
 
     def Activated(self):
-        from nativeifc import ifc_tools  # lazy loading
-        from nativeifc import ifc_viewproviders
+        from . import ifc_tools  # lazy loading
+        from . import ifc_viewproviders
 
         doc = FreeCAD.ActiveDocument
         if ifc_viewproviders.get_filepath(doc):

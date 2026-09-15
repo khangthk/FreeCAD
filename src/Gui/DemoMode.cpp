@@ -20,12 +20,11 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
+#include <limits>
+
 #include <QCursor>
 #include <QTimer>
 #include <Inventor/nodes/SoCamera.h>
-#endif
 
 #include <Base/Tools.h>
 
@@ -94,8 +93,9 @@ void DemoMode::reset()
     if (view) {
         view->getViewer()->stopAnimating();
     }
-    ParameterGrp::handle hGrp =
-        App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/View"
+    );
     hGrp->Notify("UseNavigationAnimations");
 }
 
@@ -143,12 +143,8 @@ void DemoMode::hideEvent(QHideEvent*)
 
 Gui::View3DInventor* DemoMode::activeView() const
 {
-    Document* doc = Application::Instance->activeDocument();
-    if (doc) {
-        MDIView* view = doc->getActiveView();
-        if (view && view->isDerivedFrom(Gui::View3DInventor::getClassTypeId())) {
-            return static_cast<Gui::View3DInventor*>(view);
-        }
+    if (Document* doc = Application::Instance->activeDocument()) {
+        return freecad_cast<Gui::View3DInventor*>(doc->getActiveView());
     }
 
     return nullptr;
@@ -170,7 +166,7 @@ SbVec3f DemoMode::getDirection(Gui::View3DInventor* view) const
     SbRotation inv = rot.inverse();
     SbVec3f vec(this->viewAxis);
     inv.multVec(vec, vec);
-    if (vec.length() < FLT_EPSILON) {
+    if (vec.length() < std::numeric_limits<float>::epsilon()) {
         vec = this->viewAxis;
     }
     vec.normalize();
@@ -198,14 +194,13 @@ void DemoMode::onAngleSliderValueChanged(int v)
 void DemoMode::reorientCamera(SoCamera* cam, const SbRotation& rot)
 {
     // Find global coordinates of focal point.
-    SbVec3f direction;
-    cam->orientation.getValue().multVec(SbVec3f(0, 0, -1), direction);
-    SbVec3f focalpoint = cam->position.getValue() + cam->focalDistance.getValue() * direction;
+    SbVec3f focalpoint = activeView()->getViewer()->getFocalPoint();
 
     // Set new orientation value by accumulating the new rotation.
     cam->orientation = rot * cam->orientation.getValue();
 
     // Reposition camera so we are still pointing at the same old focal point.
+    SbVec3f direction;
     cam->orientation.getValue().multVec(SbVec3f(0, 0, -1), direction);
     cam->position = focalpoint - cam->focalDistance.getValue() * direction;
 }
@@ -281,8 +276,7 @@ void DemoMode::onAutoPlay()
 
 void DemoMode::startAnimation(Gui::View3DInventor* view)
 {
-    view->getViewer()->startSpinningAnimation(getDirection(view),
-                                              getSpeed(ui->speedSlider->value()));
+    view->getViewer()->startSpinningAnimation(getDirection(view), getSpeed(ui->speedSlider->value()));
 }
 
 void DemoMode::onTimerCheckToggled(bool on)

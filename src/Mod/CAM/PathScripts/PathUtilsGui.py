@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2019 sliptonic <shopinthewoods@gmail.com>               *
 # *                                                                         *
@@ -24,10 +25,10 @@ import FreeCADGui
 import FreeCAD
 import Path
 import Path.Main.Gui.JobCmd as PathJobCmd
+import Path.Main.Job as PathJob
 import Path.Tool.Controller as PathToolController
-import PathGui
 import PathScripts.PathUtils as PathUtils
-from PySide import QtGui
+from PySide.QtGui import QInputDialog
 
 if False:
     Path.Log.setLevel(Path.Log.Level.DEBUG, Path.Log.thisModule())
@@ -61,39 +62,37 @@ class PathUtilsUserInput(object):
         return [i for i in controllers if i.Label == form.uiToolController.currentText()][0]
 
     def chooseJob(self, jobs):
-        job = None
         selected = FreeCADGui.Selection.getSelection()
-        if 1 == len(selected) and selected[0] in jobs:
-            job = selected[0]
-        else:
-            modelSelected = []
-            for job in jobs:
-                if all([o in job.Model.Group for o in selected]):
-                    modelSelected.append(job)
-            if 1 == len(modelSelected):
-                job = modelSelected[0]
-            else:
-                modelObjectSelected = []
-                for job in jobs:
-                    if all([o in job.Proxy.baseObjects(job) for o in selected]):
-                        modelObjectSelected.append(job)
-                if 1 == len(modelObjectSelected):
-                    job = modelObjectSelected[0]
-                else:
-                    if modelObjectSelected:
-                        mylist = [j.Label for j in modelObjectSelected]
-                    else:
-                        mylist = [j.Label for j in jobs]
 
-                    jobname, result = QtGui.QInputDialog.getItem(
-                        None, translate("Path", "Choose a CAM Job"), None, mylist
-                    )
+        jbs = [
+            sel
+            for sel in selected
+            if hasattr(sel, "Proxy") and isinstance(sel.Proxy, PathJob.ObjectJob)
+        ]
+        if len(jbs) == 1:  # selection contains one Job object
+            return jbs[0]
 
-                    if result is False:
-                        return None
-                    else:
-                        job = [j for j in jobs if j.Label == jobname][0]
-        return job
+        if len(selected) == 1:  # selection contains only one object
+            found = PathUtils.findParentJob(selected[0])
+            if found:
+                return found
+
+        jbs = [j for j in jobs if all(o in j.Model.Group for o in selected)]
+        if len(jbs) == 1:  # all selected objects inside Model group of one Job
+            return jbs[0]
+
+        jbs = [j for j in jobs if all(o in j.Proxy.baseObjects(j) for o in selected)]
+        if len(jbs) == 1:  # all selected objects has a clone inside one Job
+            return jobs[0]
+
+        jobs = jbs or jobs
+        labels = [j.Label for j in jobs]
+        label, ok = QInputDialog.getItem(None, translate("Path", "Choose a CAM Job"), None, labels)
+        if ok:  # return Job selected in dialog
+            index = labels.index(label)
+            return jobs[index]
+
+        return None
 
     def createJob(self):
         return PathJobCmd.CommandJobCreate().Activated()

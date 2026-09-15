@@ -21,11 +21,8 @@
  *                                                                          *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <cmath>
 #include <vector>
-#endif
 
 #include <App/Application.h>
 #include <App/Document.h>
@@ -35,17 +32,19 @@
 #include <App/PropertyPythonObject.h>
 #include <App/Range.h>
 #include <Base/Console.h>
+#include <Base/Parameter.h>
 #include <Base/Placement.h>
 #include <Base/Rotation.h>
 #include <Base/Tools.h>
 #include <Base/Interpreter.h>
+#include <QObject>
 
 #include <Mod/Part/App/PartFeature.h>
 #include <Mod/PartDesign/App/Body.h>
 #include <Mod/Spreadsheet/App/Cell.h>
 
-
 #include "AssemblyObject.h"
+#include "AssemblyLink.h"
 #include "BomObject.h"
 #include "BomObjectPy.h"
 
@@ -59,30 +58,37 @@ PROPERTY_SOURCE(Assembly::BomObject, Spreadsheet::Sheet)
 BomObject::BomObject()
     : Spreadsheet::Sheet()
 {
-    ADD_PROPERTY_TYPE(columnsNames,
-                      ("Index"),
-                      "Bom",
-                      (App::PropertyType)(App::Prop_None),
-                      "List of the columns of the Bill of Materials.");
+    ADD_PROPERTY_TYPE(
+        columnsNames,
+        ("Index"),
+        "Bom",
+        (App::PropertyType)(App::Prop_None),
+        "List of the columns of the Bill of Materials."
+    );
 
-    ADD_PROPERTY_TYPE(detailSubAssemblies,
-                      (true),
-                      "Bom",
-                      (App::PropertyType)(App::Prop_None),
-                      "Detail sub-assemblies components.");
+    ADD_PROPERTY_TYPE(
+        detailSubAssemblies,
+        (true),
+        "Bom",
+        (App::PropertyType)(App::Prop_None),
+        "Detail sub-assemblies components."
+    );
 
-    ADD_PROPERTY_TYPE(detailParts,
-                      (true),
-                      "Bom",
-                      (App::PropertyType)(App::Prop_None),
-                      "Detail Parts sub-components.");
+    ADD_PROPERTY_TYPE(
+        detailParts,
+        (true),
+        "Bom",
+        (App::PropertyType)(App::Prop_None),
+        "Detail Parts sub-components."
+    );
 
     ADD_PROPERTY_TYPE(
         onlyParts,
         (false),
         "Bom",
         (App::PropertyType)(App::Prop_None),
-        "Only Part containers will be added. Solids like PartDesign Bodies will be ignored.");
+        "Only Part containers will be added. Solids like PartDesign Bodies will be ignored."
+    );
 }
 BomObject::~BomObject() = default;
 
@@ -119,7 +125,7 @@ void BomObject::saveCustomColumnData()
             std::string columnName = getText(0, i);
             if (columnName != "Index" && columnName != "Name" && columnName != "Quantity"
                 && columnName != "File Name") {
-                // Base::Console().Warning("row col %d %d\n", row, col);
+                // Base::Console().warning("row col %d %d\n", row, col);
                 //  save custom data if any.
                 std::string text = getText(row, col);
                 if (text != "") {
@@ -139,8 +145,14 @@ void BomObject::generateBOM()
     saveCustomColumnData();
     clearAll();
     obj_list.clear();
+    obj_mirrored_list.clear();
     size_t row = 0;
     size_t col = 0;
+
+    auto hGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/Mod/Assembly"
+    );
+    mirroredSuffix = hGrp->GetASCII("BomMirroredSuffix", " (mirrored)");
 
     // Populate headers
     for (auto& columnName : columnsNames.getValues()) {
@@ -158,9 +170,11 @@ void BomObject::generateBOM()
     }
 }
 
-void BomObject::addObjectChildrenToBom(std::vector<App::DocumentObject*> objs,
-                                       size_t& row,
-                                       std::string index)
+void BomObject::addObjectChildrenToBom(
+    std::vector<App::DocumentObject*> objs,
+    size_t& row,
+    std::string index
+)
 {
     int quantityColIndex = getColumnIndex("Quantity");
     bool hasQuantityCol = hasQuantityColumn();
@@ -177,7 +191,16 @@ void BomObject::addObjectChildrenToBom(std::vector<App::DocumentObject*> objs,
         if (!child) {
             continue;
         }
-        if (child->isDerivedFrom<App::Link>()) {
+
+        bool isMirrored = isObjMirrored(child);
+
+        if (auto* asmLink = freecad_cast<AssemblyLink*>(child)) {
+            child = asmLink->getLinkedAssembly();
+            if (!child) {
+                continue;
+            }
+        }
+        else if (child->isDerivedFrom<App::Link>()) {
             child = static_cast<App::Link*>(child)->getLinkedObject();
             if (!child) {
                 continue;
@@ -193,10 +216,14 @@ void BomObject::addObjectChildrenToBom(std::vector<App::DocumentObject*> objs,
             // Check if the object is not already in (case of links). And if so just increment.
             // Note: an object can be used in several parts. In which case we do no want to blindly
             // increment.
+            // We also check if the Mirror state matches. Mirrored parts should not group with
+            // non-mirrored parts.
             bool found = false;
             for (size_t i = siblingsInitialRow; i <= row; ++i) {
                 size_t idInList = i - 1;  // -1 for the header
-                if (idInList < obj_list.size() && child == obj_list[idInList]) {
+                if (idInList < obj_list.size() && child == obj_list[idInList]
+                    && idInList < obj_mirrored_list.size()
+                    && isMirrored == obj_mirrored_list[idInList]) {
 
                     int qty = std::stoi(getText(i, quantityColIndex)) + 1;
                     setCell(App::CellAddress(i, quantityColIndex), std::to_string(qty).c_str());
@@ -212,32 +239,73 @@ void BomObject::addObjectChildrenToBom(std::vector<App::DocumentObject*> objs,
         std::string sub_index = index + std::to_string(sub_i);
         ++sub_i;
 
-        addObjectToBom(child, row, sub_index);
+        addObjectToBom(child, row, sub_index, isMirrored);
         ++row;
 
         if ((child->isDerivedFrom<AssemblyObject>() && detailSubAssemblies.getValue())
-            || (child->isDerivedFrom<App::Part>() && detailParts.getValue())) {
+            || (!child->isDerivedFrom<AssemblyObject>() && child->isDerivedFrom<App::Part>()
+                && detailParts.getValue())) {
             addObjectChildrenToBom(child->getOutList(), row, sub_index);
         }
     }
 }
 
-void BomObject::addObjectToBom(App::DocumentObject* obj, size_t row, std::string index)
+bool BomObject::isObjMirrored(App::DocumentObject* obj)
+{
+    // Determine mirror state based on Scale properties.
+    // We multiply scales to handle nested mirroring (e.g., Mirrored LinkElement inside Mirrored
+    // LinkGroup = Normal).
+    double accumulatedScale = 1.0;
+    if (auto element = static_cast<App::LinkElement*>(obj)) {
+        accumulatedScale *= element->Scale.getValue();
+
+        if (auto group = element->getLinkGroup()) {
+            accumulatedScale *= group->Scale.getValue();
+        }
+    }
+    else if (auto link = static_cast<App::Link*>(obj)) {
+        accumulatedScale *= link->Scale.getValue();
+    }
+    return accumulatedScale < 0.0;
+}
+
+void BomObject::addObjectToBom(App::DocumentObject* obj, size_t row, std::string index, bool isMirrored)
 {
     obj_list.push_back(obj);
+    obj_mirrored_list.push_back(isMirrored);
     size_t col = 0;
     for (auto& columnName : columnsNames.getValues()) {
         if (columnName == "Index") {
             setCell(App::CellAddress(row, col), (std::string("'") + index).c_str());
         }
         else if (columnName == "Name") {
-            setCell(App::CellAddress(row, col), obj->Label.getValue());
+            std::string name = obj->Label.getValue();
+            // Distinctly label mirrored parts so they are identifiable in the BOM
+            if (isMirrored) {
+                if (auto* linkedObj = obj->getLinkedObject()) {
+                    // We add a suffix only if the label is the same.
+                    if (name == linkedObj->Label.getValue()) {
+                        name += mirroredSuffix;
+                    }
+                }
+            }
+            setCell(App::CellAddress(row, col), name.c_str());
         }
         else if (columnName == "File Name") {
             setCell(App::CellAddress(row, col), obj->getDocument()->getFileName());
         }
         else if (columnName == "Quantity") {
             setCell(App::CellAddress(row, col), std::to_string(1).c_str());
+        }
+        else if (columnName.starts_with(".")) {
+            // Column names that start with a dot are considered property names
+            // Extract the property name
+            std::string baseName = columnName.substr(1);
+
+            auto propertyValue = getBomPropertyValue(obj, baseName);
+            if (!propertyValue.empty()) {
+                setCell(App::CellAddress(row, col), propertyValue.c_str());
+            }
         }
         else {
             // load custom data if any.
@@ -252,7 +320,40 @@ void BomObject::addObjectToBom(App::DocumentObject* obj, size_t row, std::string
     }
 }
 
-AssemblyObject* BomObject::getAssembly()
+std::string BomObject::getBomPropertyValue(App::DocumentObject* obj, const std::string& baseName)
+{
+    App::Property* prop = obj->getPropertyByName(baseName.c_str());
+
+    if (!prop) {
+        Base::Console().warning("Property not found: %s\n", baseName.c_str());
+        return QObject::tr("N/A").toStdString();
+    }
+
+    // Only support a subset of property types for BOM
+    if (auto propStr = freecad_cast<App::PropertyString*>(prop)) {
+        return propStr->getValue();
+    }
+    if (auto propQuantity = freecad_cast<App::PropertyQuantity*>(prop)) {
+        return propQuantity->getQuantityValue().getUserString();
+    }
+    if (auto propEnum = freecad_cast<App::PropertyEnumeration*>(prop)) {
+        return propEnum->getValueAsString();
+    }
+    if (auto propFloat = freecad_cast<App::PropertyFloat*>(prop)) {
+        return std::to_string(propFloat->getValue());
+    }
+    if (auto propInt = freecad_cast<App::PropertyInteger*>(prop)) {
+        return std::to_string(propInt->getValue());
+    }
+    if (auto propBool = freecad_cast<App::PropertyBool*>(prop)) {
+        return propBool->getValue() ? "True" : "False";
+    }
+
+    Base::Console().warning("Property type not supported for: %s\n", prop->getName());
+    return QObject::tr("Not supported").toStdString();
+}
+
+AssemblyObject* BomObject::getAssembly() const
 {
     for (auto& obj : getInList()) {
         if (obj->isDerivedFrom<AssemblyObject>()) {
@@ -262,7 +363,7 @@ AssemblyObject* BomObject::getAssembly()
     return nullptr;
 }
 
-bool BomObject::hasQuantityColumn()
+bool BomObject::hasQuantityColumn() const
 {
     for (auto& columnName : columnsNames.getValues()) {
         if (columnName == "Quantity") {
@@ -272,9 +373,9 @@ bool BomObject::hasQuantityColumn()
     return false;
 }
 
-std::string Assembly::BomObject::getText(size_t row, size_t col)
+std::string Assembly::BomObject::getText(size_t row, size_t col) const
 {
-    Spreadsheet::Cell* cell = getCell(App::CellAddress(row, col));
+    const Spreadsheet::Cell* cell = getCell(App::CellAddress(row, col));
     std::string cellName;
     if (cell) {
         cell->getStringContent(cellName);
@@ -288,7 +389,7 @@ std::string Assembly::BomObject::getText(size_t row, size_t col)
     return cellName;
 }
 
-int BomObject::getColumnIndex(std::string name)
+int BomObject::getColumnIndex(std::string name) const
 {
     int col = 0;
     for (auto& columnName : columnsNames.getValues()) {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2022 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
@@ -20,8 +22,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef TECHDRAW_DIMENSIONREFERENCES_H
-#define TECHDRAW_DIMENSIONREFERENCES_H
+#pragma once
 
 #include <Mod/TechDraw/TechDrawGlobal.h>
 
@@ -55,7 +56,7 @@ class TechDrawExport ReferenceEntry
 {
 public:
     ReferenceEntry() = default;
-    ReferenceEntry( App::DocumentObject* docObject, std::string subName, App::Document* document = nullptr);
+    ReferenceEntry( App::DocumentObject* docObject, const std::string& subName, App::Document* document = nullptr);
     ReferenceEntry(const ReferenceEntry& other);
     ~ReferenceEntry() = default;
 
@@ -63,6 +64,7 @@ public:
     bool operator== (const ReferenceEntry& otherRef) const;
 
     App::DocumentObject* getObject() const;
+    template <class T> T* getObject() const { return freecad_cast<T*>(getObject()); }
     void setObject(App::DocumentObject* docObj) { m_object = docObj; }
     std::string getSubName(bool longForm = false) const;
     void setSubName(const std::string& subName) { m_subName = subName; }
@@ -101,5 +103,3 @@ private:
 using ReferenceVector = std::vector<ReferenceEntry>;
 
 } // end namespace
-
-#endif //TECHDRAW_DIMENSIONREFERENCES_H

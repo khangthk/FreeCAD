@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2020 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -57,7 +59,7 @@ class ConstraintSectionPrint(base_fempythonobject.BaseFemPythonObject):
                 name="Variable",
                 group="Constraint Section Print",
                 doc="Set facial variable",
-                value=["Section Force", "Heat Flux", "Drag Stress"],
+                value=["Section Force", "Heat Flux", "Drag Stress", "Electric Flux"],
             )
         )
 

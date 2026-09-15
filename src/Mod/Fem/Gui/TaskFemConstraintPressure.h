@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2015 FreeCAD Developers                                 *
  *   Authors: Michael Hindley <hindlemp@eskom.co.za>                       *
@@ -23,8 +25,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef GUI_TASKVIEW_TaskFemConstraintPressure_H
-#define GUI_TASKVIEW_TaskFemConstraintPressure_H
+#pragma once
 
 #include <QObject>
 #include <memory>
@@ -42,8 +43,10 @@ class TaskFemConstraintPressure: public TaskFemConstraintOnBoundary
     Q_OBJECT
 
 public:
-    explicit TaskFemConstraintPressure(ViewProviderFemConstraintPressure* ConstraintView,
-                                       QWidget* parent = nullptr);
+    explicit TaskFemConstraintPressure(
+        ViewProviderFemConstraintPressure* ConstraintView,
+        QWidget* parent = nullptr
+    );
     ~TaskFemConstraintPressure() override;
     const std::string getReferences() const override;
     std::string getPressure() const;
@@ -74,5 +77,3 @@ public:
 };
 
 }  // namespace FemGui
-
-#endif  // GUI_TASKVIEW_TaskFemConstraintPressure_H

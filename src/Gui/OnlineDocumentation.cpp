@@ -20,14 +20,13 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
+
 #include <QApplication>
 #include <QBuffer>
 #include <QImageWriter>
 #include <QMessageBox>
 #include <QTcpSocket>
-#endif
+
 
 #include <Base/Interpreter.h>
 #include <Base/Exception.h>
@@ -124,7 +123,7 @@ QByteArray PythonOnlineHelp::invoke(const std::function<std::string(Py::Module&)
     catch (const Py::Exception&) {
         // load the error page
         Base::PyException e;
-        e.ReportException();
+        e.reportException();
         return loadFailed(QString::fromUtf8(e.what()));
     }
 }
@@ -169,7 +168,7 @@ QByteArray PythonOnlineHelp::loadHelpPage(const QString& filename) const
 QByteArray PythonOnlineHelp::fileNotFound() const
 {
     const int pageNotFound = 404;
-    QString contentType = QString::fromLatin1(
+    QString contentType = QStringLiteral(
         "text/html\r\n"
         "\r\n"
         "<html><head><title>Error</title></head>"
@@ -187,13 +186,13 @@ QByteArray PythonOnlineHelp::fileNotFound() const
         "</strong></p>"
         "</div></body>"
         "</html>"
-        "\r\n");
+        "\r\n"
+    );
 
-    QString header = QString::fromLatin1("content-type: %1\r\n").arg(contentType);
+    QString header = QStringLiteral("content-type: %1\r\n").arg(contentType);
 
     QString http(QLatin1String("HTTP/1.1 %1 %2\r\n%3\r\n"));
-    QString httpResponseHeader =
-        http.arg(pageNotFound).arg(QString::fromLatin1("File not found"), header);
+    QString httpResponseHeader = http.arg(pageNotFound).arg(QStringLiteral("File not found"), header);
 
     QByteArray res = httpResponseHeader.toLatin1();
     return res;
@@ -202,31 +201,32 @@ QByteArray PythonOnlineHelp::fileNotFound() const
 QByteArray PythonOnlineHelp::loadFailed(const QString& error) const
 {
     const int pageNotFound = 404;
-    QString contentType =
-        QString::fromLatin1(
-            "text/html\r\n"
-            "\r\n"
-            "<html><head><title>Error</title></head>"
-            "<body bgcolor=\"#f0f0f8\">"
-            "<table width=\"100%\" cellspacing=0 cellpadding=2 border=0 summary=\"heading\">"
-            "<tr bgcolor=\"#7799ee\">"
-            "<td valign=bottom>&nbsp;<br>"
-            "<font color=\"#ffffff\" face=\"helvetica, arial\">&nbsp;<br><big><big><strong>FreeCAD "
-            "Documentation</strong></big></big></font></td>"
-            "<td align=right valign=bottom>"
-            "<font color=\"#ffffff\" face=\"helvetica, arial\">&nbsp;</font></td></tr></table>"
-            "<p><p>"
-            "<h1>%1</h1>"
-            "</body>"
-            "</html>"
-            "\r\n")
-            .arg(error);
+    QString contentType
+        = QStringLiteral(
+              "text/html\r\n"
+              "\r\n"
+              "<html><head><title>Error</title></head>"
+              "<body bgcolor=\"#f0f0f8\">"
+              "<table width=\"100%\" cellspacing=0 cellpadding=2 border=0 summary=\"heading\">"
+              "<tr bgcolor=\"#7799ee\">"
+              "<td valign=bottom>&nbsp;<br>"
+              "<font color=\"#ffffff\" face=\"helvetica, "
+              "arial\">&nbsp;<br><big><big><strong>FreeCAD "
+              "Documentation</strong></big></big></font></td>"
+              "<td align=right valign=bottom>"
+              "<font color=\"#ffffff\" face=\"helvetica, arial\">&nbsp;</font></td></tr></table>"
+              "<p><p>"
+              "<h1>%1</h1>"
+              "</body>"
+              "</html>"
+              "\r\n"
+        )
+              .arg(error);
 
-    QString header = QString::fromLatin1("content-type: %1\r\n").arg(contentType);
+    QString header = QStringLiteral("content-type: %1\r\n").arg(contentType);
 
     QString http(QLatin1String("HTTP/1.1 %1 %2\r\n%3\r\n"));
-    QString httpResponseHeader =
-        http.arg(pageNotFound).arg(QString::fromLatin1("File not found"), header);
+    QString httpResponseHeader = http.arg(pageNotFound).arg(QStringLiteral("File not found"), header);
 
     QByteArray res = httpResponseHeader.toLatin1();
     return res;
@@ -322,10 +322,10 @@ StdCmdPythonHelp::StdCmdPythonHelp()
     , server(nullptr)
 {
     sGroup = "Tools";
-    sMenuText = QT_TR_NOOP("Automatic Python modules documentation");
-    sToolTipText = QT_TR_NOOP("Opens a browser to show the Python modules documentation");
+    sMenuText = QT_TR_NOOP("Python &Modules Documentation");
+    sToolTipText = QT_TR_NOOP("Opens the Python Modules documentation");
     sWhatsThis = "Std_PythonHelp";
-    sStatusTip = QT_TR_NOOP("Opens a browser to show the Python modules documentation");
+    sStatusTip = sToolTipText;
     sPixmap = "applications-python";
 }
 
@@ -354,17 +354,17 @@ void StdCmdPythonHelp::activated(int iMsg)
         OpenURLInBrowser(url.c_str());
     }
     else {
-        QMessageBox::critical(Gui::getMainWindow(),
-                              QObject::tr("No Server"),
-                              QObject::tr("Unable to start the server to port %1: %2.")
-                                  .arg(port)
-                                  .arg(server->errorString()));
+        QMessageBox::critical(
+            Gui::getMainWindow(),
+            QObject::tr("No Server"),
+            QObject::tr("Unable to start the server to port %1: %2.").arg(port).arg(server->errorString())
+        );
     }
 }
 
 bool Gui::OpenURLInBrowser(const char* URL)
 {
-    // The webbrowser Python module allows to start the system browser in an OS-independent way
+    // The webbrowser Python module allows one to start the system browser in an OS-independent way
     Base::PyGILStateLocker lock;
     try {
         PyObject* module = PyImport_ImportModule("webbrowser");
@@ -378,9 +378,11 @@ bool Gui::OpenURLInBrowser(const char* URL)
     }
     catch (Py::Exception& e) {
         e.clear();
-        QMessageBox::critical(Gui::getMainWindow(),
-                              QObject::tr("No Browser"),
-                              QObject::tr("Unable to open your system browser."));
+        QMessageBox::critical(
+            Gui::getMainWindow(),
+            QObject::tr("No Browser"),
+            QObject::tr("Unable to open your system browser.")
+        );
         return false;
     }
 }

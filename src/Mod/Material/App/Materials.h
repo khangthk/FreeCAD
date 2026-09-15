@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Carter <dcarter@david.carter.ca>             *
  *                                                                         *
@@ -19,19 +21,17 @@
  *                                                                         *
  **************************************************************************/
 
-#ifndef MATERIAL_MATERIALS_H
-#define MATERIAL_MATERIALS_H
+#pragma once
 
 #include <memory>
 
-#include <QDir>
 #include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QTextStream>
 
 #include <App/Application.h>
-#include <App/Color.h>
+#include <Base/Color.h>
 #include <App/Material.h>
 #include <Base/BaseClass.h>
 
@@ -80,6 +80,10 @@ public:
     {
         return _valuePtr->isNull();
     }
+    bool isEmpty() const
+    {
+        return _valuePtr->isEmpty();
+    }
     std::shared_ptr<MaterialValue> getMaterialValue();
     std::shared_ptr<MaterialValue> getMaterialValue() const;
     QString getString() const;
@@ -102,13 +106,17 @@ public:
     {
         return getValue().toString();
     }
-    App::Color getColor() const;
+    Base::Color getColor() const;
 
     MaterialProperty& getColumn(int column);
     const MaterialProperty& getColumn(int column) const;
     MaterialValue::ValueType getColumnType(int column) const;
     QString getColumnUnits(int column) const;
     QVariant getColumnNull(int column) const;
+    const std::vector<MaterialProperty>& getColumns() const
+    {
+        return _columns;
+    }
 
     void setModelUUID(const QString& uuid);
     void setPropertyType(const QString& type) override;
@@ -129,7 +137,7 @@ public:
     void setQuantity(const QString& value);
     void setList(const QList<QVariant>& value);
     void setURL(const QString& value);
-    void setColor(const App::Color& value);
+    void setColor(const Base::Color& value);
 
     MaterialProperty& operator=(const MaterialProperty& other);
     friend QTextStream& operator<<(QTextStream& output, const MaterialProperty& property);
@@ -140,7 +148,7 @@ public:
         return !operator==(other);
     }
 
-    // void save(QTextStream& stream);
+    void validate(const MaterialProperty& other) const;
 
     // Define precision for displaying floating point values
     static int const PRECISION;
@@ -185,10 +193,9 @@ public:
     {
         return _library;
     }
-    QString getDirectory() const
-    {
-        return _directory;
-    }
+    QString getDirectory() const;
+    QString getFilename() const;
+    QString getFilePath() const;
     QString getUUID() const
     {
         return _uuid;
@@ -245,10 +252,8 @@ public:
     {
         _library = library;
     }
-    void setDirectory(const QString& directory)
-    {
-        _directory = directory;
-    }
+    void setDirectory(const QString& directory);
+    void setFilename(const QString& filename);
     void setUUID(const QString& uuid)
     {
         _uuid = uuid;
@@ -277,13 +282,11 @@ public:
     {
         _editState = ModelEdit_None;
     }
-    void addTag(const QString& tag)
+    void addTag(const QString& tag);
+    void removeTag(const QString& tag);
+    bool hasTag(const QString& tag)
     {
-        Q_UNUSED(tag);
-    }
-    void removeTag(const QString& tag)
-    {
-        Q_UNUSED(tag);
+        return _tags.contains(tag);
     }
     void addPhysical(const QString& uuid);
     void removePhysical(const QString& uuid);
@@ -308,6 +311,7 @@ public:
 
     void setValue(const QString& name, const QString& value);
     void setValue(const QString& name, const QVariant& value);
+    void setValue(const QString& name, const std::shared_ptr<MaterialValue>& value);
 
     /*
      * Legacy values are thosed contained in old format files that don't fit in the new
@@ -335,6 +339,8 @@ public:
     bool hasNonLegacyProperty(const QString& name) const;
     bool hasLegacyProperty(const QString& name) const;
     bool hasLegacyProperties() const;
+    bool hasPhysicalProperties() const;
+    bool hasAppearanceProperties() const;
 
     // Test if the model is defined, and if values are provided for all properties
     bool hasModel(const QString& uuid) const;
@@ -435,6 +441,8 @@ public:
         return getTypeId() == other.getTypeId() && _uuid == other._uuid;
     }
 
+    void validate(Material& other) const;
+
 protected:
     void addModel(const QString& uuid);
     static void removeUUID(QSet<QString>& uuidList, const QString& uuid);
@@ -446,10 +454,10 @@ protected:
     getValueString(const std::map<QString, std::shared_ptr<MaterialProperty>>& propertyList,
                    const QString& name);
 
-    bool modelChanged(const std::shared_ptr<Material>& parent,
-                      const std::shared_ptr<Model>& model) const;
-    bool modelAppearanceChanged(const std::shared_ptr<Material>& parent,
-                                const std::shared_ptr<Model>& model) const;
+    bool modelChanged(const Material& parent,
+                      const Model& model) const;
+    bool modelAppearanceChanged(const Material& parent,
+                                const Model& model) const;
     void saveGeneral(QTextStream& stream) const;
     void saveInherits(QTextStream& stream) const;
     void saveModels(QTextStream& stream, bool saveInherited) const;
@@ -458,6 +466,7 @@ protected:
 private:
     std::shared_ptr<MaterialLibrary> _library;
     QString _directory;
+    QString _filename;
     QString _uuid;
     QString _name;
     QString _author;
@@ -490,5 +499,3 @@ using MaterialTreeNode = FolderTreeNode<Material>;
 
 Q_DECLARE_METATYPE(Materials::Material*)
 Q_DECLARE_METATYPE(std::shared_ptr<Materials::Material>)
-
-#endif  // MATERIAL_MATERIALS_H

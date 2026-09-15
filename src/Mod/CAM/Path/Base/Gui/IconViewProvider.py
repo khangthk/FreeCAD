@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
 # ***************************************************************************
 # *   Copyright (c) 2017 sliptonic <shopinthewoods@gmail.com>               *
 # *                                                                         *
@@ -21,8 +21,8 @@
 # ***************************************************************************
 
 import FreeCAD
+import FreeCADGui
 import Path
-import PathGui
 import importlib
 
 __title__ = "CAM Icon ViewProvider"
@@ -84,10 +84,14 @@ class ViewProvider(object):
     def setEdit(self, vobj=None, mode=0):
         if 0 == mode:
             self._onEditCallback(True)
+        elif 1 == mode:
+            FreeCADGui.runCommand("Std_TransformManip")
+            return True
         return False
 
-    def unsetEdit(self, arg1, arg2):
-        self._onEditCallback(False)
+    def unsetEdit(self, vobj, mode):
+        if 0 == mode:
+            self._onEditCallback(False)
 
     def setupContextMenu(self, vobj, menu):
         Path.Log.track()
@@ -95,8 +99,11 @@ class ViewProvider(object):
 
         edit = translate("Path", "Edit")
         action = QtGui.QAction(edit, menu)
-        action.triggered.connect(self.setEdit)
+        action.triggered.connect(self._editInContextMenuTriggered)
         menu.addAction(action)
+
+    def _editInContextMenuTriggered(self, checked):
+        self.setEdit()
 
 
 _factory = {}

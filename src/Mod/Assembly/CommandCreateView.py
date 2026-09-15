@@ -21,12 +21,13 @@
 #                                                                           *
 # **************************************************************************/
 
+import math
 import re
 import os
 import FreeCAD as App
 
 from pivy import coin
-from Part import LineSegment, Compound
+from Part import LineSegment, Compound, Precision
 
 from PySide.QtCore import QT_TRANSLATE_NOOP
 
@@ -37,8 +38,6 @@ if App.GuiUp:
 
 import UtilsAssembly
 import Preferences
-
-# translate = App.Qt.translate
 
 __title__ = "Assembly Command Create Exploded View"
 __author__ = "Ondsel"
@@ -52,14 +51,12 @@ class CommandCreateView:
     def GetResources(self):
         return {
             "Pixmap": "Assembly_ExplodedView",
-            "MenuText": QT_TRANSLATE_NOOP("Assembly_CreateView", "Create Exploded View"),
+            "MenuText": QT_TRANSLATE_NOOP("Assembly_CreateView", "Exploded View"),
             "Accel": "E",
-            "ToolTip": "<p>"
-            + QT_TRANSLATE_NOOP(
+            "ToolTip": QT_TRANSLATE_NOOP(
                 "Assembly_CreateView",
-                "Create an exploded view of the current assembly.",
-            )
-            + "</p>",
+                "Creates an exploded view of the current assembly",
+            ),
             "CmdType": "ForEdit",
         }
 
@@ -77,18 +74,29 @@ class CommandCreateView:
         Gui.addModule("CommandCreateView")  # NOLINT
         Gui.doCommand("panel = CommandCreateView.TaskAssemblyCreateView()")
         self.panel = Gui.doCommandEval("panel")
-        Gui.doCommandGui("Gui.Control.showDialog(panel)")
+        Gui.doCommandGui("dialog = Gui.Control.showDialog(panel)")
+        dialog = Gui.doCommandEval("dialog")
+        if dialog is not None:
+            dialog.setAutoCloseOnDeletedDocument(True)
+            dialog.setDocumentName(App.ActiveDocument.Name)
 
 
 ######### Exploded View Object ###########
 class ExplodedView:
     def __init__(self, expView):
-        expView.addProperty(
-            "App::PropertyLinkList", "Moves", "Exploded View", "Move objects of the exploded view."
-        )
         expView.Proxy = self
+        expView.addExtension("App::GroupExtensionPython")
 
         self.stepsChangedCallback = None
+
+    def onDocumentRestored(self, expView):
+        self.migrationScript(expView)
+
+    def migrationScript(self, expView):
+        if hasattr(expView, "Moves"):
+            expView.addExtension("App::GroupExtensionPython")
+            expView.Group = expView.Moves
+            expView.removeProperty("Moves")
 
     def dumps(self):
         return None
@@ -97,7 +105,7 @@ class ExplodedView:
         return None
 
     def onChanged(self, viewObj, prop):
-        if prop == "Moves" and hasattr(self, "stepsChangedCallback"):
+        if prop == "Group" and hasattr(self, "stepsChangedCallback"):
             if self.stepsChangedCallback is not None:
                 self.stepsChangedCallback()
 
@@ -113,15 +121,29 @@ class ExplodedView:
         positions = []  # [[p1start, p1end], [p2start, p2end], ...]
         if com is None:
             com, size = UtilsAssembly.getComAndSize(self.getAssembly(viewObj))
-        for move in viewObj.Moves:
+        for move in viewObj.Group:
             positions = positions + move.Proxy.applyStep(move, com, size)
 
         return positions
+
+    def explodeTemporarily(self, viewObj):
+        self.initialPlcs = UtilsAssembly.saveAssemblyPartsPlacements(self.getAssembly(viewObj))
+        self.applyMoves(viewObj)
+        for move in viewObj.Group:
+            move.Visibility = True
 
     def getAssembly(self, viewObj):
         for obj in viewObj.InList:
             if obj.isDerivedFrom("Assembly::AssemblyObject"):
                 return obj
+        return None
+
+    def _createSafeLine(self, start, end):
+        """Creates a LineSegment shape only if points are not coincident."""
+        from Part import Precision
+
+        if (start - end).Length > Precision.confusion():
+            return LineSegment(start, end).toShape()
         return None
 
     def saveAssemblyAndExplode(self, viewObj):
@@ -132,8 +154,9 @@ class ExplodedView:
         lines = []
 
         for startPos, endPos in self.positions:
-            line = LineSegment(startPos, endPos).toShape()
-            lines.append(line)
+            line = self._createSafeLine(startPos, endPos)
+            if line:
+                lines.append(line)
         if lines:
             return Compound(lines)
 
@@ -144,6 +167,109 @@ class ExplodedView:
             return
 
         UtilsAssembly.restoreAssemblyPartsPlacements(self.getAssembly(viewObj), self.initialPlcs)
+
+        for move in viewObj.Group:
+            move.Visibility = False
+
+    def _calculateExplodedPlacements(self, viewObj):
+        """
+        Internal helper to calculate final placements for an exploded view without
+        applying them.
+        Returns:
+            - A dictionary mapping {part_object: final_placement}.
+            - A list of [start_pos, end_pos] for explosion lines.
+        """
+        final_placements = {}
+        line_positions = []
+        factor = 1
+
+        assembly = self.getAssembly(viewObj)
+        # Get a snapshot of the assembly's current, un-exploded state
+        calculated_placements = UtilsAssembly.saveAssemblyPartsPlacements(assembly)
+
+        com, size = UtilsAssembly.getComAndSize(assembly)
+
+        for move in viewObj.Group:
+            if not UtilsAssembly.isRefValid(move.References, 1):
+                continue
+
+            if move.MoveType == "Radial":
+                distance = move.MovementTransform.Base.Length
+                factor = 4 * distance / size
+
+            subs = move.References[1]
+            for sub in subs:
+                ref = [move.References[0], [sub]]
+                obj = UtilsAssembly.getObject(ref)
+                if not obj or not hasattr(obj, "Placement"):
+                    continue
+
+                # Use the placement from our calculation dictionary, which tracks
+                # changes from previous steps.
+                current_placement = calculated_placements.get(obj.Name, obj.Placement)
+
+                # The part's shape is already placed, so its BBox.Center is the
+                # correct global starting position for the explosion line.
+                start_pos = obj.Shape.BoundBox.Center
+
+                if move.MoveType == "Radial":
+                    obj_com, obj_size = UtilsAssembly.getComAndSize(obj)
+                    init_vec = obj_com - com
+                    new_base = current_placement.Base + init_vec * factor
+                    new_placement = App.Placement(new_base, current_placement.Rotation)
+                else:
+                    new_placement = move.MovementTransform * current_placement
+
+                # Store the newly calculated placement for this part
+                calculated_placements[obj.Name] = new_placement
+                final_placements[obj] = new_placement
+
+                # To find the end_pos, calculate the transformation that takes the part
+                # from its current_placement to its new_placement...
+                delta_transform = new_placement * current_placement.inverse()
+                # ...and apply that same transformation to the start_pos.
+                end_pos = delta_transform.multVec(start_pos)
+                line_positions.append([start_pos, end_pos])
+
+        return final_placements, line_positions
+
+    def getExplodedShape(self, viewObj):
+        """
+        Generates a compound shape of the exploded assembly in memory
+        without modifying the document. Returns a single Part.Compound.
+        """
+        final_placements, line_positions = self._calculateExplodedPlacements(viewObj)
+
+        exploded_shapes = []
+
+        # We need to include ALL parts of the assembly, not just the moved ones.
+        assembly = self.getAssembly(viewObj)
+        all_parts = UtilsAssembly.getMovablePartsWithin(assembly, True)
+        visible_parts = [
+            part for part in all_parts if hasattr(part, "Visibility") and part.Visibility
+        ]
+
+        for part in visible_parts:
+            # Get the shape. It's crucial to use .copy()
+            shape_copy = part.Shape.copy()
+
+            # If the part was moved, use its calculated final placement.
+            # Otherwise, use its current placement from the document.
+            final_plc = final_placements.get(part, part.Placement)
+
+            shape_copy.Placement = final_plc
+            exploded_shapes.append(shape_copy)
+
+        # Add shapes for the explosion lines
+        for start_pos, end_pos in line_positions:
+            line = self._createSafeLine(start_pos, end_pos)
+            if line:
+                exploded_shapes.append(line)
+
+        if exploded_shapes:
+            return Compound(exploded_shapes)
+
+        return None
 
 
 class ViewProviderExplodedView:
@@ -192,7 +318,7 @@ class ViewProviderExplodedView:
         return None
 
     def claimChildren(self):
-        return self.app_obj.Moves
+        return self.app_obj.Group
 
     def doubleClicked(self, vobj):
         task = Gui.Control.activeTaskDialog()
@@ -208,7 +334,10 @@ class ViewProviderExplodedView:
             Gui.ActiveDocument.setEdit(assembly)
 
         panel = TaskAssemblyCreateView(vobj.Object)
-        Gui.Control.showDialog(panel)
+        dialog = Gui.Control.showDialog(panel)
+        if dialog is not None:
+            dialog.setAutoCloseOnDeletedDocument(True)
+            dialog.setDocumentName(App.ActiveDocument.Name)
 
         return True
 
@@ -223,6 +352,156 @@ ExplodedViewStepTypes = [
     "Normal",
     "Radial",
 ]
+
+# SoTransformDragger stores its position in an SbVec3f.
+SINGLE_PRECISION_EPSILON = 2**-23
+
+
+def setMovementDistance(move, distance, direction=None):
+    """Set a move's translation length while preserving its direction and rotation."""
+    transform = App.Placement(move.MovementTransform)
+    base = transform.Base
+
+    if base.Length > 0:
+        direction = App.Vector(base)
+    elif direction is not None and direction.Length > 0:
+        direction = App.Vector(direction)
+    elif move.MoveType == "Radial":
+        # Radial moves only use the vector length, not its direction.
+        direction = App.Vector(1, 0, 0)
+    else:
+        return None
+
+    direction.normalize()
+    transform.Base = direction * max(0.0, distance)
+    move.MovementTransform = transform
+    return direction
+
+
+def movementEditMode(move):
+    if move.MoveType == "Radial":
+        return "Distance"
+    if isPureRotationMovement(move.MovementTransform):
+        return "Angle"
+    return "Distance"
+
+
+def movementLabel(move):
+    """Return a translated label describing a newly created move."""
+    if move.MoveType == "Radial":
+        return QtWidgets.QApplication.translate("Assembly", "Radial Translation")
+
+    transform = move.MovementTransform
+    if isPureRotationMovement(transform):
+        movement = QtWidgets.QApplication.translate("Assembly", "Rotation")
+        vector = App.Vector(transform.Rotation.Axis)
+    else:
+        movement = QtWidgets.QApplication.translate("Assembly", "Translation")
+        vector = App.Vector(transform.Base)
+
+    tolerance = max(
+        Precision.confusion(),
+        4 * SINGLE_PRECISION_EPSILON * vector.Length,
+    )
+    axes = "".join(
+        axis
+        for axis, component in zip("XYZ", (vector.x, vector.y, vector.z))
+        if abs(component) > tolerance
+    )
+    return movement + axes
+
+
+def isPureRotationMovement(transform):
+    """Return True when a placement is a rotation without translation along its axis."""
+    rotation = transform.Rotation
+    if rotation.Angle <= Precision.angular():
+        return False
+
+    axis = App.Vector(rotation.Axis)
+    if axis.Length <= Precision.confusion():
+        return False
+    axis.normalize()
+
+    # A pure rotation around an arbitrary center usually has a non-zero Base
+    # term (center - R * center). The meaningful test is whether the transform
+    # also translates along the rotation axis. If it does, it is a screw/mixed
+    # movement, so the distance editor is more appropriate.
+    translation = App.Vector(transform.Base)
+    return abs(translation.dot(axis)) <= Precision.confusion()
+
+
+def draggerTranslationTolerance(initialPlacement, currentPlacement):
+    """Tolerance for translation noise from the dragger's single-precision position."""
+    coordinateScale = max(
+        abs(initialPlacement.Base.x),
+        abs(initialPlacement.Base.y),
+        abs(initialPlacement.Base.z),
+        abs(currentPlacement.Base.x),
+        abs(currentPlacement.Base.y),
+        abs(currentPlacement.Base.z),
+        1.0,
+    )
+    return max(
+        Precision.confusion(),
+        4 * SINGLE_PRECISION_EPSILON * coordinateScale,
+    )
+
+
+def rotationCenterFromTransform(transform):
+    """Return a point on the axis of a rotation transform."""
+    angle = transform.Rotation.Angle
+    if angle <= Precision.angular():
+        return App.Vector()
+
+    axis = App.Vector(transform.Rotation.Axis)
+    axis.normalize()
+    translation = App.Vector(transform.Base)
+    perpendicular = translation - axis * translation.dot(axis)
+    cotangent = 1.0 / math.tan(angle / 2.0)
+    return (perpendicular + axis.cross(perpendicular) * cotangent) * 0.5
+
+
+def placementIsIdentity(transform):
+    return (
+        transform.Base.Length <= Precision.confusion()
+        and transform.Rotation.Angle <= Precision.angular()
+    )
+
+
+def moveObjectsAndReferences(move):
+    if not hasattr(move, "References"):
+        return [], []
+    if not UtilsAssembly.isRefValid(move.References, 1):
+        return [], []
+
+    objs = []
+    refs = []
+    for sub in move.References[1]:
+        ref = [move.References[0], [sub]]
+        obj = UtilsAssembly.getObject(ref)
+        if obj is None or not hasattr(obj, "Placement"):
+            continue
+        objs.append(obj)
+        refs.append(ref)
+    return objs, refs
+
+
+def setMovementAngle(move, angle):
+    """Set a move's rotation angle while preserving its axis and center."""
+    transform = App.Placement(move.MovementTransform)
+    if not isPureRotationMovement(transform):
+        return False
+
+    axis = App.Vector(transform.Rotation.Axis)
+    if axis.Length <= Precision.confusion():
+        return False
+    axis.normalize()
+
+    center = rotationCenterFromTransform(transform)
+    rotation = App.Rotation(axis, angle)
+    pivot = App.Placement(center, App.Rotation())
+    move.MovementTransform = App.Placement(center, rotation) * pivot.inverse()
+    return True
 
 
 class ExplodedViewStep:
@@ -246,6 +525,7 @@ class ExplodedViewStep:
                 "References",
                 "Exploded Move",
                 QT_TRANSLATE_NOOP("App::Property", "The objects moved by the move"),
+                locked=True,
             )
 
         if not hasattr(evStep, "MovementTransform"):
@@ -257,6 +537,7 @@ class ExplodedViewStep:
                     "App::Property",
                     "This is the movement of the move. The end placement is the result of the start placement * this placement.",
                 ),
+                locked=True,
             )
 
         if not hasattr(evStep, "MoveType"):
@@ -265,6 +546,7 @@ class ExplodedViewStep:
                 "MoveType",
                 "Exploded Move",
                 QT_TRANSLATE_NOOP("App::Property", "The type of the move"),
+                locked=True,
             )
 
     def migrationScript(self, evStep):
@@ -280,6 +562,7 @@ class ExplodedViewStep:
                 "References",
                 "Exploded Move",
                 QT_TRANSLATE_NOOP("App::Property", "The objects moved by the move"),
+                locked=True,
             )
 
             rootObj = None
@@ -340,6 +623,7 @@ class ExplodedViewStep:
             if move.ViewObject:
                 endPos = UtilsAssembly.getCenterOfBoundingBox([obj], [ref])
                 positions.append([startPos, endPos])
+            obj.purgeTouched()
 
         if move.ViewObject:
             move.ViewObject.Proxy.redrawLines(move, positions)
@@ -438,11 +722,12 @@ class ExplodedViewSelGate:
         self.viewObj = viewObj
 
     def allow(self, doc, obj, sub):
-        if (obj.Name == self.assembly.Name and sub) or self.assembly.hasObject(obj, True):
+        comp, new_sub = UtilsAssembly.getComponentReference(self.assembly, obj, sub)
+        if comp:
             # Objects within the assembly.
             return True
 
-        if obj in self.viewObj.Moves:
+        if obj in self.viewObj.Group:
             # Enable selection of steps object
             return True
 
@@ -457,6 +742,8 @@ class TaskAssemblyCreateView(QtCore.QObject):
         self.form = Gui.PySideUic.loadUi(":/panels/TaskAssemblyCreateView.ui")
         self.form.stepList.installEventFilter(self)
         self.form.stepList.itemClicked.connect(self.onItemClicked)
+        self.form.stepList.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.form.stepList.customContextMenuRequested.connect(self.onStepContextMenu)
 
         view = Gui.activeDocument().activeView()
 
@@ -491,16 +778,22 @@ class TaskAssemblyCreateView(QtCore.QObject):
         self.form.CheckBox_PartsAsSingleSolid.setChecked(pref.GetBool("PartsAsSingleSolid", True))
 
         self.initialPlcs = UtilsAssembly.saveAssemblyPartsPlacements(self.assembly)
+        self.moveSpinboxes = {}
+        self.moveDirections = {}
+        self.selectedRefs = []
+        self.selectedObjs = []
+        self.selectedObjsInitPlc = []
 
         if viewObj:
-            App.setActiveTransaction("Edit Exploded View")
+            Gui.ActiveDocument.openCommand("Edit Exploded View")
+
             self.viewObj = viewObj
-            for move in self.viewObj.Moves:
+            for move in self.viewObj.Group:
                 move.Visibility = True
             self.onMovesChanged()
 
         else:
-            App.setActiveTransaction("Create Exploded View")
+            Gui.ActiveDocument.openCommand("Create Exploded View")
             self.createExplodedViewObject()
 
         Gui.Selection.addSelectionGate(
@@ -520,23 +813,30 @@ class TaskAssemblyCreateView(QtCore.QObject):
         self.blockSetDragger = False
         self.blockDraggerMove = True
         self.currentStep = None
+        self.radialExplosion = False
+
+        self.viewObj.purgeTouched()
 
     def accept(self):
         self.deactivate()
         UtilsAssembly.restoreAssemblyPartsPlacements(self.assembly, self.initialPlcs)
-        for move in self.viewObj.Moves:
+        for move in self.viewObj.Group:
             move.Visibility = False
-        commands = f'obj = App.ActiveDocument.getObject("{self.viewObj.Name}")\n'
-        for move in self.viewObj.Moves:
-            more = UtilsAssembly.generatePropertySettings("obj.Moves[0]", move)
+        commands = ""
+        for move in self.viewObj.Group:
+            more = UtilsAssembly.generatePropertySettings(move)
             commands = commands + more
         Gui.doCommand(commands[:-1])  # Don't use the last \n
-        App.closeActiveTransaction()
+        Gui.ActiveDocument.commitCommand()
+
+        self.viewObj.purgeTouched()
+
         return True
 
     def reject(self):
         self.deactivate()
-        App.closeActiveTransaction(True)
+        Gui.ActiveDocument.abortCommand()
+        App.activeDocument().recompute()
         return True
 
     def deactivate(self):
@@ -584,9 +884,14 @@ class TaskAssemblyCreateView(QtCore.QObject):
                 continue
 
             for sub_name in sel.SubElementNames:
-                ref = [sel.Object, [sub_name]]
+                moving_part, new_sub = UtilsAssembly.getComponentReference(
+                    self.assembly, sel.Object, sub_name
+                )
+                if not moving_part:
+                    continue
+
+                ref = [moving_part, [new_sub]]
                 obj = UtilsAssembly.getObject(ref)
-                moving_part = UtilsAssembly.getMovingPart(self.assembly, ref)
                 element_name = UtilsAssembly.getElementName(sub_name)
 
                 # Only objects within the assembly, not the assembly and not elements.
@@ -608,6 +913,7 @@ class TaskAssemblyCreateView(QtCore.QObject):
                     ref[1][0] = UtilsAssembly.truncateSubAtFirst(ref[1][0], obj.Name)
 
                 if not obj in self.selectedObjs and hasattr(obj, "Placement"):
+                    ref = [sel.Object, [sub_name]]
                     self.selectedRefs.append(ref)
                     self.selectedObjs.append(obj)
                     self.selectedObjsInitPlc.append(App.Placement(obj.Placement))
@@ -633,15 +939,223 @@ class TaskAssemblyCreateView(QtCore.QObject):
 
         self.viewObj.Proxy.applyMoves(self.viewObj, self.com, self.size)
 
+        self.rebuildStepList()
+
+    def rebuildStepList(self):
         self.form.stepList.clear()
-        for move in self.viewObj.Moves:
-            self.form.stepList.addItem(move.Name)
+        self.moveSpinboxes.clear()
+        for move in self.viewObj.Group:
+            item = QtWidgets.QListWidgetItem()
+            item.setData(QtCore.Qt.UserRole, move.Name)
+            self.form.stepList.addItem(item)
+
+            row = QtWidgets.QWidget(self.form.stepList)
+            layout = QtWidgets.QHBoxLayout(row)
+            layout.setContentsMargins(4, 0, 4, 0)
+            row.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+            row.customContextMenuRequested.connect(
+                lambda position, currentItem=item, widget=row: self.showStepContextMenu(
+                    currentItem, widget.mapToGlobal(position)
+                )
+            )
+
+            label = QtWidgets.QLabel(move.Label, row)
+            layout.addWidget(label)
+            layout.addStretch()
+
+            mode = movementEditMode(move)
+            if mode in ("Distance", "Angle"):
+                spinbox = Gui.UiLoader().createWidget("Gui::QuantitySpinBox")
+                spinbox.setParent(row)
+                spinbox.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+                spinbox.customContextMenuRequested.connect(
+                    lambda position, currentItem=item, widget=spinbox: self.showStepContextMenu(
+                        currentItem, widget.mapToGlobal(position)
+                    )
+                )
+                if mode == "Angle":
+                    spinbox.setProperty("unit", "deg")
+                    spinbox.setProperty("minimum", -360.0)
+                    spinbox.setProperty("maximum", 360.0)
+                    spinbox.setProperty(
+                        "rawValue",
+                        math.degrees(move.MovementTransform.Rotation.Angle),
+                    )
+                    spinbox.setToolTip(
+                        QtWidgets.QApplication.translate(
+                            "Assembly", "Angle of this exploded-view move"
+                        )
+                    )
+                else:
+                    spinbox.setProperty("unit", "mm")
+                    spinbox.setProperty("minimum", 0.0)
+                    spinbox.setProperty("maximum", 1.0e9)
+                    spinbox.setProperty("rawValue", move.MovementTransform.Base.Length)
+                    spinbox.setToolTip(
+                        QtWidgets.QApplication.translate(
+                            "Assembly", "Distance of this exploded-view move"
+                        )
+                    )
+                spinbox.valueChanged.connect(
+                    lambda _value, currentMove=move: self.onMoveValueChanged(currentMove)
+                )
+                layout.addWidget(spinbox)
+                self.moveSpinboxes[move.Name] = spinbox
+
+            item.setSizeHint(row.sizeHint())
+            self.form.stepList.setItemWidget(item, row)
+
+            if mode == "Distance" and move.MovementTransform.Base.Length > 0:
+                direction = App.Vector(move.MovementTransform.Base)
+                direction.normalize()
+                self.moveDirections[move.Name] = direction
 
     def onItemClicked(self, item):
         Gui.Selection.clearSelection()
-        Gui.Selection.addSelection(self.viewObj.Document.Name, item.text(), "")
+        moveName = item.data(QtCore.Qt.UserRole)
+        Gui.Selection.addSelection(self.viewObj.Document.Name, moveName, "")
         # we give back the focus to the item as addSelection gave the focus to the 3dview
         self.form.stepList.setCurrentItem(item)
+
+    def onStepContextMenu(self, position):
+        item = self.form.stepList.itemAt(position)
+        if item is None:
+            return
+        self.showStepContextMenu(
+            item,
+            self.form.stepList.viewport().mapToGlobal(position),
+        )
+
+    def showStepContextMenu(self, item, globalPosition):
+        self.form.stepList.setCurrentItem(item)
+        move = self.viewObj.Document.getObject(item.data(QtCore.Qt.UserRole))
+        if move is None:
+            return
+
+        menu = QMenu(self.form.stepList)
+        editPlacement = menu.addAction(
+            QtWidgets.QApplication.translate("Assembly", "Edit placement")
+        )
+        selectedAction = menu.exec_(globalPosition)
+        if selectedAction == editPlacement:
+            previousTransform = [App.Placement(move.MovementTransform)]
+
+            def onPlacementChanged():
+                self.onMovePlacementChanged(move, previousTransform[0])
+                previousTransform[0] = App.Placement(move.MovementTransform)
+
+            UtilsAssembly.openEditingPlacementDialog(
+                move,
+                "MovementTransform",
+                onPlacementChanged,
+            )
+
+    def onMovePlacementChanged(self, move, oldTransform=None):
+        if oldTransform is not None:
+            self.adjustDependentMoves(move, oldTransform)
+        self.onMovesChanged()
+        self.updateDraggerFromMoveObjects(move)
+        self.syncDraggerBaseline()
+
+    def onMoveValueChanged(self, move):
+        spinbox = self.moveSpinboxes.get(move.Name)
+        if spinbox is None:
+            return
+
+        value = spinbox.property("rawValue")
+        oldTransform = App.Placement(move.MovementTransform)
+        if movementEditMode(move) == "Angle":
+            if not setMovementAngle(move, value):
+                self.updateMoveSpinbox(move)
+                return
+        else:
+            direction = setMovementDistance(move, value, self.moveDirections.get(move.Name))
+            if direction is None:
+                self.updateMoveSpinbox(move)
+                return
+            self.moveDirections[move.Name] = direction
+
+        self.adjustDependentMoves(move, oldTransform)
+        UtilsAssembly.restoreAssemblyPartsPlacements(self.assembly, self.initialPlcs)
+        self.viewObj.Proxy.applyMoves(self.viewObj, self.com, self.size)
+        self.updateDraggerFromMoveObjects(move)
+        self.syncDraggerBaseline()
+
+    def adjustDependentMoves(self, changedMove, oldChangedTransform):
+        moves = list(self.viewObj.Group)
+        try:
+            changedIndex = moves.index(changedMove)
+        except ValueError:
+            return
+
+        oldPlacements = {
+            name: App.Placement(placement) for name, placement in self.initialPlcs.items()
+        }
+        newPlacements = oldPlacements.copy()
+
+        for i, move in enumerate(moves):
+            objs, _refs = moveObjectsAndReferences(move)
+            objNames = [obj.Name for obj in objs]
+            transformBeforeAdjustment = App.Placement(move.MovementTransform)
+
+            if i > changedIndex and move.MoveType == "Normal":
+                for objName in objNames:
+                    oldPlacement = oldPlacements.get(objName)
+                    newPlacement = newPlacements.get(objName)
+                    if oldPlacement is None or newPlacement is None:
+                        continue
+
+                    delta = newPlacement * oldPlacement.inverse()
+                    if placementIsIdentity(delta):
+                        continue
+
+                    move.MovementTransform = delta * move.MovementTransform * delta.inverse()
+                    break
+
+            oldTransform = oldChangedTransform if move == changedMove else transformBeforeAdjustment
+            newTransform = move.MovementTransform
+            for objName in objNames:
+                if objName in oldPlacements:
+                    oldPlacements[objName] = oldTransform * oldPlacements[objName]
+                if objName in newPlacements:
+                    newPlacements[objName] = newTransform * newPlacements[objName]
+
+    def updateDraggerFromMoveObjects(self, move):
+        objs, refs = moveObjectsAndReferences(move)
+        if not objs:
+            return
+
+        draggerPlacement = UtilsAssembly.getGlobalPlacement(refs[0], objs[0])
+        draggerPlacement = App.Placement(draggerPlacement)
+        draggerPlacement.Base = UtilsAssembly.getCenterOfBoundingBox(objs, refs)
+
+        self.blockDraggerMove = True
+        self.assembly.ViewObject.DraggerPlacement = draggerPlacement
+        self.blockDraggerMove = False
+
+    def syncDraggerBaseline(self):
+        self.initialDraggerPlc = App.Placement(self.assembly.ViewObject.DraggerPlacement)
+        for i, obj in enumerate(getattr(self, "selectedObjs", [])):
+            self.selectedObjsInitPlc[i] = App.Placement(obj.Placement)
+
+    def updateMoveSpinbox(self, move):
+        spinbox = self.moveSpinboxes.get(move.Name)
+        if spinbox is None:
+            return
+
+        if movementEditMode(move) == "Angle":
+            value = math.degrees(move.MovementTransform.Rotation.Angle)
+        else:
+            base = move.MovementTransform.Base
+            value = base.Length
+            if base.Length > 0:
+                direction = App.Vector(base)
+                direction.normalize()
+                self.moveDirections[move.Name] = direction
+
+        spinbox.blockSignals(True)
+        spinbox.setProperty("rawValue", value)
+        spinbox.blockSignals(False)
 
     def onRadialClicked(self):
         self.dismissCurrentStep()
@@ -655,7 +1169,7 @@ class TaskAssemblyCreateView(QtCore.QObject):
         self.blockSetDragger = False
         self.setDragger()
 
-        self.createExplodedStepObject(1)  # 1 = type_index of "Radial"
+        self.radialExplosion = True
 
     def onAlignTo(self):
         self.alignMode = "Custom"
@@ -714,7 +1228,12 @@ class TaskAssemblyCreateView(QtCore.QObject):
         self.viewObj = Gui.doCommandEval("viewObj")
         Gui.doCommandGui("CommandCreateView.ViewProviderExplodedView(viewObj.ViewObject)")
 
-    def createExplodedStepObject(self, moveType_index=0):
+    def createExplodedStepObject(self):
+        moveType_index = 0
+        if self.radialExplosion:
+            self.radialExplosion = False
+            moveType_index = 1  # 1 = type_index of "Radial"
+
         commands = (
             f'assembly = App.ActiveDocument.getObject("{self.assembly.Name}")\n'
             'currentStep = assembly.newObject("App::FeaturePython", "Move")\n'
@@ -733,10 +1252,10 @@ class TaskAssemblyCreateView(QtCore.QObject):
             listOfSubs.append(ref[1][0])
         self.currentStep.References = [self.selectedRefs[0][0], listOfSubs]
 
-        # Note: self.viewObj.Moves.append(self.currentStep) does not work
-        listOfMoves = self.viewObj.Moves
+        # Note: self.viewObj.Group.append(self.currentStep) does not work
+        listOfMoves = self.viewObj.Group
         listOfMoves.append(self.currentStep)
-        self.viewObj.Moves = listOfMoves
+        self.viewObj.Group = listOfMoves
 
     def dismissCurrentStep(self):
         if self.currentStep is None:
@@ -763,7 +1282,33 @@ class TaskAssemblyCreateView(QtCore.QObject):
 
         # we update the move Placement.
         draggerPlc = self.assembly.ViewObject.DraggerPlacement
+        previousEditorMode = movementEditMode(self.currentStep)
         self.currentStep.MovementTransform = draggerPlc * self.initialDraggerPlc.inverse()
+        translation = (draggerPlc.Base - self.initialDraggerPlc.Base).Length
+        rotation = self.currentStep.MovementTransform.Rotation.Angle
+        translationTolerance = draggerTranslationTolerance(
+            self.initialDraggerPlc,
+            draggerPlc,
+        )
+        if (
+            self.currentStep.MoveType != "Radial"
+            and rotation > Precision.angular()
+            and translation <= translationTolerance
+        ):
+            self.currentStep.MovementTransform.Base = (
+                self.initialDraggerPlc.Base
+                - self.currentStep.MovementTransform.Rotation.multVec(self.initialDraggerPlc.Base)
+            )
+        elif translation > translationTolerance:
+            self.currentStep.MovementTransform = App.Placement(
+                draggerPlc.Base - self.initialDraggerPlc.Base,
+                App.Rotation(),
+            )
+
+        self.currentStep.Label = movementLabel(self.currentStep)
+        if movementEditMode(self.currentStep) != previousEditorMode:
+            self.rebuildStepList()
+        self.updateMoveSpinbox(self.currentStep)
 
         # Apply the move
         self.currentStep.Proxy.applyStep(self.currentStep, self.com, self.size)
@@ -771,6 +1316,7 @@ class TaskAssemblyCreateView(QtCore.QObject):
     def draggerFinished(self, event):
         isRadial = self.currentStep.MoveType == "Radial"
         self.currentStep = None
+        self.onMovesChanged()
 
         if isRadial:
             Gui.Selection.clearSelection()
@@ -844,10 +1390,10 @@ class TaskAssemblyCreateView(QtCore.QObject):
                     sorted_indexes = sorted(selected_indexes, key=lambda x: x.row(), reverse=True)
                     for index in sorted_indexes:
                         row = index.row()
-                        if row < len(self.viewObj.Moves):
-                            move = self.viewObj.Moves[row]
+                        if row < len(self.viewObj.Group):
+                            move = self.viewObj.Group[row]
                             # First remove the link from the viewObj
-                            self.viewObj.Moves.remove(move)
+                            self.viewObj.Group.remove(move)
                             # Delete the object
                             move.Document.removeObject(move.Name)
 
@@ -862,9 +1408,12 @@ class TaskAssemblyCreateView(QtCore.QObject):
             return
 
         else:
-            ref = [App.getDocument(doc_name).getObject(obj_name), [sub_name]]
+            rootObj = App.getDocument(doc_name).getObject(obj_name)
+            moving_part, new_sub = UtilsAssembly.getComponentReference(
+                self.assembly, rootObj, sub_name
+            )
+            ref = [moving_part, [new_sub]]
             obj = UtilsAssembly.getObject(ref)
-            moving_part = UtilsAssembly.getMovingPart(self.assembly, ref)
 
             if obj is None or moving_part is None:
                 return

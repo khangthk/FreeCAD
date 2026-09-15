@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2015 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
@@ -30,6 +32,7 @@ __url__ = "https://www.freecad.org"
 #  \brief element geometry 2D object
 
 from . import base_femelement
+from .base_fempythonobject import _PropHelper
 
 
 class ElementGeometry2D(base_femelement.BaseFemElement):
@@ -42,10 +45,30 @@ class ElementGeometry2D(base_femelement.BaseFemElement):
     def __init__(self, obj):
         super().__init__(obj)
 
-        obj.addProperty(
-            "App::PropertyLength",
-            "Thickness",
-            "ShellThickness",
-            "set thickness of the shell elements",
+    def _get_properties(self):
+        prop = super()._get_properties()
+
+        prop.append(
+            _PropHelper(
+                type="App::PropertyLength",
+                name="Thickness",
+                group="ShellThickness",
+                doc="Set thickness of the shell elements",
+                value="0 mm",
+            )
         )
-        obj.setPropertyStatus("Thickness", "LockDynamic")
+        prop.append(
+            _PropHelper(
+                type="App::PropertyFloat",
+                name="Offset",
+                group="ShellThickness",
+                doc="Set thickness offset of the shell elements",
+                value=0.0,
+            )
+        )
+
+        return prop
+
+    def onDocumentRestored(self, obj):
+        # update old project with new properties
+        super().onDocumentRestored(obj)

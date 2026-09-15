@@ -21,24 +21,25 @@
  *                                                                         *
  **************************************************************************/
 
-
-#include "PreCompiled.h"
-
 #include "ExportOCAFGui.h"
 #include <Gui/Application.h>
 #include <Mod/Part/Gui/ViewProvider.h>
 
 using namespace ImportGui;
 
-
 ExportOCAFGui::ExportOCAFGui(Handle(TDocStd_Document) hDoc, bool explicitPlacement)
     : ExportOCAF(hDoc, explicitPlacement)
 {}
 
-void ExportOCAFGui::findColors(Part::Feature* part, std::vector<App::Color>& colors) const
+void ExportOCAFGui::findColors(Part::Feature* part, std::vector<Base::Color>& colors) const
 {
-    Gui::ViewProvider* vp = Gui::Application::Instance->getViewProvider(part);
-    if (vp && vp->isDerivedFrom(PartGui::ViewProviderPartExt::getClassTypeId())) {
-        colors = static_cast<PartGui::ViewProviderPartExt*>(vp)->ShapeAppearance.getDiffuseColors();
+    if (auto vp = Gui::Application::Instance->getViewProvider(part)) {
+        if (auto vppe = freecad_cast<PartGui::ViewProviderPartExt*>(vp)) {
+            colors = vppe->ShapeAppearance.getDiffuseColors();
+            auto transp = vppe->ShapeAppearance.getTransparency();
+            for (auto& it : colors) {
+                it.setTransparency(transp);
+            }
+        }
     }
 }

@@ -1,17 +1,4 @@
-include_directories(
-    ${CMAKE_BINARY_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_BINARY_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${OCC_INCLUDE_DIR}
-    ${COIN3D_INCLUDE_DIRS}
-    ${PYTHON_INCLUDE_DIRS}
-    ${ZLIB_INCLUDE_DIR}
-    ${XercesC_INCLUDE_DIRS}
-    ${EIGEN3_INCLUDE_DIR}
-)
-link_directories(${OCC_LIBRARY_DIR})
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 set(SketcherGui_LIBS
     Sketcher
@@ -23,18 +10,22 @@ set (Sketcher_TR_QRC ${CMAKE_CURRENT_BINARY_DIR}/Resources/Sketcher_translation.
 qt_find_and_add_translation(QM_SRCS "Resources/translations/*_*.ts"
     ${CMAKE_CURRENT_BINARY_DIR}/Resources/translations)
 qt_create_resource_file(${Sketcher_TR_QRC} ${QM_SRCS})
-qt_add_resources(SketcherGui_SRCS Resources/Sketcher.qrc ${Sketcher_TR_QRC})
+qt_add_resources(SketcherGui_SRCS
+    Resources/Sketcher.qrc
+    ${Sketcher_TR_QRC}
+    OPTIONS ${FREECAD_RCC_OPTIONS}
+)
 
-generate_from_xml(ViewProviderSketchGeometryExtensionPy)
+generate_from_py(ViewProviderSketchGeometryExtension)
 
 set(SketcherGui_UIC_SRCS
     TaskSketcherConstraints.ui
     TaskSketcherElements.ui
     SketcherToolDefaultWidget.ui
-    TaskSketcherMessages.ui
     TaskSketcherSolverAdvanced.ui
     TaskSketcherValidation.ui
     InsertDatum.ui
+    EditTextDialog.ui
     SketchOrientationDialog.ui
     SketchMirrorDialog.ui
     SketcherSettings.ui
@@ -50,6 +41,7 @@ SET(SketcherGui_SRCS
     ${SketcherGui_UIC_HDRS}
     AppSketcherGui.cpp
     GeometryCreationMode.h
+    Command.h
     Command.cpp
     AutoConstraint.h
     Utils.h
@@ -66,8 +58,11 @@ SET(SketcherGui_SRCS
     DrawSketchHandlerArcOfHyperbola.h
     DrawSketchHandlerArcOfParabola.h
     DrawSketchHandlerArcSlot.h
+    DrawSketchHandlerText.h
     DrawSketchHandlerBSpline.h
     DrawSketchHandlerPoint.h
+    DrawSketchHandlerDragAutoConstraint.h
+    DrawSketchHandlerDragAutoConstraint.cpp
     DrawSketchHandlerFillet.h
     DrawSketchHandlerTranslate.h
     DrawSketchHandlerTrimming.h
@@ -83,13 +78,13 @@ SET(SketcherGui_SRCS
     CommandCreateGeo.cpp
     CommandConstraints.h
     CommandConstraints.cpp
+    CommandSketcherTools.h
     CommandSketcherTools.cpp
     CommandSketcherBSpline.cpp
     CommandSketcherOverlay.cpp
     CommandSketcherVirtualSpace.cpp
     CommandAlterGeometry.cpp
     Resources/Sketcher.qrc
-    PreCompiled.cpp
     PreCompiled.h
     SoZoomTranslation.cpp
     SoZoomTranslation.h
@@ -109,7 +104,6 @@ SET(SketcherGui_SRCS
     SketcherToolDefaultWidget.h
     TaskSketcherTool.cpp
     TaskSketcherTool.h
-    TaskSketcherMessages.ui
     TaskSketcherMessages.cpp
     TaskSketcherMessages.h
     TaskSketcherSolverAdvanced.ui
@@ -120,6 +114,8 @@ SET(SketcherGui_SRCS
     TaskSketcherValidation.h
     ShortcutListener.cpp
     ShortcutListener.h
+    SketcherTransformationExpressionHelper.cpp
+    SketcherTransformationExpressionHelper.h
     EditModeInformationOverlayCoinConverter.cpp
     EditModeInformationOverlayCoinConverter.h
     EditModeGeometryCoinConverter.cpp
@@ -148,6 +144,9 @@ SET(SketcherGui_SRCS
     Workbench.h
     EditDatumDialog.cpp
     EditDatumDialog.h
+    EditTextDialog.ui
+    EditTextDialog.cpp
+    EditTextDialog.h
     PropertyVisualLayerList.cpp
     PropertyVisualLayerList.h
     SketchOrientationDialog.cpp
@@ -162,6 +161,7 @@ SET(SketcherGui_SRCS
     SketcherRegularPolygonDialog.cpp
     SnapManager.cpp
     SnapManager.h
+    StyleParameters.h
     TaskDlgEditSketch.cpp
     TaskDlgEditSketch.h
     ViewProviderPython.cpp
@@ -173,7 +173,7 @@ SET(SketcherGui_SRCS
 )
 
 SET(Python_SRCS
-    ViewProviderSketchGeometryExtensionPy.xml
+    ViewProviderSketchGeometryExtension.pyi
     ViewProviderSketchGeometryExtensionPyImp.cpp
 )
 SOURCE_GROUP("Python" FILES ${Python_SRCS})
@@ -183,24 +183,34 @@ SET(SketcherGui_SRCS
     ${Python_SRCS}
 )
 
-if(FREECAD_USE_PCH)
-    add_definitions(-D_PreComp_)
-    GET_MSVC_PRECOMPILED_SOURCE("PreCompiled.cpp" PCH_SRCS ${SketcherGui_SRCS})
-    ADD_MSVC_PRECOMPILED_HEADER(SketcherGui PreCompiled.h PreCompiled.cpp PCH_SRCS)
-endif(FREECAD_USE_PCH)
-
-
 SET(SketcherGuiIcon_SVG
     Resources/icons/SketcherWorkbench.svg
 )
 
-add_library(SketcherGui SHARED ${SketcherGui_SRCS} ${SketcherGuiIcon_SVG})
-target_link_libraries(SketcherGui ${SketcherGui_LIBS})
-if (FREECAD_WARN_ERROR)
-    target_compile_warn_error(SketcherGui)
-endif()
+add_library(SketcherGui SHARED
+    ${SketcherGui_SRCS}
+    ${SketcherGuiIcon_SVG}
+)
 
-SET_BIN_DIR(SketcherGui SketcherGui /Mod/Sketcher)
+if(FREECAD_USE_PCH)
+    target_precompile_headers(SketcherGui PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:"${CMAKE_CURRENT_LIST_DIR}/PreCompiled.h">
+    )
+endif(FREECAD_USE_PCH)
+
+target_include_directories(
+    SketcherGui
+    PRIVATE
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_BINARY_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+target_link_libraries(SketcherGui ${SketcherGui_LIBS})
+target_compile_warn_error(SketcherGui)
+
+SET_BIN_DIR(SketcherGui)
 SET_PYTHON_PREFIX_SUFFIX(SketcherGui)
 
 fc_copy_sources(SketcherGui "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}/Mod/Sketcher" ${SketcherGuiIcon_SVG})

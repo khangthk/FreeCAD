@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2008 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -20,7 +22,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
 
 #include <CXX/Extensions.hxx>
 #include <CXX/Objects.hxx>
@@ -36,6 +37,7 @@
 #include "ViewProviderBody.h"
 #include "ViewProviderBoolean.h"
 #include "ViewProviderChamfer.h"
+#include "ViewProviderDefeaturing.h"
 #include "ViewProviderDatumCS.h"
 #include "ViewProviderDatumLine.h"
 #include "ViewProviderDatumPlane.h"
@@ -116,7 +118,7 @@ PyMOD_INIT_FUNC(PartDesignGui)
     }
 
     PyObject* mod = PartDesignGui::initModule();
-    Base::Console().Log("Loading GUI of PartDesign module... done\n");
+    Base::Console().log("Loading GUI of Part Design module… done\n");
 
     // instantiating the commands
     CreatePartDesignCommands();
@@ -138,6 +140,7 @@ PyMOD_INIT_FUNC(PartDesignGui)
     PartDesignGui::ViewProviderGroove        ::init();
     PartDesignGui::ViewProviderChamfer       ::init();
     PartDesignGui::ViewProviderFillet        ::init();
+    PartDesignGui::ViewProviderDefeaturing   ::init();
     PartDesignGui::ViewProviderDraft         ::init();
     PartDesignGui::ViewProviderThickness     ::init();
     PartDesignGui::ViewProviderTransformed   ::init();
@@ -155,7 +158,6 @@ PyMOD_INIT_FUNC(PartDesignGui)
     PartDesignGui::ViewProviderSubShapeBinder::init();
     PartDesignGui::ViewProviderSubShapeBinderPython::init();
     PartDesignGui::ViewProviderBoolean       ::init();
-    PartDesignGui::ViewProviderAddSub        ::init();
     PartDesignGui::ViewProviderPrimitive     ::init();
     PartDesignGui::ViewProviderPipe          ::init();
     PartDesignGui::ViewProviderLoft          ::init();

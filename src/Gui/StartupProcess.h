@@ -21,15 +21,16 @@
  *                                                                         *
  **************************************************************************/
 
-#ifndef GUI_STARTUPPROCESS_H
-#define GUI_STARTUPPROCESS_H
+#pragma once
 
 #include <FCGlobal.h>
 #include <QStringList>
 
 class QApplication;
+class QMessageBox;
 
-namespace Gui {
+namespace Gui
+{
 
 class Application;
 class MainWindow;
@@ -61,21 +62,23 @@ private:
     void setWindowTitle();
     void setProcessMessages();
     void setAutoSaving();
+    void checkQtSvgImageFormatSupport();
     void setToolBarIconSize();
     void setWheelEventFilter();
     void setLocale();
     void setCursorFlashing();
     void setQtStyle();
+    void migrateOldTheme(const std::string& style);
     void checkOpenGL();
     void loadOpenInventor();
     void setBranding();
     void setStyleSheet();
     void autoloadModules(const QStringList& wb);
     void setImportImageFormats();
-    bool hiddenMainWindow() const;
     void showMainWindow();
     void activateWorkbench();
     void checkParameters();
+    void checkVersionMigration() const;
 
 private:
     bool loadFromPythonModule = false;
@@ -85,6 +88,4 @@ private:
 };
 
 
-}
-
-#endif // GUI_STARTUPPROCESS_H
+}  // namespace Gui

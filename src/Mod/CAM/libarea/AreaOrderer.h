@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 // AreaOrderer.h
 
 /*==============================
@@ -31,6 +33,9 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <memory>
 #include <list>
 #include <set>
+
+namespace heeks
+{
 
 class CArea;
 class CCurve;
@@ -66,3 +71,5 @@ public:
     void Insert(std::shared_ptr<CCurve> pcurve);
     CArea ResultArea() const;
 };
+
+}  // namespace heeks

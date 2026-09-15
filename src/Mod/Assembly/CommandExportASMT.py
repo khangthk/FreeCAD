@@ -30,7 +30,6 @@ from PySide.QtWidgets import QFileDialog
 if App.GuiUp:
     import FreeCADGui as Gui
 
-# translate = App.Qt.translate
 
 __title__ = "Assembly Command Create Assembly"
 __author__ = "Ondsel"
@@ -53,7 +52,7 @@ class CommandExportASMT:
         }
 
     def IsActive(self):
-        return UtilsAssembly.isAssemblyCommandActive() and UtilsAssembly.isAssemblyGrounded()
+        return UtilsAssembly.isAssemblyCommandActive()
 
     def Activated(self):
         document = App.ActiveDocument
@@ -74,6 +73,8 @@ class CommandExportASMT:
         )
 
         if filePath:
+            Gui.addModule("UtilsAssembly")
+            Gui.doCommand("assembly = UtilsAssembly.activeAssembly()")
             Gui.doCommand(f'assembly.exportAsASMT("{filePath}")')
 
 

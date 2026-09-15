@@ -1,31 +1,34 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *                                                                         *
 # *   Copyright (c) 2023 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
-# *   This program is free software; you can redistribute it and/or modify  *
-# *   it under the terms of the GNU General Public License (GPL)            *
-# *   as published by the Free Software Foundation; either version 3 of     *
-# *   the License, or (at your option) any later version.                   *
-# *   for detail see the LICENCE text file.                                 *
+# *   This file is part of FreeCAD.                                         *
 # *                                                                         *
-# *   This program is distributed in the hope that it will be useful,       *
-# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
-# *   GNU General Public License for more details.                          *
+# *   FreeCAD is free software: you can redistribute it and/or modify it    *
+# *   under the terms of the GNU Lesser General Public License as           *
+# *   published by the Free Software Foundation, either version 2.1 of the  *
+# *   License, or (at your option) any later version.                       *
 # *                                                                         *
-# *   You should have received a copy of the GNU Library General Public     *
-# *   License along with this program; if not, write to the Free Software   *
-# *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
-# *   USA                                                                   *
+# *   FreeCAD is distributed in the hope that it will be useful, but        *
+# *   WITHOUT ANY WARRANTY; without even the implied warranty of            *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      *
+# *   Lesser General Public License for more details.                       *
+# *                                                                         *
+# *   You should have received a copy of the GNU Lesser General Public      *
+# *   License along with FreeCAD. If not, see                               *
+# *   <https://www.gnu.org/licenses/>.                                      *
 # *                                                                         *
 # ***************************************************************************
 
 import os
 import time
-import FreeCAD
 import unittest
-from nativeifc import ifc_import
 
+import FreeCAD
+
+from . import ifc_import
 
 FILES = [
     "IfcOpenHouse_IFC4.ifc",
@@ -128,12 +131,8 @@ class NativeIFCTest(unittest.TestCase):
     #    self.results.append(register(n, t, "shape"))
 
     def testfinal(self):
-        print(
-            "| File | File size | Import time (coin) | Import time (shape) | BlenderBIM |"
-        )
-        print(
-            "| ---- | --------- | ------------------- | ------------------ | ---------- |"
-        )
+        print("| File | File size | Import time (coin) | Import time (shape) | BlenderBIM |")
+        print("| ---- | --------- | ------------------- | ------------------ | ---------- |")
         for i in range(len(self.results)):
             if self.results[i][0] == "coin":
                 l = [
@@ -146,8 +145,7 @@ class NativeIFCTest(unittest.TestCase):
                 b = [
                     j
                     for j in range(len(self.results))
-                    if self.results[j][0] == "shape"
-                    and self.results[j][1] == self.results[i][1]
+                    if self.results[j][0] == "shape" and self.results[j][1] == self.results[i][1]
                 ]
                 if b:
                     l[3] = self.results[b[0]][3]
@@ -177,9 +175,7 @@ def import_file(n, shape=False):
         shapemode = 1
     stime = time.time()
     f = os.path.join(os.path.expanduser("~"), FILES[n])
-    ifc_import.insert(
-        f, "IfcTest", strategy=0, shapemode=shapemode, switchwb=0, silent=True
-    )
+    ifc_import.insert(f, "IfcTest", strategy=0, shapemode=shapemode, switchwb=0, silent=True)
     return "%02d:%02d" % (divmod(round(time.time() - stime, 1), 60))
 
 

@@ -1,16 +1,17 @@
+
+// SPDX-License-Identifier: BSD-3-Clause
+
 // pyarea.cpp
 // Copyright 2017, Lorenz Lechner
 // This program is released under the BSD license. See the file COPYING for details.
 
 
 #ifdef _MSC_VER
-#define strdup _strdup
+# define strdup _strdup
 #endif
 
 #include "Area.h"
 #include "Point.h"
-#include "AreaDxf.h"
-#include "kurve/geometry.h"
 #include "Adaptive.hpp"
 
 #include <pybind11/pybind11.h>
@@ -23,6 +24,7 @@
 
 namespace py = pybind11;
 
+using namespace heeks;
 
 std::list<CVertex> getVertices(const CCurve& curve)
 {
@@ -34,21 +36,13 @@ std::list<CCurve> getCurves(const CArea& area)
     return area.m_curves;
 }
 
-py::tuple transformed_point(const geoff_geometry::Matrix& matrix, double x, double y, double z)
-{
-    geoff_geometry::Point3d p(x, y, z);
-    p = p.Transform(matrix);
-
-    return py::make_tuple(p.x, p.y, p.z);
-}
-
 static void print_curve(const CCurve& c)
 {
     std::size_t nvertices = c.m_vertices.size();
 #if defined SIZEOF_SIZE_T && SIZEOF_SIZE_T == 4
     printf("number of vertices = %d\n", nvertices);
 #elif defined(_WIN32)
-    printf("number of vertices = %Iu\n", nvertices);
+    printf("number of vertices = %zu\n", nvertices);
 #else
     printf("number of vertices = %lu\n", nvertices);
 #endif
@@ -56,15 +50,9 @@ static void print_curve(const CCurve& c)
     for (std::list<CVertex>::const_iterator It = c.m_vertices.begin(); It != c.m_vertices.end();
          It++, i++) {
         const CVertex& vertex = *It;
-        printf("vertex %d type = %d, x = %g, y = %g",
-               i + 1,
-               vertex.m_type,
-               vertex.m_p.x / CArea::get_units(),
-               vertex.m_p.y / CArea::get_units());
+        printf("vertex %d type = %d, x = %g, y = %g", i + 1, vertex.m_type, vertex.m_p.x, vertex.m_p.y);
         if (vertex.m_type) {
-            printf(", xc = %g, yc = %g",
-                   vertex.m_c.x / CArea::get_units(),
-                   vertex.m_c.y / CArea::get_units());
+            printf(", xc = %g, yc = %g", vertex.m_c.x, vertex.m_c.y);
         }
         printf("\n");
     }
@@ -93,27 +81,44 @@ static CVertex LastVertex(const CCurve& curve)
     return curve.m_vertices.back();
 }
 
-static void set_units(double units)
+static double get_accuracy()
 {
-    CArea::set_units(units);
+    return CArea::get_accuracy();
 }
 
-static double get_units()
+static void set_accuracy(double accuracy)
 {
-    return CArea::get_units();
+    CArea::set_accuracy(accuracy);
+}
+
+static bool get_fit_arcs()
+{
+    return CArea::get_fit_arcs();
+}
+
+static void set_fit_arcs(bool fit_arcs)
+{
+    CArea::set_fit_arcs(fit_arcs);
+}
+
+static double get_clipper_scale()
+{
+    return CArea::get_clipper_scale();
+}
+
+static void set_clipper_scale(double scale)
+{
+    CArea::set_clipper_scale(scale);
+}
+
+static CArea copy_area(const CArea& area)
+{
+    return area;
 }
 
 static bool holes_linked()
 {
     return CArea::HolesLinked();
-}
-
-static CArea AreaFromDxf(const char* filepath)
-{
-    CArea area;
-    AreaDxfRead dxf(&area, filepath);
-    dxf.DoRead();
-    return area;
 }
 
 static void append_point(CCurve& c, const Point& p)
@@ -129,22 +134,26 @@ static py::tuple nearest_point_to_curve(CCurve& c1, const CCurve& c2)
     return py::make_tuple(p, dist);
 }
 
-std::list<CCurve> MakePocketToolpath(const CArea& a,
-                                     double tool_radius,
-                                     double extra_offset,
-                                     double stepover,
-                                     bool from_center,
-                                     bool use_zig_zag,
-                                     double zig_angle)
+std::list<CCurve> MakePocketToolpath(
+    const CArea& a,
+    double tool_radius,
+    double extra_offset,
+    double stepover,
+    bool from_center,
+    bool use_zig_zag,
+    double zig_angle
+)
 {
     std::list<CCurve> toolpath;
 
-    CAreaPocketParams params(tool_radius,
-                             extra_offset,
-                             stepover,
-                             from_center,
-                             use_zig_zag ? ZigZagPocketMode : SpiralPocketMode,
-                             zig_angle);
+    CAreaPocketParams params(
+        tool_radius,
+        extra_offset,
+        stepover,
+        from_center,
+        use_zig_zag ? ZigZagPocketMode : SpiralPocketMode,
+        zig_angle
+    );
     a.SplitAndMakePocketToolpath(toolpath, params);
 
     return toolpath;
@@ -156,11 +165,6 @@ std::list<CArea> SplitArea(const CArea& a)
     a.Split(areas);
 
     return areas;
-}
-
-void dxfArea(CArea& area, const char* /*str*/)
-{
-    area = CArea();
 }
 
 py::list getCurveSpans(const CCurve& c)
@@ -206,58 +210,6 @@ Span getLastCurveSpan(const CCurve& c)
     return Span((*VIt).m_p, v, c.m_vertices.size() == 2);
 }
 
-py::tuple TangentialArc(const Point& p0, const Point& p1, const Point& v0)
-{
-    Point c;
-    int dir;
-    tangential_arc(p0, p1, v0, c, dir);
-
-    return py::make_tuple(c, dir);
-}
-
-std::list<Point> spanIntersect(const Span& span1, const Span& span2)
-{
-    std::list<Point> pts;
-    span1.Intersect(span2, pts);
-    return pts;
-}
-
-
-geoff_geometry::Matrix* MatrixFromVector(std::vector<double> v)
-{
-    double array[16];
-    int i = 0;
-    for (double vi : v) {
-        array[i] = vi;
-        i++;
-        if (i >= 16) {
-            break;
-        }
-    }
-    return new geoff_geometry::Matrix(array);
-}
-
-std::list<CCurve> InsideCurves(const CArea& a, const CCurve& curve)
-{
-    std::list<CCurve> curves_inside;
-    a.InsideCurves(curve, curves_inside);
-    return curves_inside;
-}
-
-std::list<Point> CurveIntersections(const CCurve& c1, const CCurve& c2)
-{
-    std::list<Point> pts;
-    c1.CurveIntersections(c2, pts);
-    return pts;
-}
-
-std::list<Point> AreaIntersections(const CArea& a, const CCurve& c2)
-{
-    std::list<Point> pts;
-    a.CurveIntersections(c2, pts);
-    return pts;
-}
-
 double AreaGetArea(const CArea& a)
 {
     return a.GetArea();
@@ -286,26 +238,24 @@ void init_pyarea(py::module& m)
         .def("Rotate", static_cast<void (Point::*)(double, double)>(&Point::Rotate))
         .def("Rotate", static_cast<void (Point::*)(double)>(&Point::Rotate))
         .def_readwrite("x", &Point::x)
-        .def_readwrite("y", &Point::y)
-        .def("Transform", &Point::Transform);
+        .def_readwrite("y", &Point::y);
 
     py::class_<CVertex>(m, "Vertex")
         .def(py::init<CVertex>())
         .def(py::init<int, Point, Point>())
         .def(py::init<Point>())
-        .def(py::init<int, Point, Point, int>())
         .def_readwrite("type", &CVertex::m_type)
         .def_readwrite("p", &CVertex::m_p)
-        .def_readwrite("c", &CVertex::m_c)
-        .def_readwrite("user_data", &CVertex::m_user_data);
+        .def_readwrite("c", &CVertex::m_c);
 
     py::class_<Span>(m, "Span")
         .def(py::init<Span>())
         .def(py::init<Point, CVertex, bool>())
-        .def("NearestPoint",
-             static_cast<Point (Span::*)(const Point& p) const>(&Span::NearestPoint))
-        .def("NearestPoint",
-             static_cast<Point (Span::*)(const Span& p, double* d) const>(&Span::NearestPoint))
+        .def("NearestPoint", static_cast<Point (Span::*)(const Point& p) const>(&Span::NearestPoint))
+        .def(
+            "NearestPoint",
+            static_cast<Point (Span::*)(const Span& p, double* d) const>(&Span::NearestPoint)
+        )
         .def("GetBox", &Span::GetBox)
         .def("IncludedAngle", &Span::IncludedAngle)
         .def("GetArea", &Span::GetArea)
@@ -314,7 +264,6 @@ void init_pyarea(py::module& m)
         .def("MidParam", &Span::MidParam)
         .def("Length", &Span::Length)
         .def("GetVector", &Span::GetVector)
-        .def("Intersect", &spanIntersect)
         .def_readwrite("p", &Span::m_p)
         .def_readwrite("v", &Span::m_v);
 
@@ -324,8 +273,7 @@ void init_pyarea(py::module& m)
         .def("append", &CCurve::append)
         .def("append", &append_point)
         .def("text", &print_curve)
-        .def("NearestPoint",
-             static_cast<Point (CCurve::*)(const Point& p) const>(&CCurve::NearestPoint))
+        .def("NearestPoint", static_cast<Point (CCurve::*)(const Point& p) const>(&CCurve::NearestPoint))
         .def("NearestPoint", &nearest_point_to_curve)
         .def("Reverse", &CCurve::Reverse)
         .def("getNumVertices", &num_vertices)
@@ -335,19 +283,12 @@ void init_pyarea(py::module& m)
         .def("IsClockwise", &CCurve::IsClockwise)
         .def("IsClosed", &CCurve::IsClosed)
         .def("ChangeStart", &CCurve::ChangeStart)
-        .def("ChangeEnd", &CCurve::ChangeEnd)
-        .def("Offset", &CCurve::Offset)
-        .def("OffsetForward", &CCurve::OffsetForward)
         .def("GetSpans", &getCurveSpans)
         .def("GetFirstSpan", &getFirstCurveSpan)
         .def("GetLastSpan", &getLastCurveSpan)
-        .def("Break", &CCurve::Break)
         .def("Perim", &CCurve::Perim)
         .def("PerimToPoint", &CCurve::PerimToPoint)
-        .def("PointToPerim", &CCurve::PointToPerim)
-        .def("FitArcs", &CCurve::FitArcs)
-        .def("UnFitArcs", &CCurve::UnFitArcs)
-        .def("Intersections", &CurveIntersections);
+        .def("PointToPerim", &CCurve::PointToPerim);
 
     py::class_<CBox2D>(m, "Box")
         .def(py::init<CBox2D>())
@@ -360,11 +301,12 @@ void init_pyarea(py::module& m)
         .def(py::init<>())
         .def("getCurves", &getCurves)
         .def("append", &CArea::append)
+        .def("ClipperNoop", &CArea::ClipperNoop)
         .def("Subtract", &CArea::Subtract)
         .def("Intersect", &CArea::Intersect)
         .def("Union", &CArea::Union)
-        .def("Offset", &CArea::Offset)
-        .def("FitArcs", &CArea::FitArcs)
+        .def("Offset", [](CArea& self, double offset) { self.Offset(offset); })
+        .def("OpenOffset", [](CArea& self, double offset) { return self.OpenOffset(offset); })
         .def("text", &print_area)
         .def("num_curves", &CArea::num_curves)
         .def("NearestPoint", &CArea::NearestPoint)
@@ -372,22 +314,18 @@ void init_pyarea(py::module& m)
         .def("Reorder", &CArea::Reorder)
         .def("MakePocketToolpath", &MakePocketToolpath)
         .def("Split", &SplitArea)
-        .def("InsideCurves", &InsideCurves)
         .def("Thicken", &CArea::Thicken)
-        .def("Intersections", &AreaIntersections)
-        .def("GetArea", &AreaGetArea);
+        .def("GetArea", &AreaGetArea)
+        .def("Debug_IntersectOpenPathReversal", &CArea::Debug_IntersectOpenPathReversal);
 
-    py::class_<geoff_geometry::Matrix, std::shared_ptr<geoff_geometry::Matrix>>(m, "Matrix")
-        .def(py::init<geoff_geometry::Matrix>())
-        .def(py::init(&MatrixFromVector))
-        .def("TransformedPoint", &transformed_point)
-        .def("Multiply", &geoff_geometry::Matrix::Multiply);
-
-    m.def("set_units", set_units);
-    m.def("get_units", get_units);
+    m.def("get_accuracy", get_accuracy);
+    m.def("set_accuracy", set_accuracy);
+    m.def("get_fit_arcs", get_fit_arcs);
+    m.def("set_fit_arcs", set_fit_arcs);
+    m.def("get_clipper_scale", get_clipper_scale);
+    m.def("set_clipper_scale", set_clipper_scale);
+    m.def("copy_area", copy_area);
     m.def("holes_linked", holes_linked);
-    m.def("AreaFromDxf", AreaFromDxf);
-    m.def("TangentialArc", TangentialArc);
 
     using namespace AdaptivePath;
     py::enum_<MotionType>(m, "AdaptiveMotionType")
@@ -407,7 +345,16 @@ void init_pyarea(py::module& m)
         .def_readwrite("HelixCenterPoint", &AdaptiveOutput::HelixCenterPoint)
         .def_readwrite("StartPoint", &AdaptiveOutput::StartPoint)
         .def_readwrite("AdaptivePaths", &AdaptiveOutput::AdaptivePaths)
-        .def_readwrite("ReturnMotionType", &AdaptiveOutput::ReturnMotionType);
+        .def_readwrite("ReturnMotionType", &AdaptiveOutput::ReturnMotionType)
+        .def_readwrite("ClearedArea", &AdaptiveOutput::ClearedArea)
+        .def_readwrite("clipperScale", &AdaptiveOutput::clipperScale)
+        .def_readwrite("StartPointNotFound", &AdaptiveOutput::StartPointNotFound)
+        .def_readwrite("LeadPathFailed", &AdaptiveOutput::LeadPathFailed)
+        .def_readwrite("UnexpectedRotateIterations", &AdaptiveOutput::UnexpectedRotateIterations)
+        .def_readwrite("TooManyFailedEngagements", &AdaptiveOutput::TooManyFailedEngagements)
+        .def_readwrite("UnclearedAreaRemains", &AdaptiveOutput::UnclearedAreaRemains)
+        .def_readwrite("FailedToSetUpFinishingPass", &AdaptiveOutput::FailedToSetUpFinishingPass)
+        .def_readwrite("FinishingLeadInFailed", &AdaptiveOutput::FinishingLeadInFailed);
 
     py::class_<Adaptive2d>(m, "Adaptive2d")
         .def(py::init<>())
@@ -415,10 +362,10 @@ void init_pyarea(py::module& m)
         .def_readwrite("stepOverFactor", &Adaptive2d::stepOverFactor)
         .def_readwrite("toolDiameter", &Adaptive2d::toolDiameter)
         .def_readwrite("stockToLeave", &Adaptive2d::stockToLeave)
-        .def_readwrite("helixRampDiameter", &Adaptive2d::helixRampDiameter)
+        .def_readwrite("helixRampTargetDiameter", &Adaptive2d::helixRampTargetDiameter)
+        .def_readwrite("helixRampMinDiameter", &Adaptive2d::helixRampMinDiameter)
         .def_readwrite("forceInsideOut", &Adaptive2d::forceInsideOut)
         .def_readwrite("finishingProfile", &Adaptive2d::finishingProfile)
-        //.def_readwrite("polyTreeNestingLimit", &Adaptive2d::polyTreeNestingLimit)
         .def_readwrite("tolerance", &Adaptive2d::tolerance)
         .def_readwrite("keepToolDownDistRatio", &Adaptive2d::keepToolDownDistRatio)
         .def_readwrite("opType", &Adaptive2d::opType);

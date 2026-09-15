@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2023 David Carter <dcarter@david.carter.ca>             *
  *                                                                         *
@@ -19,7 +21,6 @@
  *                                                                         *
  **************************************************************************/
 
-#include "PreCompiled.h"
 
 #include "ModelUuids.h"
 
@@ -199,7 +200,6 @@ Py::String UUIDsPy::getTextureRendering() const
 
 Py::String UUIDsPy::getAdvancedRendering() const
 {
-    Base::Console().Log(getModelUUIDsPtr()->ModelUUID_Rendering_Advanced.toStdString().c_str());
     return Py::String(getModelUUIDsPtr()->ModelUUID_Rendering_Advanced.toStdString());
 }
 

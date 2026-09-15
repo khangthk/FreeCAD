@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
 /***************************************************************************
  *   Copyright (c) 2002 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
@@ -20,20 +22,18 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "PreCompiled.h"
-#ifndef _PreComp_
 #include <QDockWidget>
 #include <QSignalBlocker>
 #include <QString>
 #include <algorithm>
-#include <boost_signals2.hpp>
-#endif
+#include <fastsignals/signal.h>
 
 #include <Base/Console.h>
 #include <Gui/Application.h>
+#include <Gui/Command.h>
 #include <Gui/DockWindowManager.h>
 #include <Gui/Document.h>
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 #include <Gui/ViewProvider.h>
 #include <Gui/WaitCursor.h>
 
@@ -59,7 +59,7 @@ namespace sp = std::placeholders;
 
 class DlgMaterialImp::Private
 {
-    using DlgMaterialImp_Connection = boost::signals2::connection;
+    using DlgMaterialImp_Connection = fastsignals::connection;
 
 public:
     Ui::DlgMaterial ui;
@@ -83,13 +83,11 @@ DlgMaterialImp::DlgMaterialImp(bool floating, QWidget* parent, Qt::WindowFlags f
 
     d->floating = floating;
 
-    // // Create a filter to only include current format materials
-    // // that contain the basic render model.
-    // auto filter = std::make_shared<Materials::MaterialFilter>();
-    // filter->setIncludeEmptyFolders(false);
-    // filter->setIncludeLegacy(false);
-    // filter->addRequiredComplete(Materials::ModelUUIDs::ModelUUID_Rendering_Basic);
-    // d->ui.widgetMaterial->setFilter(filter);
+    // Create a filter to only include current format materials
+    // that contain physical properties.
+    Materials::MaterialFilter filter;
+    filter.requirePhysical(true);
+    d->ui.widgetMaterial->setFilter(filter);
 
     std::vector<App::DocumentObject*> objects = getSelectionObjects();
     setMaterial(objects);
@@ -98,7 +96,7 @@ DlgMaterialImp::DlgMaterialImp(bool floating, QWidget* parent, Qt::WindowFlags f
     if (floating) {
         Gui::DockWindowManager* pDockMgr = Gui::DockWindowManager::instance();
         QDockWidget* dw =
-            pDockMgr->addDockWindow("Display properties", this, Qt::AllDockWidgetAreas);
+            pDockMgr->addDockWindow("Display Properties", this, Qt::AllDockWidgetAreas);
         dw->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
         dw->setFloating(true);
         dw->show();
@@ -261,17 +259,26 @@ TaskMaterial::TaskMaterial()
     taskbox = new Gui::TaskView::TaskBox(QPixmap(), widget->windowTitle(), true, nullptr);
     taskbox->groupLayout()->addWidget(widget);
     Content.push_back(taskbox);
+
+    tid = Gui::Command::openActiveDocumentCommand(QT_TRANSLATE_NOOP("Command", "Set Material"));
 }
 
 TaskMaterial::~TaskMaterial() = default;
 
 QDialogButtonBox::StandardButtons TaskMaterial::getStandardButtons() const
 {
-    return QDialogButtonBox::Close;
+    return QDialogButtonBox::Ok | QDialogButtonBox::Cancel;
+}
+
+bool TaskMaterial::accept()
+{
+    Gui::Command::commitCommand(tid);
+    return true;
 }
 
 bool TaskMaterial::reject()
 {
+    Gui::Command::abortCommand(tid);
     widget->reject();
     return (widget->result() == QDialog::Rejected);
 }

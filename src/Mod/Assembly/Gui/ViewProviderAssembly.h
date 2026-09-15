@@ -21,14 +21,15 @@
  *                                                                          *
  ***************************************************************************/
 
-#ifndef ASSEMBLYGUI_VIEWPROVIDER_ViewProviderAssembly_H
-#define ASSEMBLYGUI_VIEWPROVIDER_ViewProviderAssembly_H
+#pragma once
 
 #include <QCoreApplication>
+#include <QMetaObject>
+#include <fastsignals/signal.h>
 
 #include <Mod/Assembly/AssemblyGlobal.h>
 
-#include <Gui/Selection.h>
+#include <Gui/Selection/Selection.h>
 #include <Gui/ViewProviderPart.h>
 
 class SoSwitch;
@@ -38,12 +39,13 @@ class SoFieldSensor;
 
 namespace Gui
 {
-class SoFCCSysDragger;
+class SoTransformDragger;
 class View3DInventorViewer;
 }  // namespace Gui
 
 namespace AssemblyGui
 {
+class TaskAssemblyMessages;
 
 struct MovingObject
 {
@@ -51,15 +53,18 @@ struct MovingObject
     Base::Placement plc;
     App::PropertyXLinkSub* ref;
     App::DocumentObject* rootObj;  // object of the selection object
-    std::string sub;               // sub name given by the selection.
+    const std::string sub;         // sub name given by the selection.
 
     // Constructor
-    MovingObject(App::DocumentObject* o,
-                 const Base::Placement& p,
-                 App::DocumentObject* ro,
-                 std::string& s)
+    MovingObject(
+        App::DocumentObject* o,
+        const Base::Placement& p,
+        App::DocumentObject* ro,
+        const std::string& s
+    )
         : obj(o)
         , plc(p)
+        , ref(nullptr)
         , rootObj(ro)
         , sub(s)
     {}
@@ -67,9 +72,8 @@ struct MovingObject
     // Default constructor
     MovingObject()
         : obj(nullptr)
-        , plc(Base::Placement())
+        , ref(nullptr)
         , rootObj(nullptr)
-        , sub("")
     {}
 
     ~MovingObject()
@@ -96,6 +100,13 @@ class AssemblyGuiExport ViewProviderAssembly: public Gui::ViewProviderPart,
     };
 
 public:
+    enum class IsolateMode
+    {
+        Transparent,
+        Wireframe,
+        Hidden,
+    };
+
     ViewProviderAssembly();
     ~ViewProviderAssembly() override;
 
@@ -103,8 +114,11 @@ public:
     QIcon getIcon() const override;
 
     bool doubleClicked() override;
+    void setupContextMenu(QMenu* menu, QObject* receiver, const char* member) override;
     bool onDelete(const std::vector<std::string>& subNames) override;
     bool canDelete(App::DocumentObject* obj) const override;
+
+    void updateData(const App::Property*) override;
 
     /** @name enter/exit edit mode */
     //@{
@@ -120,8 +134,7 @@ public:
     }
 
     bool canDragObject(App::DocumentObject*) const override;
-    bool canDragObjectToTarget(App::DocumentObject* obj,
-                               App::DocumentObject* target) const override;
+    bool canDragObjectToTarget(App::DocumentObject* obj, App::DocumentObject* target) const override;
 
     App::DocumentObject* getActivePart() const;
 
@@ -129,12 +142,14 @@ public:
     /// is called when the Provider is in edit and a key event ocours. Only ESC ends edit.
     bool keyPressed(bool pressed, int key) override;
     /// is called when the provider is in edit and the mouse is moved
-    bool mouseMove(const SbVec2s& pos, Gui::View3DInventorViewer* viewer) override;
+    bool mouseMove(const SbVec2s& cursorPos, Gui::View3DInventorViewer* viewer) override;
     /// is called when the Provider is in edit and the mouse is clicked
-    bool mouseButtonPressed(int Button,
-                            bool pressed,
-                            const SbVec2s& cursorPos,
-                            const Gui::View3DInventorViewer* viewer) override;
+    bool mouseButtonPressed(
+        int Button,
+        bool pressed,
+        const SbVec2s& cursorPos,
+        const Gui::View3DInventorViewer* viewer
+    ) override;
     // Function to handle double click event
     void doubleClickedIn3dView();
 
@@ -193,9 +208,17 @@ public:
     bool getDraggerVisibility();
     void setDraggerPlacement(Base::Placement plc);
     Base::Placement getDraggerPlacement();
-    Gui::SoFCCSysDragger* getDragger();
+    Gui::SoTransformDragger* getDragger();
 
     static Base::Vector3d getCenterOfBoundingBox(const std::vector<MovingObject>& movingObjs);
+
+    void UpdateSolverInformation();
+
+    void isolateComponents(std::set<App::DocumentObject*>& parts, IsolateMode mode);
+    void isolateJointReferences(App::DocumentObject* joint, IsolateMode mode = IsolateMode::Transparent);
+    void clearIsolate();
+    bool explodeTemporarily(App::DocumentObject* explodedView);
+    void clearTemporaryExplosion();
 
     DragMode dragMode;
     bool canStartDragging;
@@ -204,6 +227,8 @@ public:
     bool moveOnlyPreselected;
     bool moveInCommand;
     bool ctrlPressed;
+    bool forceSolveOnMoveForRigid;
+    bool ungroundedJointDrag;
 
     long lastClickTime;  // Store last click time as milliseconds
 
@@ -211,6 +236,7 @@ public:
     Base::Vector3d prevPosition;
     Base::Vector3d initialPosition;
     Base::Vector3d initialPositionRot;
+    Base::Vector3d initialUngroundedDragPosition;
     Base::Placement jcsPlc;
     Base::Placement jcsGlobalPlc;
     Base::Placement draggerInitPlc;
@@ -221,12 +247,66 @@ public:
     std::vector<std::pair<App::DocumentObject*, double>> objectMasses;
     std::vector<MovingObject> docsToMove;
 
-    Gui::SoFCCSysDragger* asmDragger = nullptr;
+    Gui::SoTransformDragger* asmDragger = nullptr;
     SoSwitch* asmDraggerSwitch = nullptr;
     SoFieldSensor* translationSensor = nullptr;
     SoFieldSensor* rotationSensor = nullptr;
+
+    fastsignals::signal<
+        void(const QString& state, const QString& msg, const QString& url, const QString& linkText)>
+        signalSetUp;
+
+private:
+    bool tryMouseMove(const SbVec2s& cursorPos, Gui::View3DInventorViewer* viewer);
+    void tryInitMove(const SbVec2s& cursorPos, Gui::View3DInventorViewer* viewer);
+
+    void collectMovableObjects(
+        App::DocumentObject* selRoot,
+        const std::string& subNamePrefix,
+        App::DocumentObject* currentObject,
+        bool onlySolids
+    );
+
+    void slotAboutToOpenTransaction(const std::string& cmdName);
+    void slotStartSave(const App::Document& doc, const std::string& filename);
+    void slotDeletedObject(const App::DocumentObject& obj);
+    void slotActivatedVP(const Gui::ViewProviderDocumentObject* vp, const char* name);
+
+    void onWorkbenchActivated(const QString& name);
+    void updateTaskPanel(bool show);
+
+    struct ComponentState
+    {
+        bool visibility;
+        bool selectable;
+        // For Links
+        bool overrideMaterial;
+        App::Material shapeMaterial;
+    };
+
+    std::unordered_map<App::DocumentObject*, ComponentState> stateBackup;
+    App::DocumentObject* temporaryExplosion {nullptr};
+    App::DocumentObject* isolatedJoint {nullptr};
+    bool isolatedJointVisibilityBackup {false};
+
+    void highlightJointElements(App::DocumentObject* joint);
+    void clearJointElementHighlight();
+
+    void applyIsolationRecursively(
+        App::DocumentObject* current,
+        std::set<App::DocumentObject*>& isolateSet,
+        IsolateMode mode,
+        std::set<App::DocumentObject*>& visited
+    );
+
+    TaskAssemblyMessages* taskSolver {nullptr};
+
+    QMetaObject::Connection workbenchConnection;
+    fastsignals::connection connectActivatedVP;
+    fastsignals::connection connectSolverUpdate;
+    fastsignals::scoped_connection m_preTransactionConn;
+    fastsignals::scoped_connection m_startSaveConn;
+    fastsignals::scoped_connection m_deletedObjectConn;
 };
 
 }  // namespace AssemblyGui
-
-#endif  // ASSEMBLYGUI_VIEWPROVIDER_ViewProviderAssembly_H

@@ -79,8 +79,8 @@ TEST_F(AttacherTest, TestGetShapeType)
 TEST_F(AttacherTest, TestGetInertialPropsOfShape)
 {
     auto& attacher = _boxes[1]->attacher();
-    std::vector<const TopoDS_Shape*> result;
-    auto faces = _boxes[1]->Shape.getShape().getSubShapes(TopAbs_FACE);
+    std::vector<const TopoShape*> result;
+    auto faces = _boxes[1]->Shape.getShape().getSubTopoShapes(TopAbs_FACE);
     result.emplace_back(&faces[0]);
     auto shapeType = attacher.getInertialPropsOfShape(result);
     EXPECT_EQ(result.size(), 1);
@@ -324,35 +324,43 @@ TEST_F(AttacherTest, TestAllModesBoundaries)
     _boxes[1]->MapMode.setValue(mmInertialCS);
     _boxes[1]->recomputeFeature();
     EXPECT_TRUE(
-        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5)));
+        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5))
+    );
 
     _boxes[1]->MapMode.setValue(mm1FaceNormal);
     _boxes[1]->recomputeFeature();
     EXPECT_TRUE(
-        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5)));
+        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5))
+    );
 
     _boxes[1]->MapMode.setValue(mmOZX);
     _boxes[1]->recomputeFeature();
     EXPECT_TRUE(
-        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5)));
+        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5))
+    );
     _boxes[1]->MapMode.setValue(mmOZY);
     _boxes[1]->recomputeFeature();
     EXPECT_TRUE(
-        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5)));
+        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5))
+    );
     _boxes[1]->MapMode.setValue(mmOXY);
     _boxes[1]->recomputeFeature();
     EXPECT_TRUE(
-        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5)));
+        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5))
+    );
     _boxes[1]->MapMode.setValue(mmOXZ);
     _boxes[1]->recomputeFeature();
     EXPECT_TRUE(
-        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5)));
+        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5))
+    );
     _boxes[1]->MapMode.setValue(mmOYZ);
     _boxes[1]->recomputeFeature();
     EXPECT_TRUE(
-        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5)));
+        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5))
+    );
     _boxes[1]->MapMode.setValue(mmOYX);
     _boxes[1]->recomputeFeature();
     EXPECT_TRUE(
-        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5)));
+        boxesMatch(_boxes[1]->Shape.getBoundingBox(), Base::BoundBox3d(0.5, 1, 1.5, 3.5, 2, 3.5))
+    );
 }

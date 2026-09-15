@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2023 edi <edi271@a1.net>                                *
 # *                                                                         *
@@ -47,15 +49,11 @@ class CommandHoleShaftFit:
             "Pixmap": "actions/TechDraw_HoleShaftFit.svg",
             "Accel": "",
             "MenuText": QT_TRANSLATE_NOOP(
-                "TechDraw_HoleShaftFit", "Add hole or shaft fit"
+                "TechDraw_HoleShaftFit", "Hole/Shaft Fit"
             ),
             "ToolTip": QT_TRANSLATE_NOOP(
                 "TechDraw_HoleShaftFit",
-                "Add a hole or shaft fit to a dimension\n"
-                "- select one length dimension or diameter dimension\n"
-                "- click the tool button, a panel opens\n"
-                "- select shaft fit / hole fit\n"
-                "- select the desired ISO 286 fit field using the combo box",
+                "Adds a hole or shaft fit to a selected length or diameter dimension"
             ),
         }
 
@@ -73,7 +71,7 @@ class CommandHoleShaftFit:
             )
             msg = translate(
                 "TechDraw_HoleShaftFit",
-                "Please select one length dimension or diameter dimension and retry",
+                "Select one length dimension or diameter dimension and retry",
             )
             msgBox.setText(msg)
             msgBox.setWindowTitle(msgTitle)

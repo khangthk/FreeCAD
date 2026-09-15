@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2017 sliptonic <shopinthewoods@gmail.com>               *
 # *                                                                         *
@@ -28,7 +29,6 @@ import Path.Base.Gui.Util as PathGuiUtil
 import Path.Op.Gui.Base as PathOpGui
 import Path.Op.Surface as PathSurface
 import PathGui
-
 
 __title__ = "CAM Surface Operation UI"
 __author__ = "sliptonic (Brad Collette)"
@@ -72,8 +72,6 @@ class TaskPanelOpPage(PathOpGui.TaskPanelPage):
 
     def getFields(self, obj):
         """getFields(obj) ... transfers values from UI to obj's properties"""
-        self.updateToolController(obj, self.form.toolController)
-        self.updateCoolant(obj, self.form.coolantController)
 
         if obj.BoundBox != str(self.form.boundBoxSelect.currentData()):
             obj.BoundBox = str(self.form.boundBoxSelect.currentData())
@@ -141,8 +139,6 @@ class TaskPanelOpPage(PathOpGui.TaskPanelPage):
 
     def setFields(self, obj):
         """setFields(obj) ... transfers obj's property values to UI"""
-        self.setupToolController(obj, self.form.toolController)
-        self.setupCoolant(obj, self.form.coolantController)
         self.selectInComboBox(obj.BoundBox, self.form.boundBoxSelect)
         self.selectInComboBox(obj.ScanType, self.form.scanType)
         self.selectInComboBox(obj.LayerMode, self.form.layerMode)
@@ -203,8 +199,6 @@ class TaskPanelOpPage(PathOpGui.TaskPanelPage):
     def getSignalsForUpdate(self, obj):
         """getSignalsForUpdate(obj) ... return list of signals for updating obj"""
         signals = []
-        signals.append(self.form.toolController.currentIndexChanged)
-        signals.append(self.form.coolantController.currentIndexChanged)
         signals.append(self.form.boundBoxSelect.currentIndexChanged)
         signals.append(self.form.scanType.currentIndexChanged)
         signals.append(self.form.layerMode.currentIndexChanged)
@@ -217,10 +211,16 @@ class TaskPanelOpPage(PathOpGui.TaskPanelPage):
         signals.append(self.form.depthOffset.editingFinished)
         signals.append(self.form.stepOver.editingFinished)
         signals.append(self.form.sampleInterval.editingFinished)
-        signals.append(self.form.useStartPoint.stateChanged)
-        signals.append(self.form.boundaryEnforcement.stateChanged)
-        signals.append(self.form.optimizeEnabled.stateChanged)
-        signals.append(self.form.optimizeStepOverTransitions.stateChanged)
+        if hasattr(self.form.useStartPoint, "checkStateChanged"):  # Qt version >= 6.7.0
+            signals.append(self.form.useStartPoint.checkStateChanged)
+            signals.append(self.form.boundaryEnforcement.checkStateChanged)
+            signals.append(self.form.optimizeEnabled.checkStateChanged)
+            signals.append(self.form.optimizeStepOverTransitions.checkStateChanged)
+        else:  # Qt version < 6.7.0
+            signals.append(self.form.useStartPoint.stateChanged)
+            signals.append(self.form.boundaryEnforcement.stateChanged)
+            signals.append(self.form.optimizeEnabled.stateChanged)
+            signals.append(self.form.optimizeStepOverTransitions.stateChanged)
 
         return signals
 

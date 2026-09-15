@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 # ***************************************************************************
 # *   Copyright (c) 2017 Markus Hovorka <m.hovorka@live.de>                 *
 # *   Copyright (c) 2022 Uwe Stöhr <uwestoehr@lyx.org>                      *
@@ -50,12 +52,20 @@ class Proxy(nonlinear.Proxy, equationbase.HeatProxy):
 
         # according to the Elmer models manual Bubbles is by default True
         # and Stabilize is False (Stabilize is added in linear.py)
-        obj.addProperty("App::PropertyBool", "Bubbles", "Heat", "")
+        obj.addProperty("App::PropertyBool", "Bubbles", "Heat", "", locked=True)
         obj.addProperty(
-            "App::PropertyEnumeration", "Convection", "Equation", "Type of convection to be used"
+            "App::PropertyEnumeration",
+            "Convection",
+            "Equation",
+            "Type of convection to be used",
+            locked=True,
         )
         obj.addProperty(
-            "App::PropertyEnumeration", "PhaseChangeModel", "Equation", "Model for phase change"
+            "App::PropertyEnumeration",
+            "PhaseChangeModel",
+            "Equation",
+            "Model for phase change",
+            locked=True,
         )
 
         obj.Bubbles = True
